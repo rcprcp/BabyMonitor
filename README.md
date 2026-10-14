@@ -37,9 +37,10 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 - `babymonitor.users` (`id`, `name`, `password_hash`) — seeded with `Cindy`,
   `Marij`, `Stephen`, `Bob`, each with password equal to the name (bcrypt hash,
   `$2a$` prefix — the jbcrypt library rejects `$2b$`)
-- `babymonitor.notifications` (`id`, `event_time`, `description`, `video_link`,
-  `severity`, `read`) — the feed behind the Notifications page; a few demo rows
-  are inserted only while the table is still empty
+- `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
+  `video_link`) — the feed behind the Notifications page. `event_type` is the
+  PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`;
+  a few demo rows are inserted only while the table is still empty
 
 ## Build & run
 
@@ -70,7 +71,6 @@ webhooks.
 | GET         | `/api/settings`                        | list all settings              |
 | GET/PUT     | `/api/settings/{tag}`                  | read / update one setting      |
 | GET         | `/api/notifications`                   | newest first                   |
-| POST        | `/api/notifications/{id}/read`         | mark read                      |
 | DELETE      | `/api/notifications/{id}`              | dismiss                        |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
 | POST        | `/api/webhooks/videoNotification`      | device video/motion alert      |
@@ -90,6 +90,10 @@ Payload schema (`NotificationRequest`):
 | `eventTime` | ISO-8601 instant | Optional; defaults to when the webhook was received |
 | `description` | string | Required |
 | `videoLink` | string | Required for `videoNotification`; omit for audio |
+
+The stored `eventType` is taken from the endpoint — `videoNotification` records
+`Video`, `audioNotification` records `Audio` — so it can never disagree with the
+URL that was called.
 
 ```bash
 # video alert with a clip

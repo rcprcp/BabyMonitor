@@ -3,6 +3,7 @@ package com.babymonitor.resource;
 import com.babymonitor.dto.ErrorResponse;
 import com.babymonitor.dto.NotificationDto;
 import com.babymonitor.dto.NotificationRequest;
+import com.babymonitor.entity.EventType;
 import com.babymonitor.service.NotificationService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -22,13 +23,15 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * Webhook receivers for the camera / motion detector.
  *
  * <ul>
- *   <li>{@code POST /api/webhooks/audioNotification}</li>
- *   <li>{@code POST /api/webhooks/videoNotification}</li>
+ *   <li>{@code POST /api/webhooks/audioNotification} -- stores an {@code Audio} event</li>
+ *   <li>{@code POST /api/webhooks/videoNotification} -- stores a {@code Video} event</li>
  * </ul>
  *
  * <p>The body is a {@link NotificationRequest}: an event time, a description and
- * (for video) a link to the relevant clip. Both endpoints persist a row in
- * {@code babymonitor.notifications}, which the Notifications page lists.
+ * (for video) a link to the relevant clip. The event type is taken from the
+ * endpoint, not the payload, so it can never disagree with the URL. Both
+ * endpoints persist a row in {@code babymonitor.notifications}, which the
+ * Notifications page lists.
  *
  * <p>These endpoints are exempt from {@link com.babymonitor.auth.AuthFilter}
  * because the caller is a device rather than a signed-in browser. If
@@ -53,22 +56,22 @@ public class WebhookResource {
     @Path("/videoNotification")
     @Operation(
             summary = "Receive a video alert",
-            description = "Stores the description and the link to the relevant video in "
-                    + "babymonitor.notifications. Returns 400 when either is missing.")
+            description = "Stores an event_type=Video row with the description and the link to the "
+                    + "relevant video. Returns 400 when either is missing.")
     public Response videoNotification(
             @HeaderParam("X-Webhook-Secret") String providedSecret, NotificationRequest request) {
-        return record(providedSecret, request, true);
+        return record(providedSecret, request, EventType.Video);
     }
 
     @POST
     @Path("/audioNotification")
     @Operation(
             summary = "Receive an audio alert",
-            description = "Stores the description in babymonitor.notifications. Audio events "
-                    + "have no video, so videoLink is ignored.")
+            description = "Stores an event_type=Audio row with the description. Audio events have "
+                    + "no video, so any videoLink in the payload is ignored.")
     public Response audioNotification(
             @HeaderParam("X-Webhook-Secret") String providedSecret, NotificationRequest request) {
-        return record(providedSecret, request, false);
+        return record(providedSecret, request, EventType.Audio);
     }
 
     /* ------------------------------------------------------------------ */
@@ -87,7 +90,7 @@ public class WebhookResource {
         return Response.ok(Map.of("status", "ready", "endpoint", "videoNotification")).build();
     }
 
-    private Response record(String providedSecret, NotificationRequest request, boolean requireVideoLink) {
+    private Response record(String providedSecret, NotificationRequest request, EventType eventType) {
         String requiredSecret = webhookSecret.filter(value -> !value.isBlank()).orElse(null);
         if (requiredSecret != null && !requiredSecret.equals(providedSecret)) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -99,20 +102,21 @@ public class WebhookResource {
                     .entity(new ErrorResponse("description is required"))
                     .build();
         }
-        if (requireVideoLink && isBlank(request.videoLink())) {
+        if (eventType == EventType.Video && isBlank(request.videoLink())) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse("videoLink is required for videoNotification"))
                     .build();
         }
 
         NotificationDto created = notifications.add(
+                eventType,
                 request.description().trim(),
-                blankToNull(request.videoLink()),
-                "warning",
+                eventType == EventType.Video ? blankToNull(request.videoLink()) : null,
                 request.eventTime());
         return Response.accepted(Map.of(
                 "status", "accepted",
                 "id", created.id(),
+                "eventType", created.eventType(),
                 "eventTime", created.eventTime())).build();
     }
 
