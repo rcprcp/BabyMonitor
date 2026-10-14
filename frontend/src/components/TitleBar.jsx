@@ -2,8 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 
-// Blue title bar with a hamburger menu on the upper left. The menu is a
-// dropdown that closes on navigation, outside click, or Escape.
+// First letter of the user's name, shown in the avatar (falls back to '?').
+function initialOf(name) {
+  const trimmed = (name ?? '').trim()
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
+}
+
+// Blue title bar with a hamburger menu on the upper left and the user's
+// initial on the upper right. The menu is a dropdown that closes on
+// navigation, outside click, or Escape.
 export default function TitleBar() {
   const [open, setOpen] = useState(false)
   const { user, logout } = useAuth()
@@ -45,6 +52,7 @@ export default function TitleBar() {
   }
 
   const linkClass = ({ isActive }) => (isActive ? 'menu-link active' : 'menu-link')
+  const avatarClass = ({ isActive }) => (isActive ? 'avatar-button active' : 'avatar-button')
 
   return (
     <header className="titlebar">
@@ -73,6 +81,9 @@ export default function TitleBar() {
             <NavLink to="/settings" className={linkClass} role="menuitem">
               Settings
             </NavLink>
+            <NavLink to="/profile" className={linkClass} role="menuitem">
+              Personal settings
+            </NavLink>
             <button type="button" className="menu-link menu-signout" role="menuitem" onClick={handleLogout}>
               Sign out{user ? ` (${user})` : ''}
             </button>
@@ -82,7 +93,16 @@ export default function TitleBar() {
 
       <h1 className="titlebar-title">BabyMonitor</h1>
 
-      <div className="titlebar-right" aria-hidden="true" />
+      <div className="titlebar-right">
+        <NavLink
+          to="/profile"
+          className={avatarClass}
+          aria-label="Personal settings"
+          title={user ? `Personal settings — ${user}` : 'Personal settings'}
+        >
+          {initialOf(user)}
+        </NavLink>
+      </div>
     </header>
   )
 }

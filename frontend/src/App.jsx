@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
 import NotificationsPage from './pages/NotificationsPage'
 import SettingsPage from './pages/SettingsPage'
+import ProfilePage from './pages/ProfilePage'
 
 // Everything except the login screen sits behind this layout: it renders the
 // blue title bar and bounces unauthenticated visitors to /login (remembering
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/" element={<StreamPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

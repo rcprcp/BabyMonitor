@@ -72,6 +72,7 @@ export const api = {
   login: (name, password) => request('POST', '/api/auth/login', { name, password }),
   logout: () => request('POST', '/api/auth/logout'),
   me: () => request('GET', '/api/auth/me'),
+  getProfile: () => request('GET', '/api/users/me'),
 
   listSettings: () => request('GET', '/api/settings'),
   getSetting: (tag) => request('GET', `/api/settings/${encodeURIComponent(tag)}`),
