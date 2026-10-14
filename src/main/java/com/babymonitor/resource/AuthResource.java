@@ -64,7 +64,7 @@ public class AuthResource {
             // Same response for "no such user" and "wrong password" so the
             // endpoint cannot be used to enumerate account names.
             return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Invalid name or password"))
+                    .entity(new ErrorResponse("Invalid Name or Password."))
                     .build();
         }
 

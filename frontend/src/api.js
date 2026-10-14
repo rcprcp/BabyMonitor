@@ -31,7 +31,10 @@ export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler
 }
 
-async function request(method, path, body) {
+// `options.suppressUnauthorized` is set by login: a 401 there means "wrong name
+// or password", not "your session expired", so we let the server's message
+// through instead of clearing local state.
+async function request(method, path, body, options = {}) {
   const headers = {}
   const token = getToken()
   if (token) {
@@ -47,7 +50,7 @@ async function request(method, path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
-  if (response.status === 401) {
+  if (response.status === 401 && !options.suppressUnauthorized) {
     clearSession()
     onUnauthorized()
     throw new Error('Your session expired. Please sign in again.')
@@ -69,7 +72,8 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  login: (name, password) => request('POST', '/api/auth/login', { name, password }),
+  login: (name, password) =>
+    request('POST', '/api/auth/login', { name, password }, { suppressUnauthorized: true }),
   logout: () => request('POST', '/api/auth/logout'),
   me: () => request('GET', '/api/auth/me'),
   getProfile: () => request('GET', '/api/users/me'),
