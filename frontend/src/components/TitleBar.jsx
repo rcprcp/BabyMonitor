@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { api } from '../api'
 import { useAuth } from '../auth'
+
+// Shown until the systemName setting has been read (and if it is missing).
+const DEFAULT_TITLE = 'BabyMonitor'
 
 // First letter of the user's name, shown in the avatar (falls back to '?').
 function initialOf(name) {
@@ -13,10 +17,32 @@ function initialOf(name) {
 // navigation, outside click, or Escape.
 export default function TitleBar() {
   const [open, setOpen] = useState(false)
+  const [systemName, setSystemName] = useState(DEFAULT_TITLE)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const menuRef = useRef(null)
+
+  // The title comes from the systemName setting, so the system can be renamed
+  // from the Settings page. The default is kept if the tag is missing.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getSetting('systemName')
+      .then((setting) => {
+        if (cancelled || !setting?.value) {
+          return
+        }
+        setSystemName(setting.value)
+        document.title = setting.value
+      })
+      .catch(() => {
+        // Keep the default title if the setting cannot be read.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Close the menu whenever the route changes.
   useEffect(() => {
@@ -91,7 +117,7 @@ export default function TitleBar() {
         )}
       </div>
 
-      <h1 className="titlebar-title">BabyMonitor</h1>
+      <h1 className="titlebar-title">{systemName}</h1>
 
       <div className="titlebar-right">
         <NavLink

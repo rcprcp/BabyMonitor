@@ -76,6 +76,13 @@ INSERT INTO babymonitor.settings (tag, value)
 VALUES ('streaming_url', 'http://192.168.0.2:8081')
 ON CONFLICT (tag) DO UPDATE SET value = EXCLUDED.value;
 
+-- The name shown in the UI title bar (and the browser tab). Unlike the stream
+-- URL this is a cosmetic label the household can rename from the Settings page,
+-- so it is only seeded while the tag is absent.
+INSERT INTO babymonitor.settings (tag, value)
+VALUES ('systemName', 'Cindy & Stephen''s Baby Monitor')
+ON CONFLICT (tag) DO NOTHING;
+
 -- Sample accounts. Each password is the bcrypt hash of the user's name.
 -- The $2a$ prefix is deliberate: the jbcrypt library on the backend rejects
 -- $2b$ hashes with "Invalid salt revision".
