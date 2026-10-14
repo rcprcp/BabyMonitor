@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  Badge,
+  Button,
+  Center,
+  Group,
+  Loader,
+  Stack,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { api } from '../api'
 
 // Application settings. Every row in babymonitor.settings is editable; the
-// streaming_url one drives the Live stream page.
+// streaming_url one drives the Live stream page and systemName titles the bar.
 export default function SettingsPage() {
   const [settings, setSettings] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -45,44 +56,55 @@ export default function SettingsPage() {
   }
 
   return (
-    <section className="page">
-      <div className="page-header">
-        <h2>Settings</h2>
-        <button type="button" className="button-secondary" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+    <Stack>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Settings</Title>
+        <Button variant="default" onClick={load} loading={loading}>
+          Refresh
+        </Button>
+      </Group>
 
-      {error && <p className="form-error">{error}</p>}
-      {loading && <p className="muted">Loading…</p>}
-      {!loading && settings.length === 0 && <p className="muted">No settings found.</p>}
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
 
-      <div className="settings-list">
+      {loading && (
+        <Center>
+          <Loader size="sm" />
+        </Center>
+      )}
+
+      {!loading && settings.length === 0 && <Text c="dimmed">No settings found.</Text>}
+
+      <Stack gap="md">
         {settings.map((setting) => (
-          <div className="setting-row" key={setting.tag}>
-            <label htmlFor={`setting-${setting.tag}`}>{setting.tag}</label>
-            <div className="setting-input">
-              <input
-                id={`setting-${setting.tag}`}
-                type="text"
-                value={drafts[setting.tag] ?? ''}
-                onChange={(event) =>
-                  setDrafts((current) => ({ ...current, [setting.tag]: event.target.value }))
-                }
-              />
-              <button
-                type="button"
-                className="button-primary"
-                onClick={() => save(setting.tag)}
-                disabled={savingTag === setting.tag || drafts[setting.tag] === setting.value}
-              >
-                {savingTag === setting.tag ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-            {savedTag === setting.tag && <span className="saved-note">Saved</span>}
-          </div>
+          <Group key={setting.tag} align="flex-end" gap="sm" wrap="nowrap">
+            <TextInput
+              id={`setting-${setting.tag}`}
+              label={setting.tag}
+              style={{ flex: 1 }}
+              value={drafts[setting.tag] ?? ''}
+              onChange={(event) =>
+                setDrafts((current) => ({ ...current, [setting.tag]: event.currentTarget.value }))
+              }
+            />
+            <Button
+              onClick={() => save(setting.tag)}
+              loading={savingTag === setting.tag}
+              disabled={drafts[setting.tag] === setting.value}
+            >
+              Save
+            </Button>
+            {savedTag === setting.tag && (
+              <Badge color="green" variant="light" mb={6}>
+                Saved
+              </Badge>
+            )}
+          </Group>
         ))}
-      </div>
-    </section>
+      </Stack>
+    </Stack>
   )
 }

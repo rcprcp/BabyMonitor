@@ -35,9 +35,11 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 - `babymonitor.settings` (`tag`/`value`) — seeded with
   `streaming_url` = `http://192.168.0.2:8081` and
   `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
-- `babymonitor.users` (`id`, `name`, `password_hash`) — seeded with `Cindy`,
-  `Marij`, `Stephen`, `Bob`, each with password equal to the name (bcrypt hash,
-  `$2a$` prefix — the jbcrypt library rejects `$2b$`)
+- `babymonitor.users` (`id`, `name`, `password_hash`, `theme`) — seeded with
+  `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to the name
+  (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`). `theme`
+  holds the account's UI preference (`light`, `dark` or `auto`), defaulting to
+  `auto`
 - `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
   `video_link`) — the feed behind the Notifications page. `event_type` is the
   PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`;
@@ -71,6 +73,8 @@ webhooks.
 | GET         | `/api/auth/me`                         | current session                |
 | GET         | `/api/settings`                        | list all settings              |
 | GET/PUT     | `/api/settings/{tag}`                  | read / update one setting      |
+| GET         | `/api/users/me`                        | the signed-in user's record    |
+| PUT         | `/api/users/me/theme`                  | `{ "theme" }`: light/dark/auto |
 | GET         | `/api/notifications`                   | newest first                   |
 | DELETE      | `/api/notifications/{id}`              | dismiss                        |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
@@ -118,10 +122,26 @@ first.
 
 ## SPA
 
-React Router routes: `/login`, `/` (stream), `/notifications`, `/settings`. The
-app boots into the live stream (from `streaming_url`); a blue title bar with a
-hamburger menu (upper left) links the pages. The title bar text — and the
-browser tab title — come from the `systemName` setting, so renaming the system
-is just a setting edit. `SpaFallbackFilter` serves
-`index.html` for client-side routes so a deep link like `/settings` works on
-refresh.
+React Router routes: `/login`, `/` (stream), `/notifications`, `/settings`,
+`/profile` (Personal settings). The app boots into the live stream (from
+`streaming_url`); a blue title bar with a hamburger menu (upper left) links the
+pages. The title bar text — and the browser tab title — come from the
+`systemName` setting, so renaming the system is just a setting edit.
+`SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
+like `/settings` works on refresh.
+
+The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core` +
+`@mantine/hooks`, wired up in `frontend/src/main.jsx` with the PostCSS preset in
+`frontend/postcss.config.cjs`). Only the blue brand bar and the camera frame
+keep hand-written CSS (`frontend/src/styles.css`).
+
+### Theme
+
+Each account carries its own light/dark preference in
+`babymonitor.users.theme`: the Personal settings page offers Light / Dark /
+Auto, and picking one writes it to the account with `PUT /api/users/me/theme`.
+The database is the single source of truth — Mantine is configured with a
+non-persisting colour-scheme manager (`frontend/src/theme.js`), and the login
+response plus `GET /api/users/me` carry the stored value so the app paints in
+the right colours. A `babymonitor.theme` localStorage entry is kept purely as a
+hint to avoid flashing the wrong theme while the profile request is in flight.

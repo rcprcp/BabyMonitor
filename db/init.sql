@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS babymonitor.users (
     password_hash VARCHAR(500) NOT NULL
 );
 
+-- Per-account UI preference: 'light', 'dark' or 'auto' (follow the OS). Set
+-- from the Personal settings page and read on every login. Added in a separate
+-- statement so an existing database picks the column up in place.
+ALTER TABLE babymonitor.users
+    ADD COLUMN IF NOT EXISTS theme VARCHAR(500) NOT NULL DEFAULT 'auto';
+
 -- Notifications raised by the device webhooks (see WebhookResource) and shown
 -- on the Notifications page. `event_type` is the Video/Audio enum; `video_link`
 -- is NULL for audio events.

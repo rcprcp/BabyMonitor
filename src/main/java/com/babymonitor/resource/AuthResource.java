@@ -69,7 +69,8 @@ public class AuthResource {
         }
 
         Session session = sessions.create(user.name);
-        return Response.ok(new LoginResponse(session.token(), user.name, session.expiresAt().toString()))
+        return Response.ok(new LoginResponse(
+                        session.token(), user.name, session.expiresAt().toString(), user.theme))
                 .build();
     }
 

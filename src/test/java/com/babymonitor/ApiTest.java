@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -80,7 +81,9 @@ class ApiTest {
                 .then()
                 .statusCode(200)
                 .body("name", equalTo("Bob"))
-                .body("token", not(emptyString()));
+                .body("token", not(emptyString()))
+                // The SPA applies the theme straight from the login response.
+                .body("theme", oneOf("light", "dark", "auto"));
     }
 
     @Test
@@ -267,6 +270,93 @@ class ApiTest {
                 .then()
                 .statusCode(200)
                 .body("name", equalTo("Bob"))
-                .body("id", notNullValue());
+                .body("id", notNullValue())
+                .body("theme", oneOf("light", "dark", "auto"));
+    }
+
+    @Test
+    void themeRequiresAToken() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"theme\":\"dark\"}")
+                .when()
+                .put("/api/users/me/theme")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    void themeIsStoredOnTheAccountAndPickedUpByTheNextLogin() {
+        String token = login("Bob", "Bob");
+        String original = given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/users/me")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("theme");
+
+        try {
+            // Values are normalised, so the exact casing does not matter.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"theme\":\"DARK\"}")
+                    .when()
+                    .put("/api/users/me/theme")
+                    .then()
+                    .statusCode(200)
+                    .body("theme", equalTo("dark"));
+
+            // A new session sees the stored preference, in the login response
+            // and on the profile.
+            String freshToken = login("Bob", "Bob");
+            given()
+                    .header("Authorization", bearer(freshToken))
+                    .when()
+                    .get("/api/users/me")
+                    .then()
+                    .statusCode(200)
+                    .body("theme", equalTo("dark"));
+        } finally {
+            // Put the row back the way the test found it.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"theme\":\"" + original + "\"}")
+                    .when()
+                    .put("/api/users/me/theme")
+                    .then()
+                    .statusCode(200);
+        }
+    }
+
+    @Test
+    void themeRejectsUnknownValues() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"theme\":\"neon\"}")
+                .when()
+                .put("/api/users/me/theme")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("theme must be one of: light, dark, auto"));
+    }
+
+    @Test
+    void themeRejectsAMissingValue() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{}")
+                .when()
+                .put("/api/users/me/theme")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("theme must be one of: light, dark, auto"));
     }
 }
