@@ -1,0 +1,18 @@
+# Maven / Quarkus build output
+target/
+
+# Node / Vite
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+*.local
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Local overrides
+.env
