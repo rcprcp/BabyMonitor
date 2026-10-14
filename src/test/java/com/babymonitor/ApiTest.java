@@ -1,24 +1,33 @@
 package com.babymonitor;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end tests against the running PostgreSQL database.
  *
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
- * {@code streaming_url} setting and the four accounts whose password is their
- * own name. The webhook test only touches the in-memory notification feed.
+ * {@code streaming_url} setting, the four accounts whose password is their own
+ * name, and the demo notifications. The webhook tests write to
+ * {@code babymonitor.notifications} and dismiss the row they created, so the
+ * table does not grow on every run.
  */
 @QuarkusTest
 class ApiTest {
+
+    private static final String AUDIO_WEBHOOK = "/api/webhooks/audioNotification";
+    private static final String VIDEO_WEBHOOK = "/api/webhooks/videoNotification";
 
     private static String login(String name, String password) {
         return given()
@@ -30,6 +39,30 @@ class ApiTest {
                 .statusCode(200)
                 .extract()
                 .path("token");
+    }
+
+    private static String bearer(String token) {
+        return "Bearer " + token;
+    }
+
+    /** Reads the notification feed as a list of maps, newest first. */
+    private static List<Map<String, Object>> feed(String token) {
+        return given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/notifications")
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getList("$");
+    }
+
+    private static Map<String, Object> rowFor(List<Map<String, Object>> feed, String description) {
+        return feed.stream()
+                .filter(row -> description.equals(row.get("description")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no notification with description: " + description));
     }
 
     @Test
@@ -83,7 +116,7 @@ class ApiTest {
     void settingsReturnStreamingUrlWhenAuthenticated() {
         String token = login("Bob", "Bob");
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearer(token))
                 .when()
                 .get("/api/settings/streaming_url")
                 .then()
@@ -92,27 +125,96 @@ class ApiTest {
     }
 
     @Test
-    void audioWebhookIsAcceptedWithoutToken() {
-        given()
-                .contentType(ContentType.JSON)
-                .body("{\"event\":\"sound\",\"level\":42}")
-                .when()
-                .post("/api/webhooks/audioNotification")
-                .then()
-                .statusCode(202)
-                .body("status", equalTo("accepted"));
+    void notificationFeedRequiresToken() {
+        given().when().get("/api/notifications").then().statusCode(401);
     }
 
     @Test
-    void videoWebhookIsAcceptedWithoutToken() {
-        given()
+    void audioWebhookPersistsANotification() {
+        String token = login("Bob", "Bob");
+        long id = given()
                 .contentType(ContentType.JSON)
-                .body("{\"event\":\"motion\"}")
+                .body("{\"description\":\"Baby cried\",\"eventTime\":\"2026-10-14T20:15:00Z\"}")
                 .when()
-                .post("/api/webhooks/videoNotification")
+                .post(AUDIO_WEBHOOK)
                 .then()
                 .statusCode(202)
-                .body("status", equalTo("accepted"));
+                .body("status", equalTo("accepted"))
+                .extract()
+                .jsonPath()
+                .getLong("id");
+
+        Map<String, Object> row = rowFor(feed(token), "Baby cried");
+        assertEquals("2026-10-14T20:15:00Z", row.get("eventTime"));
+        assertEquals("warning", row.get("severity"));
+        assertNull(row.get("videoLink"), "audio notifications carry no video link");
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/notifications/" + id)
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
+    void videoWebhookPersistsANotificationWithItsVideoLink() {
+        String token = login("Bob", "Bob");
+        long id = given()
+                .contentType(ContentType.JSON)
+                .body("{\"description\":\"Motion detected\",\"videoLink\":\"http://cam.local/clip.mp4\"}")
+                .when()
+                .post(VIDEO_WEBHOOK)
+                .then()
+                .statusCode(202)
+                .body("status", equalTo("accepted"))
+                .extract()
+                .jsonPath()
+                .getLong("id");
+
+        Map<String, Object> row = rowFor(feed(token), "Motion detected");
+        assertEquals("http://cam.local/clip.mp4", row.get("videoLink"));
+        assertEquals(Boolean.FALSE, row.get("read"));
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .post("/api/notifications/" + id + "/read")
+                .then()
+                .statusCode(204);
+
+        assertEquals(Boolean.TRUE, rowFor(feed(token), "Motion detected").get("read"));
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/notifications/" + id)
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
+    void webhookRequiresADescription() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{}")
+                .when()
+                .post(AUDIO_WEBHOOK)
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("description is required"));
+    }
+
+    @Test
+    void videoWebhookRequiresAVideoLink() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"description\":\"Motion detected\"}")
+                .when()
+                .post(VIDEO_WEBHOOK)
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("videoLink is required for videoNotification"));
     }
 
     @Test
@@ -124,7 +226,7 @@ class ApiTest {
     void userProfileReturnsDatabaseRecord() {
         String token = login("Bob", "Bob");
         given()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", bearer(token))
                 .when()
                 .get("/api/users/me")
                 .then()

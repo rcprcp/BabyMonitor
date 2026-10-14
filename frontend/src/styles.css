@@ -408,6 +408,23 @@ body {
   background: var(--danger);
 }
 
+.notification-description {
+  margin: 8px 0 4px;
+}
+
+.notification-video {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--blue);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.notification-video:hover {
+  text-decoration: underline;
+}
+
 /* ----------------------------------------------------------------- settings */
 
 .settings-list {
