@@ -30,6 +30,12 @@ class ApiTest {
     private static final String AUDIO_WEBHOOK = "/api/webhooks/audioNotification";
     private static final String VIDEO_WEBHOOK = "/api/webhooks/videoNotification";
 
+    /** Mantine's palette, as accepted by {@code PUT /api/users/me/theme-color}. */
+    private static final String[] PALETTE = {
+        "gray", "red", "pink", "grape", "violet", "indigo", "blue", "cyan",
+        "teal", "green", "lime", "yellow", "orange",
+    };
+
     private static String login(String name, String password) {
         return given()
                 .contentType(ContentType.JSON)
@@ -82,8 +88,9 @@ class ApiTest {
                 .statusCode(200)
                 .body("name", equalTo("Bob"))
                 .body("token", not(emptyString()))
-                // The SPA applies the theme straight from the login response.
-                .body("theme", oneOf("light", "dark", "auto"));
+                // The SPA applies both preferences straight from the login response.
+                .body("theme", oneOf("light", "dark", "auto"))
+                .body("themeColor", oneOf(PALETTE));
     }
 
     @Test
@@ -271,7 +278,8 @@ class ApiTest {
                 .statusCode(200)
                 .body("name", equalTo("Bob"))
                 .body("id", notNullValue())
-                .body("theme", oneOf("light", "dark", "auto"));
+                .body("theme", oneOf("light", "dark", "auto"))
+                .body("themeColor", oneOf(PALETTE));
     }
 
     @Test
@@ -358,5 +366,90 @@ class ApiTest {
                 .then()
                 .statusCode(400)
                 .body("error", equalTo("theme must be one of: light, dark, auto"));
+    }
+
+    @Test
+    void themeColorRequiresAToken() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"themeColor\":\"grape\"}")
+                .when()
+                .put("/api/users/me/theme-color")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    void themeColorIsStoredOnTheAccountAndPickedUpByTheNextLogin() {
+        String token = login("Bob", "Bob");
+        String original = given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/users/me")
+                .then()
+                .statusCode(200)
+                .extract()
+                .path("themeColor");
+
+        try {
+            // Palette names are normalised, so the exact casing does not matter.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"themeColor\":\"GRAPE\"}")
+                    .when()
+                    .put("/api/users/me/theme-color")
+                    .then()
+                    .statusCode(200)
+                    .body("themeColor", equalTo("grape"));
+
+            // A new session sees the stored colour again.
+            String freshToken = login("Bob", "Bob");
+            given()
+                    .header("Authorization", bearer(freshToken))
+                    .when()
+                    .get("/api/users/me")
+                    .then()
+                    .statusCode(200)
+                    .body("themeColor", equalTo("grape"));
+        } finally {
+            // Put the row back the way the test found it.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"themeColor\":\"" + original + "\"}")
+                    .when()
+                    .put("/api/users/me/theme-color")
+                    .then()
+                    .statusCode(200);
+        }
+    }
+
+    @Test
+    void themeColorRejectsColoursOutsideThePalette() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"themeColor\":\"chartreuse\"}")
+                .when()
+                .put("/api/users/me/theme-color")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("themeColor must be one of: " + String.join(", ", PALETTE)));
+    }
+
+    @Test
+    void themeColorRejectsAMissingValue() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{}")
+                .when()
+                .put("/api/users/me/theme-color")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("themeColor must be one of: " + String.join(", ", PALETTE)));
     }
 }

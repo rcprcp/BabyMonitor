@@ -16,7 +16,8 @@ import {
 } from '@mantine/core'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { THEMES } from '../theme'
+import { COLOR_SCHEMES } from '../theme'
+import ThemePalette from '../components/ThemePalette'
 
 // The signed-in user's own record, pulled from babymonitor.users and shown
 // in the main content area. Reached by clicking the initial in the title bar.
@@ -25,14 +26,23 @@ function initialOf(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
 }
 
+/**
+ * Both theme preferences are stored on the account, so they follow the user to
+ * any browser: the accent colour (Mantine's palette) and light / dark / auto.
+ */
 export default function ProfilePage() {
-  const { user, theme, saveTheme } = useAuth()
+  const { user, colorScheme, themeColor, saveColorScheme, saveThemeColor } = useAuth()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [savingTheme, setSavingTheme] = useState(false)
-  const [themeError, setThemeError] = useState(null)
-  const [themeSaved, setThemeSaved] = useState(false)
+
+  const [savingColor, setSavingColor] = useState(false)
+  const [colorSaved, setColorSaved] = useState(false)
+  const [colorError, setColorError] = useState(null)
+
+  const [savingScheme, setSavingScheme] = useState(false)
+  const [schemeSaved, setSchemeSaved] = useState(false)
+  const [schemeError, setSchemeError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,19 +60,31 @@ export default function ProfilePage() {
     load()
   }, [load])
 
-  // The preference lives on the account, so this writes through to
-  // babymonitor.users rather than to the browser.
-  const changeTheme = async (next) => {
-    setThemeError(null)
-    setThemeSaved(false)
-    setSavingTheme(true)
+  const changeThemeColor = async (next) => {
+    setColorError(null)
+    setColorSaved(false)
+    setSavingColor(true)
     try {
-      await saveTheme(next)
-      setThemeSaved(true)
+      await saveThemeColor(next)
+      setColorSaved(true)
     } catch (err) {
-      setThemeError(err.message)
+      setColorError(err.message)
     } finally {
-      setSavingTheme(false)
+      setSavingColor(false)
+    }
+  }
+
+  const changeColorScheme = async (next) => {
+    setSchemeError(null)
+    setSchemeSaved(false)
+    setSavingScheme(true)
+    try {
+      await saveColorScheme(next)
+      setSchemeSaved(true)
+    } catch (err) {
+      setSchemeError(err.message)
+    } finally {
+      setSavingScheme(false)
     }
   }
 
@@ -94,7 +116,13 @@ export default function ProfilePage() {
       {!loading && profile && (
         <Card withBorder padding="lg">
           <Group wrap="nowrap" align="flex-start">
-            <Avatar size={64} radius="xl" bg="blue.6" c="white" fw={600}>
+            <Avatar
+              size={64}
+              radius="xl"
+              bg="var(--mantine-primary-color-filled)"
+              c="var(--mantine-primary-color-contrast)"
+              fw={600}
+            >
               {initialOf(displayName)}
             </Avatar>
             <Stack gap={4}>
@@ -121,27 +149,48 @@ export default function ProfilePage() {
 
           <Divider my="lg" />
 
-          <Stack gap="xs" align="flex-start">
-            <Text fw={600}>Theme</Text>
-            <Text c="dimmed" size="sm">
-              Stored with your account, so it follows you to any browser you sign in from.
-            </Text>
-            <SegmentedControl
-              value={theme}
-              onChange={changeTheme}
-              data={THEMES}
-              disabled={savingTheme}
-            />
-            {themeSaved && (
-              <Badge color="green" variant="light">
-                Saved
-              </Badge>
-            )}
-            {themeError && (
-              <Alert color="red" variant="light">
-                {themeError}
-              </Alert>
-            )}
+          <Stack gap="lg">
+            <Stack gap="xs" align="flex-start">
+              <Text fw={600}>Theme Selection</Text>
+              <Text c="dimmed" size="sm">
+                Mantine&apos;s colour palette. The colour you pick becomes the accent used for
+                buttons, links and highlights.
+              </Text>
+              <ThemePalette value={themeColor} onChange={changeThemeColor} disabled={savingColor} />
+              {colorSaved && (
+                <Badge color="green" variant="light">
+                  Saved
+                </Badge>
+              )}
+              {colorError && (
+                <Alert color="red" variant="light">
+                  {colorError}
+                </Alert>
+              )}
+            </Stack>
+
+            <Stack gap="xs" align="flex-start">
+              <Text fw={600}>Light / dark</Text>
+              <Text c="dimmed" size="sm">
+                Stored with your account, so it follows you to any browser you sign in from.
+              </Text>
+              <SegmentedControl
+                value={colorScheme}
+                onChange={changeColorScheme}
+                data={COLOR_SCHEMES}
+                disabled={savingScheme}
+              />
+              {schemeSaved && (
+                <Badge color="green" variant="light">
+                  Saved
+                </Badge>
+              )}
+              {schemeError && (
+                <Alert color="red" variant="light">
+                  {schemeError}
+                </Alert>
+              )}
+            </Stack>
           </Stack>
         </Card>
       )}

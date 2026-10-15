@@ -27,3 +27,13 @@
   object-fit: contain;
   background: #000;
 }
+
+/* The tick on the selected palette swatch: legible on light and dark colours. */
+.bm-swatch-check {
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.75),
+    0 0 3px rgba(0, 0, 0, 0.55);
+}

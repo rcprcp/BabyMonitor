@@ -78,6 +78,7 @@ export const api = {
   me: () => request('GET', '/api/auth/me'),
   getProfile: () => request('GET', '/api/users/me'),
   updateTheme: (theme) => request('PUT', '/api/users/me/theme', { theme }),
+  updateThemeColor: (themeColor) => request('PUT', '/api/users/me/theme-color', { themeColor }),
 
   listSettings: () => request('GET', '/api/settings'),
   getSetting: (tag) => request('GET', `/api/settings/${encodeURIComponent(tag)}`),
