@@ -71,6 +71,39 @@ async function request(method, path, body, options = {}) {
   return data
 }
 
+// Binary fetch for recordings. The recordings route sits behind the same bearer
+// gate as the rest of /api, and a plain <a href> cannot send the header, so the
+// Notifications page pulls the clip with the token and plays it from a blob URL.
+async function requestBlob(path) {
+  const headers = {}
+  const token = getToken()
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const response = await fetch(path, { headers })
+
+  if (response.status === 401) {
+    clearSession()
+    onUnauthorized()
+    throw new Error('Your session expired. Please sign in again.')
+  }
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const data = await response.json()
+      if (data && data.error) {
+        message = data.error
+      }
+    } catch {
+      // Not a JSON error body; keep the status message.
+    }
+    throw new Error(message)
+  }
+
+  return response.blob()
+}
+
 export const api = {
   login: (name, password) =>
     request('POST', '/api/auth/login', { name, password }, { suppressUnauthorized: true }),
@@ -109,4 +142,9 @@ export const api = {
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/apply`),
   stopCameraMotion: (cameraNumber) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/stop`),
+
+  // A camera's recordings, and one clip's bytes for in-app playback.
+  listRecordings: (cameraNumber) =>
+    request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/recordings`),
+  fetchRecording: (path) => requestBlob(path),
 }

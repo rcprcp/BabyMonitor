@@ -69,6 +69,9 @@ public class MotionProcessManager {
         builder.redirectErrorStream(true);
         builder.redirectOutput(ProcessBuilder.Redirect.appendTo(outputFile.toFile()));
         builder.environment().put("BABYMONITOR_WEBHOOK_URL", config.webhookUrl());
+        // The event hook builds the notification's link from this, so the link
+        // points at the clip through the app's own recordings route.
+        builder.environment().put("BABYMONITOR_CAMERA_NUMBER", Integer.toString(cameraNumber));
         webhookSecret.filter(secret -> !secret.isBlank())
                 .ifPresent(secret -> builder.environment().put("BABYMONITOR_WEBHOOK_SECRET", secret));
         Process process = builder.start();
