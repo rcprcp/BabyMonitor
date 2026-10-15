@@ -130,23 +130,24 @@ class ApiTest {
     }
 
     @Test
-    void audioWebhookPersistsANotification() {
+    void audioWebhookPersistsAnAudioNotification() {
         String token = login("Bob", "Bob");
         long id = given()
                 .contentType(ContentType.JSON)
-                .body("{\"description\":\"Baby cried\",\"eventTime\":\"2026-10-14T20:15:00Z\"}")
+                .body("{\"description\":\"Baby cried in the nursery\",\"eventTime\":\"2026-10-14T20:15:00Z\"}")
                 .when()
                 .post(AUDIO_WEBHOOK)
                 .then()
                 .statusCode(202)
                 .body("status", equalTo("accepted"))
+                .body("eventType", equalTo("Audio"))
                 .extract()
                 .jsonPath()
                 .getLong("id");
 
-        Map<String, Object> row = rowFor(feed(token), "Baby cried");
+        Map<String, Object> row = rowFor(feed(token), "Baby cried in the nursery");
         assertEquals("2026-10-14T20:15:00Z", row.get("eventTime"));
-        assertEquals("warning", row.get("severity"));
+        assertEquals("Audio", row.get("eventType"));
         assertNull(row.get("videoLink"), "audio notifications carry no video link");
 
         given()
@@ -158,7 +159,35 @@ class ApiTest {
     }
 
     @Test
-    void videoWebhookPersistsANotificationWithItsVideoLink() {
+    void audioWebhookIgnoresAVideoLink() {
+        String token = login("Bob", "Bob");
+        long id = given()
+                .contentType(ContentType.JSON)
+                .body("{\"description\":\"Baby cried again\","
+                        + "\"videoLink\":\"http://cam.local/not-a-video-event.mp4\"}")
+                .when()
+                .post(AUDIO_WEBHOOK)
+                .then()
+                .statusCode(202)
+                .body("eventType", equalTo("Audio"))
+                .extract()
+                .jsonPath()
+                .getLong("id");
+
+        Map<String, Object> row = rowFor(feed(token), "Baby cried again");
+        assertEquals("Audio", row.get("eventType"));
+        assertNull(row.get("videoLink"), "an audio event never keeps a video link");
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/notifications/" + id)
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
+    void videoWebhookPersistsAVideoNotificationWithItsVideoLink() {
         String token = login("Bob", "Bob");
         long id = given()
                 .contentType(ContentType.JSON)
@@ -168,22 +197,16 @@ class ApiTest {
                 .then()
                 .statusCode(202)
                 .body("status", equalTo("accepted"))
+                .body("eventType", equalTo("Video"))
                 .extract()
                 .jsonPath()
                 .getLong("id");
 
         Map<String, Object> row = rowFor(feed(token), "Motion detected");
+        assertEquals("Video", row.get("eventType"));
         assertEquals("http://cam.local/clip.mp4", row.get("videoLink"));
-        assertEquals(Boolean.FALSE, row.get("read"));
-
-        given()
-                .header("Authorization", bearer(token))
-                .when()
-                .post("/api/notifications/" + id + "/read")
-                .then()
-                .statusCode(204);
-
-        assertEquals(Boolean.TRUE, rowFor(feed(token), "Motion detected").get("read"));
+        assertNull(row.get("severity"), "severity is no longer part of a notification");
+        assertNull(row.get("read"), "read is no longer part of a notification");
 
         given()
                 .header("Authorization", bearer(token))

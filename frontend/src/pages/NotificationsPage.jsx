@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 
-const severityLabel = {
-  info: 'Info',
-  warning: 'Warning',
-  critical: 'Critical',
-}
-
 // DB-backed feed: rows come from babymonitor.notifications and are written by
-// the device webhooks, so video alerts carry a link to the relevant clip.
+// the device webhooks, so video events link to the relevant clip.
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
@@ -30,17 +24,10 @@ export default function NotificationsPage() {
     load()
   }, [load])
 
-  const markRead = async (id) => {
-    await api.markNotificationRead(id)
-    setNotifications((current) => current.map((n) => (n.id === id ? { ...n, read: true } : n)))
-  }
-
   const dismiss = async (id) => {
     await api.dismissNotification(id)
     setNotifications((current) => current.filter((n) => n.id !== id))
   }
-
-  const unread = notifications.filter((n) => !n.read).length
 
   return (
     <section className="page">
@@ -55,50 +42,36 @@ export default function NotificationsPage() {
 
       {!loading && notifications.length === 0 && <p className="muted">No notifications.</p>}
 
-      {notifications.length > 0 && (
-        <p className="muted">
-          {notifications.length} total, {unread} unread
-        </p>
-      )}
-
       <ul className="notification-list">
-        {notifications.map((notification) => (
-          <li
-            key={notification.id}
-            className={`notification ${notification.read ? 'read' : 'unread'} severity-${notification.severity}`}
-          >
-            <div className="notification-main">
-              <div className="notification-head">
-                <span className={`badge badge-${notification.severity}`}>
-                  {severityLabel[notification.severity] || notification.severity}
-                </span>
-                {!notification.read && <span className="dot" aria-label="unread" />}
+        {notifications.map((notification) => {
+          const kind = notification.eventType.toLowerCase()
+          return (
+            <li key={notification.id} className={`notification event-type-${kind}`}>
+              <div className="notification-main">
+                <div className="notification-head">
+                  <span className={`tag tag-${kind}`}>{notification.eventType}</span>
+                  <small className="muted">{new Date(notification.eventTime).toLocaleString()}</small>
+                </div>
+                <p className="notification-description">{notification.description}</p>
+                {notification.videoLink && (
+                  <a
+                    className="notification-video"
+                    href={notification.videoLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Watch video
+                  </a>
+                )}
               </div>
-              <p className="notification-description">{notification.description}</p>
-              {notification.videoLink && (
-                <a
-                  className="notification-video"
-                  href={notification.videoLink}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Watch video
-                </a>
-              )}
-              <small className="muted">{new Date(notification.eventTime).toLocaleString()}</small>
-            </div>
-            <div className="notification-actions">
-              {!notification.read && (
-                <button type="button" className="button-secondary" onClick={() => markRead(notification.id)}>
-                  Mark read
+              <div className="notification-actions">
+                <button type="button" className="button-danger" onClick={() => dismiss(notification.id)}>
+                  Dismiss
                 </button>
-              )}
-              <button type="button" className="button-danger" onClick={() => dismiss(notification.id)}>
-                Dismiss
-              </button>
-            </div>
-          </li>
-        ))}
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

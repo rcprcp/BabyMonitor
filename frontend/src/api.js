@@ -84,8 +84,6 @@ export const api = {
     request('PUT', `/api/settings/${encodeURIComponent(tag)}`, { value }),
 
   listNotifications: () => request('GET', '/api/notifications'),
-  markNotificationRead: (id) =>
-    request('POST', `/api/notifications/${encodeURIComponent(id)}/read`),
   dismissNotification: (id) =>
     request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
 }

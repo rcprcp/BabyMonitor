@@ -1,6 +1,7 @@
 package com.babymonitor.service;
 
 import com.babymonitor.dto.NotificationDto;
+import com.babymonitor.entity.EventType;
 import com.babymonitor.entity.Notification;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,31 +32,20 @@ public class NotificationService {
     /**
      * Persists a new notification and returns it.
      *
+     * @param eventType   {@link EventType#Video} or {@link EventType#Audio}
      * @param description what happened
      * @param videoLink   link to the relevant clip, or {@code null} for audio
-     * @param severity    {@code info}, {@code warning} or {@code critical}
      * @param eventTime   when it happened; defaults to now when {@code null}
      */
     @Transactional
-    public NotificationDto add(String description, String videoLink, String severity, Instant eventTime) {
+    public NotificationDto add(EventType eventType, String description, String videoLink, Instant eventTime) {
         Notification notification = new Notification(
+                eventType,
                 eventTime != null ? eventTime : Instant.now(),
                 description,
-                videoLink,
-                severity == null || severity.isBlank() ? "warning" : severity);
+                videoLink);
         notification.persist();
         return toDto(notification);
-    }
-
-    /** Marks one notification read. Returns {@code false} when the id is unknown. */
-    @Transactional
-    public boolean markRead(Long id) {
-        Notification notification = Notification.findById(id);
-        if (notification == null) {
-            return false;
-        }
-        notification.read = true;
-        return true;
     }
 
     /** Removes one notification. Returns {@code false} when the id is unknown. */
@@ -68,9 +58,8 @@ public class NotificationService {
         return new NotificationDto(
                 notification.id,
                 notification.eventTime.toString(),
+                notification.eventType,
                 notification.description,
-                notification.videoLink,
-                notification.severity,
-                notification.read);
+                notification.videoLink);
     }
 }

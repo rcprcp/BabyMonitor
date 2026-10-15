@@ -6,7 +6,6 @@ import com.babymonitor.service.NotificationService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -21,9 +20,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * Notification endpoints backing the SPA's Notifications page.
  *
  * <ul>
- *   <li>{@code GET    /api/notifications}           -- list</li>
- *   <li>{@code POST   /api/notifications/{id}/read} -- mark read</li>
- *   <li>{@code DELETE /api/notifications/{id}}      -- dismiss</li>
+ *   <li>{@code GET    /api/notifications}      -- list (newest first)</li>
+ *   <li>{@code DELETE /api/notifications/{id}} -- dismiss</li>
  * </ul>
  *
  * <p>Rows live in {@code babymonitor.notifications}; transactions are handled by
@@ -44,19 +42,9 @@ public class NotificationsResource {
         return notifications.list();
     }
 
-    @POST
-    @Path("/{id}/read")
-    public Response markRead(@PathParam("id") Long id) {
-        if (!notifications.markRead(id)) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity(new ErrorResponse("No such notification: " + id))
-                    .build();
-        }
-        return Response.noContent().build();
-    }
-
     @DELETE
     @Path("/{id}")
+    @Operation(summary = "Dismiss a notification", description = "Deletes the row.")
     public Response dismiss(@PathParam("id") Long id) {
         if (!notifications.dismiss(id)) {
             return Response.status(Response.Status.NOT_FOUND)
