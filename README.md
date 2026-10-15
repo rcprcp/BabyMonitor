@@ -62,6 +62,11 @@ mvn quarkus:dev             # dev mode
 cd frontend && npm run dev  # SPA on :5173, proxies /api -> :8080
 ```
 
+The Vite dev server answers any hostname (`server.allowedHosts: true` in
+`frontend/vite.config.js`, so its DNS-rebinding guard does not reject an IP
+address or a reverse proxy). It still listens on localhost only — add `--host`
+(or `host: true`) to serve it to the rest of the network.
+
 ## API
 
 All `/api` calls need `Authorization: Bearer <token>` except login and the
