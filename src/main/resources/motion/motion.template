@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# BabyMonitor Motion template.
+#
+# The app appends one "key value" line per row of babymonitor.cameras to a copy
+# of this file to build /home/bob/motion/motion.config.<n>, which is the file
+# Motion is started with. Keep only options that are the same for every camera
+# here; per-camera values belong in that camera's rows on its Camera page.
+#
+# Motion reads the file top to bottom and the last setting wins, so the appended
+# camera rows override anything set here.
+#
+# On first Apply the app copies this file to $BABYMONITOR_MOTION_BASE_DIR
+# (default /home/bob/motion) if it is not there yet, and never overwrites it, so
+# local edits survive.
+# ---------------------------------------------------------------------------
+
+# Run in the foreground; the app passes -n on the command line as well.
+daemon off
+log_level 5
+
+# --- motion detection defaults (each camera can override these) -------------
+threshold 1500
+event_gap 60
+
+# --- output -----------------------------------------------------------------
+movie_output on
+picture_output off
+
+# --- live stream ------------------------------------------------------------
+# stream_port / webcontrol_port come from the camera's rows.
+stream_quality 80
+stream_maxrate 100
+
+# --- events -> BabyMonitor notifications ------------------------------------
+# Motion runs this when it closes a recording, passing the file it wrote (%f).
+# The script POSTs a Video notification to the app's webhook; the URL and any
+# secret arrive in the environment the app starts Motion with. If you move the
+# base directory, update this absolute path to match.
+on_movie_end /home/bob/motion/motion-notify.sh %f

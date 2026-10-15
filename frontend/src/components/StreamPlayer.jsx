@@ -91,8 +91,9 @@ export default function StreamPlayer({ url }) {
         <Text c="gray.3">Could not load the stream at:</Text>
         <Code>{url}</Code>
         <Text size="sm" c="dimmed" ta="center">
-          The camera may be offline, or the feed may not be MJPEG/HLS. Update the
-          <strong> streaming_url</strong> setting on the Settings page if it has moved.
+          The camera may be offline, or the feed may not be MJPEG/HLS. Check the
+          camera&apos;s <strong>stream_port</strong> on its Camera page, or press{' '}
+          <strong>Apply</strong> there to restart Motion.
         </Text>
       </Stack>
     )

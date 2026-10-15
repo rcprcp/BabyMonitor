@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,6 +16,10 @@ import com.babymonitor.entity.Notification;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -23,7 +28,7 @@ import org.junit.jupiter.api.Test;
  * End-to-end tests against the running PostgreSQL database.
  *
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
- * {@code streaming_url} and {@code systemName} settings, the four accounts
+ * {@code systemName} setting, the four accounts
  * whose password is their own name, and the test notifications. The webhook
  * tests write to {@code babymonitor.notifications} and remove the row they
  * created in a {@code finally}, so the table does not grow on every run --
@@ -122,6 +127,26 @@ class ApiTest {
         return QuarkusTransaction.requiringNew().call(() -> Notification.findById(id) != null);
     }
 
+    /** Reads one camera's parameters as a list of maps, in the order the API returns them. */
+    private static List<Map<String, Object>> cameraParameters(String token, int cameraNumber) {
+        return given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/" + cameraNumber)
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getList("$");
+    }
+
+    private static Map<String, Object> parameterNamed(List<Map<String, Object>> parameters, String key) {
+        return parameters.stream()
+                .filter(row -> key.equals(row.get("key")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no parameter named: " + key));
+    }
+
     @Test
     void openApiSchemaIsPublished() {
         given().when().get("/q/openapi").then().statusCode(200);
@@ -173,15 +198,15 @@ class ApiTest {
     }
 
     @Test
-    void settingsReturnStreamingUrlWhenAuthenticated() {
+    void streamingUrlIsNoLongerASetting() {
         String token = login("Bob", "Bob");
         given()
                 .header("Authorization", bearer(token))
                 .when()
                 .get("/api/settings/streaming_url")
                 .then()
-                .statusCode(200)
-                .body("value", equalTo("http://192.168.0.2:8081"));
+                .statusCode(404)
+                .body("error", equalTo("No such setting: streaming_url"));
     }
 
     @Test
@@ -540,5 +565,235 @@ class ApiTest {
                 .then()
                 .statusCode(400)
                 .body("error", equalTo("themeColor must be one of: " + String.join(", ", PALETTE)));
+    }
+
+    // --- Environment time series ------------------------------------------
+
+    @Test
+    void environmentRequiresToken() {
+        given().when().get("/api/environment").then().statusCode(401);
+    }
+
+    @Test
+    void environmentReturnsNewestSamplesFirst() {
+        String token = login("Bob", "Bob");
+        List<Map<String, Object>> readings = given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/environment?limit=5")
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getList("$");
+
+        assertEquals(5, readings.size(), "the limit caps the rows returned");
+        for (Map<String, Object> reading : readings) {
+            assertNotNull(reading.get("eventTime"));
+            assertNotNull(reading.get("temperature"));
+            assertNotNull(reading.get("humidity"));
+            assertNotNull(reading.get("brightness"));
+        }
+
+        List<Instant> times = readings.stream()
+                .map(row -> Instant.parse((String) row.get("eventTime")))
+                .toList();
+        List<Instant> descending = new ArrayList<>(times);
+        descending.sort(Comparator.reverseOrder());
+        assertEquals(descending, times, "readings come back newest first");
+    }
+
+    @Test
+    void environmentRejectsALimitOutsideTheAllowedRange() {
+        String token = login("Bob", "Bob");
+        for (String limit : List.of("0", "-1", "5000")) {
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .get("/api/environment?limit=" + limit)
+                    .then()
+                    .statusCode(400)
+                    .body("error", equalTo("limit must be between 1 and 2000"));
+        }
+    }
+
+    // --- Camera parameters -------------------------------------------------
+
+    @Test
+    void camerasRequireToken() {
+        given().when().get("/api/cameras").then().statusCode(401);
+    }
+
+    @Test
+    void cameraReturnsItsParametersInNameOrder() {
+        String token = login("Bob", "Bob");
+        List<Map<String, Object>> parameters = cameraParameters(token, 1);
+
+        assertFalse(parameters.isEmpty(), "camera 1 is seeded with parameters");
+        for (Map<String, Object> parameter : parameters) {
+            assertEquals(1, ((Number) parameter.get("cameraNumber")).intValue());
+            assertEquals(Boolean.TRUE, parameter.get("enabled"), "camera 1 is seeded enabled");
+        }
+
+        List<String> keys = parameters.stream().map(row -> (String) row.get("key")).toList();
+        List<String> sorted = new ArrayList<>(keys);
+        Collections.sort(sorted);
+        assertEquals(sorted, keys, "parameters are ordered by name");
+        // The parameter names are Motion option names (USB cameras, not network).
+        assertEquals("1280", parameterNamed(parameters, "width").get("value"));
+        assertEquals("720", parameterNamed(parameters, "height").get("value"));
+        assertNotNull(parameterNamed(parameters, "video_device").get("value"));
+    }
+
+    @Test
+    void unknownCameraReturnsNotFound() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/999")
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("No such camera: 999"));
+    }
+
+    @Test
+    void cameraParameterUpdateIsStoredAndRestored() {
+        String token = login("Bob", "Bob");
+        String original = (String) parameterNamed(cameraParameters(token, 1), "width").get("value");
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"value\":\"640\"}")
+                    .when()
+                    .put("/api/cameras/1/parameters/width")
+                    .then()
+                    .statusCode(200)
+                    .body("value", equalTo("640"));
+
+            assertEquals(
+                    "640",
+                    parameterNamed(cameraParameters(token, 1), "width").get("value"));
+        } finally {
+            // Put the parameter back the way the test found it.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"value\":\"" + original + "\"}")
+                    .when()
+                    .put("/api/cameras/1/parameters/width")
+                    .then()
+                    .statusCode(200);
+        }
+    }
+
+    @Test
+    void cameraParameterUpdateRejectsAMissingValue() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{}")
+                .when()
+                .put("/api/cameras/1/parameters/width")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("A value is required"));
+    }
+
+    @Test
+    void cameraEnabledToggleUpdatesEveryRowAndIsRestored() {
+        String token = login("Bob", "Bob");
+        boolean original = (Boolean) parameterNamed(cameraParameters(token, 2), "camera_name").get("enabled");
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"enabled\":true}")
+                    .when()
+                    .put("/api/cameras/2/enabled")
+                    .then()
+                    .statusCode(200);
+
+            List<Map<String, Object>> parameters = cameraParameters(token, 2);
+            assertFalse(parameters.isEmpty());
+            for (Map<String, Object> parameter : parameters) {
+                assertEquals(Boolean.TRUE, parameter.get("enabled"), "every row carries the flag");
+            }
+        } finally {
+            // Put the camera back the way the test found it.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"enabled\":" + original + "}")
+                    .when()
+                    .put("/api/cameras/2/enabled")
+                    .then()
+                    .statusCode(200);
+        }
+    }
+
+    // --- Motion process ----------------------------------------------------
+
+    @Test
+    void motionStatusRequiresToken() {
+        given().when().get("/api/cameras/1/motion").then().statusCode(401);
+    }
+
+    @Test
+    void motionStatusForAnUnknownCameraIsNotFound() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/999/motion")
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    void motionReportsStoppedWhileTheFeatureIsDisabled() {
+        String token = login("Bob", "Bob");
+        // babymonitor.motion.enabled defaults to false, so nothing is driven and
+        // no process is ever spawned by the tests.
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/1/motion")
+                .then()
+                .statusCode(200)
+                .body("cameraNumber", equalTo(1))
+                .body("managed", equalTo(false))
+                .body("running", equalTo(false))
+                .body("pid", equalTo(null))
+                .body("configExists", equalTo(false));
+    }
+
+    @Test
+    void motionApplyIsAcceptedButSpawnsNothingWhileDisabled() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/1/motion/apply")
+                .then()
+                .statusCode(200)
+                .body("managed", equalTo(false))
+                .body("running", equalTo(false));
+    }
+
+    @Test
+    void motionStopIsAcceptedAndIsANoOpWhileDisabled() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/1/motion/stop")
+                .then()
+                .statusCode(200)
+                .body("running", equalTo(false));
     }
 }
