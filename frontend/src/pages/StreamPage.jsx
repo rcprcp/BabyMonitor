@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Alert, Box, Button, Code, Group, Stack, Text, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
 import { api } from '../api'
 
@@ -26,25 +27,33 @@ export default function StreamPage() {
   }, [load])
 
   return (
-    <section className="page">
-      <div className="page-header">
-        <h2>Live stream</h2>
-        <button type="button" className="button-secondary" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Reload stream'}
-        </button>
-      </div>
+    <Stack>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Live stream</Title>
+        <Button variant="default" onClick={load} loading={loading}>
+          Reload stream
+        </Button>
+      </Group>
 
-      {error && <p className="form-error">{error}</p>}
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
 
-      <div className="stream-frame">
-        {loading ? <div className="stream-placeholder">Connecting…</div> : <StreamPlayer url={url} />}
-      </div>
+      <Box className="stream-frame">
+        {loading ? (
+          <Text c="gray.3">Connecting…</Text>
+        ) : (
+          <StreamPlayer url={url} />
+        )}
+      </Box>
 
       {url && (
-        <p className="muted stream-source">
-          Source: <code>{url}</code>
-        </p>
+        <Text size="sm" c="dimmed">
+          Source: <Code>{url}</Code>
+        </Text>
       )}
-    </section>
+    </Stack>
   )
 }

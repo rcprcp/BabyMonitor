@@ -6,6 +6,8 @@ package com.babymonitor.dto;
  * @param token     bearer token to send on subsequent requests
  * @param name      the authenticated user's name
  * @param expiresAt ISO-8601 instant when the token stops working
+ * @param theme     the account's stored UI theme, so the SPA can apply it
+ *                  without a second round trip
  */
-public record LoginResponse(String token, String name, String expiresAt) {
+public record LoginResponse(String token, String name, String expiresAt, String theme) {
 }

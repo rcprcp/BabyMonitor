@@ -1,13 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useMantineColorScheme } from '@mantine/core'
 import { api, clearSession, getToken, getName, setSession, setUnauthorizedHandler } from './api'
+import { DEFAULT_THEME, readThemeHint, writeThemeHint } from './theme'
 
 // Auth state is just "is there a valid token in localStorage". We do not trust
 // the stored name for anything security-relevant; it is only a display hint.
+// The theme preference belongs to the account (babymonitor.users.theme) and is
+// cached here for the lifetime of the session.
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getToken())
   const [user, setUser] = useState(() => getName())
+  const [theme, setTheme] = useState(() => readThemeHint())
+  const { setColorScheme } = useMantineColorScheme()
+
+  // Hand the account's theme to Mantine. The hint is refreshed alongside it so
+  // the next page load starts in the right colours.
+  useEffect(() => {
+    setColorScheme(theme)
+    writeThemeHint(theme)
+  }, [theme, setColorScheme])
 
   const logout = useCallback(async () => {
     try {
@@ -20,6 +33,7 @@ export function AuthProvider({ children }) {
       clearSession()
       setToken(null)
       setUser(null)
+      setTheme(DEFAULT_THEME)
     }
   }, [])
 
@@ -28,6 +42,7 @@ export function AuthProvider({ children }) {
     setUnauthorizedHandler(() => {
       setToken(null)
       setUser(null)
+      setTheme(DEFAULT_THEME)
     })
   }, [])
 
@@ -36,20 +51,43 @@ export function AuthProvider({ children }) {
     setSession(result.token, result.name)
     setToken(result.token)
     setUser(result.name)
+    // The login response carries the theme so the app does not repaint after
+    // the first request.
+    setTheme(result.theme ?? DEFAULT_THEME)
     return result
   }, [])
 
-  // Confirm the stored token is still accepted once on startup.
+  // Store the preference on the account. The UI switches immediately and is put
+  // back if the server rejects the value.
+  const saveTheme = useCallback(
+    async (next) => {
+      const previous = theme
+      setTheme(next)
+      try {
+        const updated = await api.updateTheme(next)
+        setTheme(updated.theme ?? next)
+        return updated
+      } catch (error) {
+        setTheme(previous)
+        throw error
+      }
+    },
+    [theme],
+  )
+
+  // Confirm the stored token is still accepted once on startup, and pick up the
+  // account's name and theme in the same call.
   useEffect(() => {
     if (!token) {
       return
     }
     let cancelled = false
     api
-      .me()
-      .then((me) => {
+      .getProfile()
+      .then((profile) => {
         if (!cancelled) {
-          setUser(me.name)
+          setUser(profile.name)
+          setTheme(profile.theme ?? DEFAULT_THEME)
         }
       })
       .catch(() => {
@@ -63,8 +101,8 @@ export function AuthProvider({ children }) {
   }, [token])
 
   const value = useMemo(
-    () => ({ token, user, login, logout, isAuthenticated: Boolean(token) }),
-    [token, user, login, logout],
+    () => ({ token, user, theme, login, logout, saveTheme, isAuthenticated: Boolean(token) }),
+    [token, user, theme, login, logout, saveTheme],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

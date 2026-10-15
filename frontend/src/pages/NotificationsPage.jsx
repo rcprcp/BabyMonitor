@@ -1,4 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  Anchor,
+  Badge,
+  Button,
+  Card,
+  Center,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
 import { api } from '../api'
 
 // DB-backed feed: rows come from babymonitor.notifications and are written by
@@ -30,49 +43,63 @@ export default function NotificationsPage() {
   }
 
   return (
-    <section className="page">
-      <div className="page-header">
-        <h2>Notifications</h2>
-        <button type="button" className="button-secondary" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+    <Stack>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Notifications</Title>
+        <Button variant="default" onClick={load} loading={loading}>
+          Refresh
+        </Button>
+      </Group>
 
-      {error && <p className="form-error">{error}</p>}
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
 
-      {!loading && notifications.length === 0 && <p className="muted">No notifications.</p>}
+      {loading && (
+        <Center>
+          <Loader size="sm" />
+        </Center>
+      )}
 
-      <ul className="notification-list">
-        {notifications.map((notification) => {
-          const kind = notification.eventType.toLowerCase()
-          return (
-            <li key={notification.id} className={`notification event-type-${kind}`}>
-              <div className="notification-main">
-                <div className="notification-head">
-                  <span className={`tag tag-${kind}`}>{notification.eventType}</span>
-                  <small className="muted">{new Date(notification.eventTime).toLocaleString()}</small>
-                </div>
-                <p className="notification-description">{notification.description}</p>
-                {notification.videoLink && (
-                  <a
-                    className="notification-video"
-                    href={notification.videoLink}
-                    target="_blank"
-                    rel="noreferrer"
+      {!loading && notifications.length === 0 && <Text c="dimmed">No notifications.</Text>}
+
+      <Stack gap="sm">
+        {notifications.map((notification) => (
+          <Card key={notification.id} withBorder padding="md">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <Stack gap="xs">
+                <Group gap="xs">
+                  <Badge
+                    variant="light"
+                    color={notification.eventType === 'Video' ? 'blue' : 'grape'}
                   >
+                    {notification.eventType}
+                  </Badge>
+                  <Text size="xs" c="dimmed">
+                    {new Date(notification.eventTime).toLocaleString()}
+                  </Text>
+                </Group>
+                <Text>{notification.description}</Text>
+                {notification.videoLink && (
+                  <Anchor href={notification.videoLink} target="_blank" rel="noreferrer" size="sm">
                     Watch video
-                  </a>
+                  </Anchor>
                 )}
-              </div>
-              <div className="notification-actions">
-                <button type="button" className="button-danger" onClick={() => dismiss(notification.id)}>
-                  Dismiss
-                </button>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+              </Stack>
+              <Button
+                variant="subtle"
+                color="red"
+                size="xs"
+                onClick={() => dismiss(notification.id)}
+              >
+                Dismiss
+              </Button>
+            </Group>
+          </Card>
+        ))}
+      </Stack>
+    </Stack>
   )
 }

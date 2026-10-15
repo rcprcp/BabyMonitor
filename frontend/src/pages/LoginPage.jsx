@@ -1,4 +1,15 @@
 import { useState } from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  Center,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 
@@ -33,40 +44,54 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      <form className="login-card" onSubmit={handleSubmit}>
-        <h2>Sign in</h2>
-        <p className="muted">Sign in to watch the live stream.</p>
+    <Center mih="100vh" p="md">
+      <Card
+        component="form"
+        onSubmit={handleSubmit}
+        withBorder
+        shadow="md"
+        padding="lg"
+        w="100%"
+        maw={380}
+      >
+        <Stack>
+          <Title order={2}>Sign in</Title>
+          <Text c="dimmed" size="sm">
+            Sign in to watch the live stream.
+          </Text>
 
-        <label htmlFor="name">Name</label>
-        <input
-          id="name"
-          name="name"
-          type="text"
-          autoComplete="username"
-          autoFocus
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          required
-        />
+          <TextInput
+            id="name"
+            name="name"
+            label="Name"
+            autoComplete="username"
+            autoFocus
+            required
+            value={name}
+            onChange={(event) => setName(event.currentTarget.value)}
+          />
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
+          <PasswordInput
+            id="password"
+            name="password"
+            label="Password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.currentTarget.value)}
+          />
 
-        {error && <p className="form-error">{error}</p>}
+          {error && (
+            <Alert color="red" variant="light">
+              {error}
+            </Alert>
+          )}
 
-        <button type="submit" className="button-primary" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-    </div>
+          <Button type="submit" loading={busy} fullWidth>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </Stack>
+      </Card>
+    </Center>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Code, Stack, Text } from '@mantine/core'
 
 // Plays the configured stream. Two shapes are supported:
 //
@@ -70,8 +71,14 @@ function HlsVideo({ url }) {
 export default function StreamPlayer({ url }) {
   const [imgError, setImgError] = useState(false)
 
+  // A new URL gets a fresh chance: without this the error box would stick
+  // around after the camera comes back.
+  useEffect(() => {
+    setImgError(false)
+  }, [url])
+
   if (!url) {
-    return <div className="stream-placeholder">No stream URL is configured.</div>
+    return <Text c="gray.3">No stream URL is configured.</Text>
   }
 
   if (isHls(url)) {
@@ -80,14 +87,14 @@ export default function StreamPlayer({ url }) {
 
   if (imgError) {
     return (
-      <div className="stream-placeholder stream-error">
-        <p>Could not load the stream at:</p>
-        <code>{url}</code>
-        <p className="muted">
+      <Stack align="center" gap="xs" p="md">
+        <Text c="gray.3">Could not load the stream at:</Text>
+        <Code>{url}</Code>
+        <Text size="sm" c="dimmed" ta="center">
           The camera may be offline, or the feed may not be MJPEG/HLS. Update the
           <strong> streaming_url</strong> setting on the Settings page if it has moved.
-        </p>
-      </div>
+        </Text>
+      </Stack>
     )
   }
 

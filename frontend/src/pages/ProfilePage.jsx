@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Center,
+  Divider,
+  Group,
+  Loader,
+  SegmentedControl,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { THEMES } from '../theme'
 
 // The signed-in user's own record, pulled from babymonitor.users and shown
 // in the main content area. Reached by clicking the initial in the title bar.
@@ -10,10 +26,13 @@ function initialOf(name) {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, theme, saveTheme } = useAuth()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [savingTheme, setSavingTheme] = useState(false)
+  const [themeError, setThemeError] = useState(null)
+  const [themeSaved, setThemeSaved] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -31,43 +50,101 @@ export default function ProfilePage() {
     load()
   }, [load])
 
+  // The preference lives on the account, so this writes through to
+  // babymonitor.users rather than to the browser.
+  const changeTheme = async (next) => {
+    setThemeError(null)
+    setThemeSaved(false)
+    setSavingTheme(true)
+    try {
+      await saveTheme(next)
+      setThemeSaved(true)
+    } catch (err) {
+      setThemeError(err.message)
+    } finally {
+      setSavingTheme(false)
+    }
+  }
+
   // Prefer the freshly loaded record, but fall back to the stored name while
   // the request is in flight.
   const displayName = profile?.name ?? user ?? ''
 
   return (
-    <section className="page">
-      <div className="page-header">
-        <h2>Personal settings</h2>
-        <button type="button" className="button-secondary" onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+    <Stack>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Personal settings</Title>
+        <Button variant="default" onClick={load} loading={loading}>
+          Refresh
+        </Button>
+      </Group>
 
-      {error && <p className="form-error">{error}</p>}
-      {loading && <p className="muted">Loading…</p>}
+      {error && (
+        <Alert color="red" variant="light">
+          {error}
+        </Alert>
+      )}
+
+      {loading && (
+        <Center>
+          <Loader size="sm" />
+        </Center>
+      )}
 
       {!loading && profile && (
-        <div className="profile-card">
-          <div className="profile-avatar" aria-hidden="true">
-            {initialOf(displayName)}
-          </div>
-          <div className="profile-body">
-            <h3 className="profile-name">{profile.name}</h3>
-            <p className="muted">Your account record, read from the database.</p>
-            <dl className="profile-fields">
-              <div className="profile-field">
-                <dt>Name</dt>
-                <dd>{profile.name}</dd>
-              </div>
-              <div className="profile-field">
-                <dt>User ID</dt>
-                <dd>{profile.id}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
+        <Card withBorder padding="lg">
+          <Group wrap="nowrap" align="flex-start">
+            <Avatar size={64} radius="xl" bg="blue.6" c="white" fw={600}>
+              {initialOf(displayName)}
+            </Avatar>
+            <Stack gap={4}>
+              <Title order={3}>{profile.name}</Title>
+              <Text c="dimmed" size="sm">
+                Your account record, read from the database.
+              </Text>
+              <Group gap="xl" mt="xs">
+                <Stack gap={0}>
+                  <Text size="xs" c="dimmed">
+                    Name
+                  </Text>
+                  <Text>{profile.name}</Text>
+                </Stack>
+                <Stack gap={0}>
+                  <Text size="xs" c="dimmed">
+                    User ID
+                  </Text>
+                  <Text>{profile.id}</Text>
+                </Stack>
+              </Group>
+            </Stack>
+          </Group>
+
+          <Divider my="lg" />
+
+          <Stack gap="xs" align="flex-start">
+            <Text fw={600}>Theme</Text>
+            <Text c="dimmed" size="sm">
+              Stored with your account, so it follows you to any browser you sign in from.
+            </Text>
+            <SegmentedControl
+              value={theme}
+              onChange={changeTheme}
+              data={THEMES}
+              disabled={savingTheme}
+            />
+            {themeSaved && (
+              <Badge color="green" variant="light">
+                Saved
+              </Badge>
+            )}
+            {themeError && (
+              <Alert color="red" variant="light">
+                {themeError}
+              </Alert>
+            )}
+          </Stack>
+        </Card>
       )}
-    </section>
+    </Stack>
   )
 }

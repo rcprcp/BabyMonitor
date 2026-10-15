@@ -29,6 +29,10 @@ public class User extends PanacheEntityBase {
     @Column(name = "password_hash", length = 500, nullable = false)
     public String passwordHash;
 
+    /** UI preference: {@code light}, {@code dark} or {@code auto} (follow the OS). */
+    @Column(name = "theme", length = 500, nullable = false)
+    public String theme = "auto";
+
     public User() {
     }
 

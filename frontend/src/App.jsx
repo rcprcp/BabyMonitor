@@ -1,3 +1,4 @@
+import { AppShell } from '@mantine/core'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import TitleBar from './components/TitleBar'
@@ -19,12 +20,14 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="app-shell">
-      <TitleBar />
-      <main className="content">
+    <AppShell header={{ height: 60 }} padding="md">
+      <AppShell.Header className="bm-titlebar">
+        <TitleBar />
+      </AppShell.Header>
+      <AppShell.Main>
         <Outlet />
-      </main>
-    </div>
+      </AppShell.Main>
+    </AppShell>
   )
 }
 

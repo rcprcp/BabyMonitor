@@ -6,8 +6,9 @@ package com.babymonitor.dto;
  *
  * <p>Deliberately excludes {@code passwordHash}.
  *
- * @param id   primary key of the user row
- * @param name login name / display name
+ * @param id    primary key of the user row
+ * @param name  login name / display name
+ * @param theme UI preference: {@code light}, {@code dark} or {@code auto}
  */
-public record UserDto(Long id, String name) {
+public record UserDto(Long id, String name, String theme) {
 }
