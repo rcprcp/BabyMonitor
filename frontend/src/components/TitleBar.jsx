@@ -81,7 +81,7 @@ export default function TitleBar() {
         </Menu.Dropdown>
       </Menu>
 
-      <Title order={1} fz="1.35rem" fw={600} truncate>
+      <Title order={1} fz="1.35rem" fw={600} className="bm-title">
         {systemName}
       </Title>
 

@@ -18,6 +18,17 @@
   font-weight: 600;
 }
 
+/* The system name stays on one line: a long household name is ellipsised rather
+   than wrapped. Mantine 8.3's Title has no `truncate` prop -- unknown props are
+   forwarded to the DOM element, which makes React warn -- so the truncation
+   lives here. `min-width: 0` lets the flex item shrink below its text width. */
+.bm-titlebar .bm-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Black letterbox for the stream, whatever shape the camera sends. */
 .stream-frame {
   background: #000;
