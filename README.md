@@ -30,11 +30,16 @@ The defaults match the local setup; override with `DB_URL` / `DB_USERNAME` /
 PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 ```
 
-`db/init.sql` is re-runnable (idempotent). It seeds:
+`db/init.sql` is re-runnable (idempotent). It creates:
 
-- `settings.streaming_url` = `http://192.168.0.2:8081`
-- users `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to the
-  name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
+- `babymonitor.settings` (`tag`/`value`) — seeded with
+  `streaming_url` = `http://192.168.0.2:8081`
+- `babymonitor.users` (`id`, `name`, `password_hash`) — seeded with `Cindy`,
+  `Marij`, `Stephen`, `Bob`, each with password equal to the name (bcrypt hash,
+  `$2a$` prefix — the jbcrypt library rejects `$2b$`)
+- `babymonitor.notifications` (`id`, `event_time`, `description`, `video_link`,
+  `severity`, `read`) — the feed behind the Notifications page; a few demo rows
+  are inserted only while the table is still empty
 
 ## Build & run
 
@@ -73,13 +78,38 @@ webhooks.
 ### Webhooks
 
 `POST /api/webhooks/audioNotification` and
-`POST /api/webhooks/videoNotification` receive arbitrary HTTP(S) payloads from
-the camera / motion detector and raise a notification. They are exempt from the
-bearer-token gate (the sender is a device, not a browser).
+`POST /api/webhooks/videoNotification` receive alerts from the camera / motion
+detector and store them in `babymonitor.notifications`, where the Notifications
+page lists them. They are exempt from the bearer-token gate (the sender is a
+device, not a browser).
 
-Set `BABYMONITOR_WEBHOOKS_SECRET` to require a matching `X-Webhook-Secret`
-header; leave it unset to accept any caller (dev default). The `GET` variants of
-both paths return `{"status":"ready"}` so a provider can verify the URL first.
+Payload schema (`NotificationRequest`):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `eventTime` | ISO-8601 instant | Optional; defaults to when the webhook was received |
+| `description` | string | Required |
+| `videoLink` | string | Required for `videoNotification`; omit for audio |
+
+```bash
+# video alert with a clip
+curl -X POST http://localhost:8080/api/webhooks/videoNotification \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Motion detected in the crib",
+       "videoLink":"http://192.168.0.2:8081/recordings/motion.mp4"}'
+
+# audio alert (no video)
+curl -X POST http://localhost:8080/api/webhooks/audioNotification \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Baby cried"}'
+# -> 202 {"status":"accepted","id":4,"eventTime":"..."}
+```
+
+A missing `description` (or a missing `videoLink` on the video endpoint) returns
+`400`. Set `BABYMONITOR_WEBHOOKS_SECRET` to require a matching
+`X-Webhook-Secret` header; leave it unset to accept any caller (dev default).
+The `GET` variants return `{"status":"ready"}` so a provider can verify the URL
+first.
 
 ## SPA
 

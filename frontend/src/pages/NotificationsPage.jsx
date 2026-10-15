@@ -7,6 +7,8 @@ const severityLabel = {
   critical: 'Critical',
 }
 
+// DB-backed feed: rows come from babymonitor.notifications and are written by
+// the device webhooks, so video alerts carry a link to the relevant clip.
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
@@ -70,11 +72,20 @@ export default function NotificationsPage() {
                 <span className={`badge badge-${notification.severity}`}>
                   {severityLabel[notification.severity] || notification.severity}
                 </span>
-                <strong>{notification.title}</strong>
                 {!notification.read && <span className="dot" aria-label="unread" />}
               </div>
-              <p>{notification.message}</p>
-              <small className="muted">{new Date(notification.timestamp).toLocaleString()}</small>
+              <p className="notification-description">{notification.description}</p>
+              {notification.videoLink && (
+                <a
+                  className="notification-video"
+                  href={notification.videoLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Watch video
+                </a>
+              )}
+              <small className="muted">{new Date(notification.eventTime).toLocaleString()}</small>
             </div>
             <div className="notification-actions">
               {!notification.read && (

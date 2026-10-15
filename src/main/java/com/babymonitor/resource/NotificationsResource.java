@@ -13,6 +13,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
@@ -24,6 +25,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *   <li>{@code POST   /api/notifications/{id}/read} -- mark read</li>
  *   <li>{@code DELETE /api/notifications/{id}}      -- dismiss</li>
  * </ul>
+ *
+ * <p>Rows live in {@code babymonitor.notifications}; transactions are handled by
+ * {@link NotificationService}.
  */
 @Path("/api/notifications")
 @Produces(MediaType.APPLICATION_JSON)
@@ -35,13 +39,14 @@ public class NotificationsResource {
     NotificationService notifications;
 
     @GET
+    @Operation(summary = "List notifications", description = "Newest event first.")
     public List<NotificationDto> list() {
         return notifications.list();
     }
 
     @POST
     @Path("/{id}/read")
-    public Response markRead(@PathParam("id") String id) {
+    public Response markRead(@PathParam("id") Long id) {
         if (!notifications.markRead(id)) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new ErrorResponse("No such notification: " + id))
@@ -52,7 +57,7 @@ public class NotificationsResource {
 
     @DELETE
     @Path("/{id}")
-    public Response dismiss(@PathParam("id") String id) {
+    public Response dismiss(@PathParam("id") Long id) {
         if (!notifications.dismiss(id)) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new ErrorResponse("No such notification: " + id))
