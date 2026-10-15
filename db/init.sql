@@ -176,7 +176,9 @@ SELECT sample.taken_at,
 -- The parameter names are Motion option names: the app writes them, almost
 -- verbatim, into the camera's generated motion.config.<n>. Both cameras are USB
 -- cameras, so they are addressed by `video_device` (video4linux), not a network
--- URL. `enabled` on Camera 2 ships false so both states are visible.
+-- URL. The devices below are examples -- set them to your box's (list them with
+-- `v4l2-ctl --list-devices`, remembering a UVC camera exposes several nodes).
+-- `enabled` on Camera 2 ships false so both states are visible.
 CREATE TABLE IF NOT EXISTS babymonitor.cameras (
     camera_number INTEGER      NOT NULL,
     key           VARCHAR(500) NOT NULL,
@@ -207,9 +209,9 @@ INSERT INTO babymonitor.cameras (camera_number, key, value, enabled) VALUES
     (1, 'stream_localhost',    'off',                              TRUE),
     (1, 'webcontrol_localhost','off',                              TRUE),
     (1, 'target_dir',          '/home/bob/motion/1/recordings',    TRUE),
-    (1, 'logfile',             '/home/bob/motion/1/logs/motion.log', TRUE),
+    (1, 'log_file',            '/home/bob/motion/1/logs/motion.log', TRUE),
     (2, 'camera_name',         'Hallway',                          FALSE),
-    (2, 'video_device',        '/dev/video2',                      FALSE),
+    (2, 'video_device',        '/dev/video4',                      FALSE),
     (2, 'width',               '1920',                             FALSE),
     (2, 'height',              '1080',                             FALSE),
     (2, 'framerate',           '10',                               FALSE),
@@ -219,7 +221,7 @@ INSERT INTO babymonitor.cameras (camera_number, key, value, enabled) VALUES
     (2, 'stream_localhost',    'off',                              FALSE),
     (2, 'webcontrol_localhost','off',                              FALSE),
     (2, 'target_dir',          '/home/bob/motion/2/recordings',    FALSE),
-    (2, 'logfile',             '/home/bob/motion/2/logs/motion.log', FALSE)
+    (2, 'log_file',            '/home/bob/motion/2/logs/motion.log', FALSE)
 ON CONFLICT (camera_number, key) DO NOTHING;
 
 -- Test notifications for the Notifications page: twenty events spread over the

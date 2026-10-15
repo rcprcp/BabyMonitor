@@ -225,7 +225,7 @@ The base directory ends up looking like this:
   motion.template                   shared base config (editable, never overwritten)
   motion-notify.sh                  on_movie_end hook (copied from the jar)
   motion.config.1  motion.config.2  generated, one per camera
-  1/logs  1/recordings              Camera 1 data (its target_dir / logfile rows)
+  1/logs  1/recordings              Camera 1 data (its target_dir / log_file rows)
   2/logs  2/recordings              Camera 2 data
 ```
 

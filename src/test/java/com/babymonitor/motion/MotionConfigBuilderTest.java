@@ -56,7 +56,7 @@ class MotionConfigBuilderTest {
     @Test
     void acceptsAValueWithSpaces() {
         String config = builder.build(2, null, parameters(
-                "logfile", "/home/bob/motion/2/logs/motion.log",
+                "log_file", "/home/bob/motion/2/logs/motion.log",
                 "movie_filename", "%Y%m%d-%H%M%S"));
         assertTrue(config.contains("movie_filename %Y%m%d-%H%M%S\n"), config);
     }

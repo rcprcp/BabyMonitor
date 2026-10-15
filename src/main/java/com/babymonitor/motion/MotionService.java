@@ -169,7 +169,7 @@ public class MotionService {
         Files.createDirectories(cameraDir);
         Files.createDirectories(cameraDir.resolve("logs"));
         createParent(parameters.get("target_dir"));
-        createParent(parameters.get("logfile"));
+        createParent(parameters.get("log_file"));
     }
 
     private static void createParent(String path) throws IOException {
