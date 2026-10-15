@@ -12,6 +12,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Vite 6 only answers requests whose Host header it recognises (a guard
+    // against DNS-rebinding attacks). `true` accepts any hostname, so the dev
+    // server can be reached through an IP address or a reverse proxy instead of
+    // only via localhost. Narrow this to a list of hostnames for a shared
+    // server.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
