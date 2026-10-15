@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
  * {@code streaming_url} and {@code systemName} settings, the four accounts
- * whose password is their own name, and the demo notifications. The webhook
+ * whose password is their own name, and the test notifications. The webhook
  * tests write to {@code babymonitor.notifications} and remove the row they
  * created in a {@code finally}, so the table does not grow on every run --
  * through {@link #deleteNotificationRow(long)}, because dismissing only hides a

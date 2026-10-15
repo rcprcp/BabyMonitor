@@ -43,8 +43,12 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   name (defaulting to `blue`)
 - `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
   `video_link`) — the feed behind the Notifications page. `event_type` is the
-  PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`;
-  a few demo rows are inserted only while the table is still empty
+  PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`.
+  The script seeds twenty test notifications (eleven audio, nine video with a
+  clip link) spread over the previous four days, one row at a time and only
+  while its description is missing, so reloading the database brings any that
+  were removed back without ever duplicating them. Delete that statement in
+  `db/init.sql` for a feed of real events only.
 - `babymonitor.notification_dismissals` (`notification_id`, `user_id`,
   `dismissed_at`) — one row per notification an account has dismissed. The pair
   is the primary key, so dismissing twice is a no-op, and the feed lists the
@@ -153,6 +157,9 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
 curl -X DELETE http://localhost:8080/api/notifications/4 \
   -H "Authorization: Bearer $TOKEN"   # -> 204, hidden for Bob only
 ```
+
+A freshly initialized database has the twenty seeded test notifications to try
+this on: dismiss one as Bob and it stays in Cindy's feed.
 
 ## SPA
 
