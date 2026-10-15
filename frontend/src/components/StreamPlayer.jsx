@@ -92,8 +92,8 @@ export default function StreamPlayer({ url }) {
         <Code>{url}</Code>
         <Text size="sm" c="dimmed" ta="center">
           The camera may be offline, or the feed may not be MJPEG/HLS. Check the
-          camera&apos;s <strong>stream_url</strong> parameter on its Camera page if it has
-          moved.
+          camera&apos;s <strong>stream_port</strong> on its Camera page, or press{' '}
+          <strong>Apply</strong> there to restart Motion.
         </Text>
       </Stack>
     )

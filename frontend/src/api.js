@@ -103,4 +103,10 @@ export const api = {
     ),
   updateCameraEnabled: (cameraNumber, enabled) =>
     request('PUT', `/api/cameras/${encodeURIComponent(cameraNumber)}/enabled`, { enabled }),
+  getCameraMotion: (cameraNumber) =>
+    request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion`),
+  applyCameraMotion: (cameraNumber) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/apply`),
+  stopCameraMotion: (cameraNumber) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/stop`),
 }

@@ -13,10 +13,14 @@ baby-monitor live stream, a notification feed and settings.
 db/init.sql                     schema `babymonitor`, tables, seed rows
 src/main/java/com/babymonitor/
   auth/                         PasswordHasher, Session, SessionStore, AuthFilter
+  motion/                       MotionConfig, MotionConfigBuilder,
+                                MotionProcessManager, MotionService
   resource/                     AuthResource, SettingsResource,
-                                NotificationsResource, WebhookResource
-  service/                      NotificationService
+                                NotificationsResource, WebhookResource,
+                                CamerasResource
+  service/                      NotificationService, AfterCommit
   web/                          SpaFallbackFilter
+src/main/resources/motion/      motion.template, motion-notify.sh
 frontend/                       React/Vite SPA (built into the jar)
 ```
 
@@ -33,10 +37,10 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 `db/init.sql` is re-runnable (idempotent). It creates:
 
 - `babymonitor.settings` (`tag`/`value`) — seeded with
-  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA).
-  The live-stream URL is not a setting any more: it is each camera's
-  `stream_url` parameter in `babymonitor.cameras`, and a run of this script
-  drops the old `streaming_url` row
+  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
+  and `stream_url` = `http://localhost`, the host base of the box running
+  Motion. The Live stream page plays `<stream_url>:<camera's stream_port>` (see
+  *Motion* below); a run of this script drops the older `streaming_url` row
 - `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`) —
   seeded with `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to
   the name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
@@ -68,10 +72,15 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 - `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
   parameters, keyed by `(camera_number, key)`. There is no separate camera row,
   so `enabled` (the camera's on/off flag) is repeated on every parameter of that
-  camera and switching it updates them all. The script seeds eight parameters
-  for each of the two cameras the menu links to, inserted only while a
-  `(camera, parameter)` pair is missing, so edits made on the Camera pages
-  survive a re-run. Camera 2 ships switched off so both states are visible
+  camera and switching it updates them all. The keys *are* Motion option names:
+  the app writes them, almost verbatim, into the camera's generated
+  `motion.config.<n>` (see *Motion* below). Both cameras are USB cameras, so
+  they are addressed by `video_device` (`/dev/video0`, `/dev/video2`), not a
+  network URL. The script seeds twelve parameters for each of the two cameras
+  the menu links to, inserted only while a `(camera, parameter)` pair is
+  missing, so edits made on the Camera pages survive a re-run; it also drops the
+  pre-Motion parameter names (`stream_url`, `resolution`, `frame_rate`, …) from
+  any older database. Camera 2 ships switched off so both states are visible
 
 ## Build & run
 
@@ -115,7 +124,10 @@ webhooks.
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
-| PUT         | `/api/cameras/{n}/enabled`             | `{ "enabled" }`: switch a camera on/off |
+| PUT         | `/api/cameras/{n}/enabled`             | `{ "enabled" }`: switch a camera on/off (starts/kills Motion) |
+| GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |
+| POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
+| POST        | `/api/cameras/{n}/motion/stop`         | stop the camera's Motion       |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
 | POST        | `/api/webhooks/videoNotification`      | device video/motion alert      |
 
@@ -183,16 +195,91 @@ curl -X DELETE http://localhost:8080/api/notifications/4 \
 A freshly initialized database has the twenty seeded test notifications to try
 this on: dismiss one as Bob and it stays in Cindy's feed.
 
+## Motion
+
+The app owns one [`motion`](https://motion-project.github.io/) process per
+camera; systemd is not involved. Everything is driven by the rows in
+`babymonitor.cameras`, so the Camera pages are the control panel.
+
+### Generated configuration
+
+Motion has no `include` directive, so each camera's file must be self-contained.
+On every **Apply** the app reads the shared template
+`src/main/resources/motion/motion.template`, puts it at the top, and appends one
+`key value` line per camera row to form
+`$BABYMONITOR_MOTION_BASE_DIR/motion.config.<n>` (default
+`/home/bob/motion/motion.config.<n>`). The template is copied to the base
+directory on first use and never overwritten, so local edits survive.
+
+Motion applies settings in file order and the last one wins, so the camera rows
+override the template's defaults. The rows are validated before they are
+written — no newlines or control characters, and the numeric options
+(`width`, `height`, `framerate`, `threshold`, `stream_port`, …) must be in
+range — because a stray newline in a hand-edited value would otherwise inject a
+whole new option.
+
+The base directory ends up looking like this:
+
+```
+/home/bob/motion/
+  motion.template                   shared base config (editable, never overwritten)
+  motion-notify.sh                  on_movie_end hook (copied from the jar)
+  motion.config.1  motion.config.2  generated, one per camera
+  1/logs  1/recordings              Camera 1 data (its target_dir / logfile rows)
+  2/logs  2/recordings              Camera 2 data
+```
+
+### Processes
+
+Apply starts `motion -n -c /home/bob/motion/motion.config.<n>` (non-daemon, a
+plain child of the app) if it is not already running, or sends it `SIGHUP` to
+reload when it is. That `-c …motion.config.<n>` path is what distinguishes the
+two processes in `ps -ef`.
+
+| Action | Effect |
+| --- | --- |
+| Save a camera parameter | stored only; Motion is untouched until Apply |
+| **Apply** | rebuild the config, then start Motion or `SIGHUP` it |
+| **Enabled** on | start Motion (build the config first if needed) |
+| **Enabled** off | kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
+
+Each camera's pid is written to `<base>/<n>/motion.pid`. When the app restarts
+(dev mode recompiles constantly) it reads that file and adopts a process it did
+not start rather than launching a second one, then stops it if the camera is
+disabled — see `MotionService.reconcile`.
+
+`babymonitor.motion.enabled` is a master switch and defaults to **false**, so
+development and tests never spawn a real `motion`. Set
+`BABYMONITOR_MOTION_ENABLED=true` (and, if needed,
+`BABYMONITOR_MOTION_BASE_DIR` or `BABYMONITOR_MOTION_BINARY`) to let the app
+drive it; the rest of the knobs are in `application.properties`.
+
+### Live stream and recordings
+
+The Live stream page plays Motion's own published stream, built as
+`<stream_url>:<stream_port>`, so what you watch is what Motion is recording.
+`stream_localhost`/`webcontrol_localhost` default to `off` so both the stream
+and the web control are reachable from other machines on the network; set them
+to `on` to keep the ports on the box itself.
+
+The template's `on_movie_end` runs `motion-notify.sh` with each finished clip,
+which POSTs a Video notification to `/api/webhooks/videoNotification`; the
+webhook URL and any secret are passed in Motion's environment. Recordings are
+not served over HTTP yet, so the notification currently links the clip by its
+file name — serving `<base>/<n>/recordings` is the next step.
+
 ## SPA
 
 React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
 `/settings`, `/profile` (Personal settings). The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
-plays the `stream_url` parameter of the chosen one. It defaults to Camera 1 when
+plays Motion's stream for the chosen one, built from the `stream_url` setting
+and that camera's `stream_port` row. It defaults to Camera 1 when
 that is enabled, otherwise to Camera 2 when that one is enabled, and shows no
 stream when both are disabled. An Enabled switch beside the drop-down turns the
-selected camera on or off — the same flag the Camera page edits — so a
+selected camera on or off — the same flag the Camera page edits, and the server
+starts or kills Motion to match — so a
 switched-off camera can be turned back on right there. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
@@ -203,7 +290,8 @@ The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
 lists the raw rows under it. Temperature and humidity share the left axis;
 brightness gets its own right axis. The Camera pages show one camera's
 parameters and let each value be edited, plus a switch for the camera's
-`enabled` flag.
+`enabled` flag and an **Apply** button that rebuilds and (re)starts its Motion
+process.
 
 The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core`,
 `@mantine/hooks` and `@mantine/charts` on top of `recharts`, wired up in

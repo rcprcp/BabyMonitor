@@ -639,9 +639,10 @@ class ApiTest {
         List<String> sorted = new ArrayList<>(keys);
         Collections.sort(sorted);
         assertEquals(sorted, keys, "parameters are ordered by name");
-        assertEquals("1280x720", parameterNamed(parameters, "resolution").get("value"));
-        // The stream URL now lives here rather than in the settings table.
-        assertNotNull(parameterNamed(parameters, "stream_url").get("value"));
+        // The parameter names are Motion option names (USB cameras, not network).
+        assertEquals("1280", parameterNamed(parameters, "width").get("value"));
+        assertEquals("720", parameterNamed(parameters, "height").get("value"));
+        assertNotNull(parameterNamed(parameters, "video_device").get("value"));
     }
 
     @Test
@@ -659,21 +660,21 @@ class ApiTest {
     @Test
     void cameraParameterUpdateIsStoredAndRestored() {
         String token = login("Bob", "Bob");
-        String original = (String) parameterNamed(cameraParameters(token, 1), "resolution").get("value");
+        String original = (String) parameterNamed(cameraParameters(token, 1), "width").get("value");
         try {
             given()
                     .header("Authorization", bearer(token))
                     .contentType(ContentType.JSON)
-                    .body("{\"value\":\"640x480\"}")
+                    .body("{\"value\":\"640\"}")
                     .when()
-                    .put("/api/cameras/1/parameters/resolution")
+                    .put("/api/cameras/1/parameters/width")
                     .then()
                     .statusCode(200)
-                    .body("value", equalTo("640x480"));
+                    .body("value", equalTo("640"));
 
             assertEquals(
-                    "640x480",
-                    parameterNamed(cameraParameters(token, 1), "resolution").get("value"));
+                    "640",
+                    parameterNamed(cameraParameters(token, 1), "width").get("value"));
         } finally {
             // Put the parameter back the way the test found it.
             given()
@@ -681,7 +682,7 @@ class ApiTest {
                     .contentType(ContentType.JSON)
                     .body("{\"value\":\"" + original + "\"}")
                     .when()
-                    .put("/api/cameras/1/parameters/resolution")
+                    .put("/api/cameras/1/parameters/width")
                     .then()
                     .statusCode(200);
         }
@@ -695,7 +696,7 @@ class ApiTest {
                 .contentType(ContentType.JSON)
                 .body("{}")
                 .when()
-                .put("/api/cameras/1/parameters/resolution")
+                .put("/api/cameras/1/parameters/width")
                 .then()
                 .statusCode(400)
                 .body("error", equalTo("A value is required"));
@@ -704,7 +705,7 @@ class ApiTest {
     @Test
     void cameraEnabledToggleUpdatesEveryRowAndIsRestored() {
         String token = login("Bob", "Bob");
-        boolean original = (Boolean) parameterNamed(cameraParameters(token, 2), "name").get("enabled");
+        boolean original = (Boolean) parameterNamed(cameraParameters(token, 2), "camera_name").get("enabled");
         try {
             given()
                     .header("Authorization", bearer(token))
@@ -731,5 +732,68 @@ class ApiTest {
                     .then()
                     .statusCode(200);
         }
+    }
+
+    // --- Motion process ----------------------------------------------------
+
+    @Test
+    void motionStatusRequiresToken() {
+        given().when().get("/api/cameras/1/motion").then().statusCode(401);
+    }
+
+    @Test
+    void motionStatusForAnUnknownCameraIsNotFound() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/999/motion")
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    void motionReportsStoppedWhileTheFeatureIsDisabled() {
+        String token = login("Bob", "Bob");
+        // babymonitor.motion.enabled defaults to false, so nothing is driven and
+        // no process is ever spawned by the tests.
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/1/motion")
+                .then()
+                .statusCode(200)
+                .body("cameraNumber", equalTo(1))
+                .body("managed", equalTo(false))
+                .body("running", equalTo(false))
+                .body("pid", equalTo(null))
+                .body("configExists", equalTo(false));
+    }
+
+    @Test
+    void motionApplyIsAcceptedButSpawnsNothingWhileDisabled() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/1/motion/apply")
+                .then()
+                .statusCode(200)
+                .body("managed", equalTo(false))
+                .body("running", equalTo(false));
+    }
+
+    @Test
+    void motionStopIsAcceptedAndIsANoOpWhileDisabled() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/1/motion/stop")
+                .then()
+                .statusCode(200)
+                .body("running", equalTo(false));
     }
 }

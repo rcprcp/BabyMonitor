@@ -104,11 +104,16 @@ CREATE TABLE IF NOT EXISTS babymonitor.notification_dismissals (
 CREATE INDEX IF NOT EXISTS notification_dismissals_user_idx
     ON babymonitor.notification_dismissals (user_id);
 
--- The streaming URL used to be a setting here. It is now each camera's
--- `stream_url` parameter in babymonitor.cameras, so the old row is removed on
--- every run (and this script no longer seeds it). The Live stream page has no
--- source of its own for now.
+-- The Live stream page plays Motion's published stream: it builds
+-- `<stream_url>:<camera's stream_port>`, so this is the host base of the box
+-- running Motion, with no port. It is seeded only while absent, so edits made on
+-- the Settings page survive a re-run. A run of this script also drops the older
+-- `streaming_url` row.
 DELETE FROM babymonitor.settings WHERE tag = 'streaming_url';
+
+INSERT INTO babymonitor.settings (tag, value)
+VALUES ('stream_url', 'http://localhost')
+ON CONFLICT (tag) DO NOTHING;
 
 -- The name shown in the UI title bar (and the browser tab). This is a cosmetic
 -- label the household can rename from the Settings page, so it is only seeded
@@ -167,6 +172,11 @@ SELECT sample.taken_at,
 -- repeated on every parameter of that camera, so switching a camera on or off
 -- updates all of its rows together. (camera_number, key) is the primary key, so
 -- a camera cannot define the same parameter twice.
+--
+-- The parameter names are Motion option names: the app writes them, almost
+-- verbatim, into the camera's generated motion.config.<n>. Both cameras are USB
+-- cameras, so they are addressed by `video_device` (video4linux), not a network
+-- URL. `enabled` on Camera 2 ships false so both states are visible.
 CREATE TABLE IF NOT EXISTS babymonitor.cameras (
     camera_number INTEGER      NOT NULL,
     key           VARCHAR(500) NOT NULL,
@@ -175,27 +185,41 @@ CREATE TABLE IF NOT EXISTS babymonitor.cameras (
     PRIMARY KEY (camera_number, key)
 );
 
--- Test parameters for the two cameras the menu links to. Inserted only while a
+-- Drop the pre-Motion parameter names from any database seeded before the app
+-- started generating Motion configs, so the new rows below can take their place.
+DELETE FROM babymonitor.cameras WHERE key IN (
+    'stream_url', 'name', 'resolution', 'frame_rate',
+    'codec', 'night_vision', 'motion_detection', 'motion_threshold');
+
+-- Motion options for the two cameras the menu links to. Inserted only while a
 -- (camera, parameter) pair is missing, so the edits made on the Camera pages
 -- survive a re-run of this script. Camera 2 ships switched off so that both
 -- states are visible; switch it on from its page.
 INSERT INTO babymonitor.cameras (camera_number, key, value, enabled) VALUES
-    (1, 'name',             'Nursery',                 TRUE),
-    (1, 'stream_url',       'http://192.168.0.2:8081', TRUE),
-    (1, 'resolution',       '1280x720',                TRUE),
-    (1, 'frame_rate',       '15',                      TRUE),
-    (1, 'codec',            'h264',                    TRUE),
-    (1, 'night_vision',     'auto',                    TRUE),
-    (1, 'motion_detection', 'on',                      TRUE),
-    (1, 'motion_threshold', '1500',                    TRUE),
-    (2, 'name',             'Hallway',                 FALSE),
-    (2, 'stream_url',       'http://192.168.0.2:8092', FALSE),
-    (2, 'resolution',       '1920x1080',               FALSE),
-    (2, 'frame_rate',       '10',                      FALSE),
-    (2, 'codec',            'h264',                    FALSE),
-    (2, 'night_vision',     'off',                     FALSE),
-    (2, 'motion_detection', 'on',                      FALSE),
-    (2, 'motion_threshold', '2500',                    FALSE)
+    (1, 'camera_name',         'Nursery',                          TRUE),
+    (1, 'video_device',        '/dev/video0',                      TRUE),
+    (1, 'width',               '1280',                             TRUE),
+    (1, 'height',              '720',                              TRUE),
+    (1, 'framerate',           '15',                               TRUE),
+    (1, 'threshold',           '1500',                             TRUE),
+    (1, 'stream_port',         '8081',                             TRUE),
+    (1, 'webcontrol_port',     '8091',                             TRUE),
+    (1, 'stream_localhost',    'off',                              TRUE),
+    (1, 'webcontrol_localhost','off',                              TRUE),
+    (1, 'target_dir',          '/home/bob/motion/1/recordings',    TRUE),
+    (1, 'logfile',             '/home/bob/motion/1/logs/motion.log', TRUE),
+    (2, 'camera_name',         'Hallway',                          FALSE),
+    (2, 'video_device',        '/dev/video2',                      FALSE),
+    (2, 'width',               '1920',                             FALSE),
+    (2, 'height',              '1080',                             FALSE),
+    (2, 'framerate',           '10',                               FALSE),
+    (2, 'threshold',           '2500',                             FALSE),
+    (2, 'stream_port',         '8082',                             FALSE),
+    (2, 'webcontrol_port',     '8092',                             FALSE),
+    (2, 'stream_localhost',    'off',                              FALSE),
+    (2, 'webcontrol_localhost','off',                              FALSE),
+    (2, 'target_dir',          '/home/bob/motion/2/recordings',    FALSE),
+    (2, 'logfile',             '/home/bob/motion/2/logs/motion.log', FALSE)
 ON CONFLICT (camera_number, key) DO NOTHING;
 
 -- Test notifications for the Notifications page: twenty events spread over the
