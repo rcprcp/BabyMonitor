@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.notNullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -99,5 +100,23 @@ class ApiTest {
                 .then()
                 .statusCode(202)
                 .body("status", equalTo("accepted"));
+    }
+
+    @Test
+    void userProfileRejectsMissingToken() {
+        given().when().get("/api/users/me").then().statusCode(401);
+    }
+
+    @Test
+    void userProfileReturnsDatabaseRecord() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", "Bearer " + token)
+                .when()
+                .get("/api/users/me")
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("Bob"))
+                .body("id", notNullValue());
     }
 }
