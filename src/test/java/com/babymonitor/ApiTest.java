@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
  * End-to-end tests against the running PostgreSQL database.
  *
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
- * {@code streaming_url} setting, the four accounts whose password is their own
- * name, and the demo notifications. The webhook tests write to
- * {@code babymonitor.notifications} and dismiss the row they created, so the
- * table does not grow on every run.
+ * {@code streaming_url} and {@code systemName} settings, the four accounts
+ * whose password is their own name, and the demo notifications. The webhook
+ * tests write to {@code babymonitor.notifications} and dismiss the row they
+ * created, so the table does not grow on every run.
  */
 @QuarkusTest
 class ApiTest {
@@ -122,6 +122,18 @@ class ApiTest {
                 .then()
                 .statusCode(200)
                 .body("value", equalTo("http://192.168.0.2:8081"));
+    }
+
+    @Test
+    void settingsReturnSystemNameWhenAuthenticated() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/settings/systemName")
+                .then()
+                .statusCode(200)
+                .body("value", equalTo("Cindy & Stephen's Baby Monitor"));
     }
 
     @Test

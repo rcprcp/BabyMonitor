@@ -33,7 +33,8 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 `db/init.sql` is re-runnable (idempotent). It creates:
 
 - `babymonitor.settings` (`tag`/`value`) — seeded with
-  `streaming_url` = `http://192.168.0.2:8081`
+  `streaming_url` = `http://192.168.0.2:8081` and
+  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
 - `babymonitor.users` (`id`, `name`, `password_hash`) — seeded with `Cindy`,
   `Marij`, `Stephen`, `Bob`, each with password equal to the name (bcrypt hash,
   `$2a$` prefix — the jbcrypt library rejects `$2b$`)
@@ -119,6 +120,8 @@ first.
 
 React Router routes: `/login`, `/` (stream), `/notifications`, `/settings`. The
 app boots into the live stream (from `streaming_url`); a blue title bar with a
-hamburger menu (upper left) links the pages. `SpaFallbackFilter` serves
+hamburger menu (upper left) links the pages. The title bar text — and the
+browser tab title — come from the `systemName` setting, so renaming the system
+is just a setting edit. `SpaFallbackFilter` serves
 `index.html` for client-side routes so a deep link like `/settings` works on
 refresh.
