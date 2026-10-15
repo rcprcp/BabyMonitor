@@ -6,6 +6,8 @@ import TitleBar from './components/TitleBar'
 import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
 import NotificationsPage from './pages/NotificationsPage'
+import EnvironmentPage from './pages/EnvironmentPage'
+import CameraPage from './pages/CameraPage'
 import SettingsPage from './pages/SettingsPage'
 import ProfilePage from './pages/ProfilePage'
 import { createAppTheme, noPersistenceColorSchemeManager } from './theme'
@@ -65,6 +67,9 @@ function ThemedApp() {
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<StreamPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/environment" element={<EnvironmentPage />} />
+          <Route path="/cameras/1" element={<CameraPage cameraNumber={1} />} />
+          <Route path="/cameras/2" element={<CameraPage cameraNumber={2} />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

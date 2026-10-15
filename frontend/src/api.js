@@ -88,4 +88,19 @@ export const api = {
   listNotifications: () => request('GET', '/api/notifications'),
   dismissNotification: (id) =>
     request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
+
+  // Ambient readings, newest first. `limit` caps the number of rows.
+  listEnvironment: (limit) =>
+    request('GET', limit === undefined ? '/api/environment' : `/api/environment?limit=${limit}`),
+
+  listCameras: () => request('GET', '/api/cameras'),
+  getCamera: (cameraNumber) => request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}`),
+  updateCameraParameter: (cameraNumber, key, value) =>
+    request(
+      'PUT',
+      `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
+      { value },
+    ),
+  updateCameraEnabled: (cameraNumber, enabled) =>
+    request('PUT', `/api/cameras/${encodeURIComponent(cameraNumber)}/enabled`, { enabled }),
 }

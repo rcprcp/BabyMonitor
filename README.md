@@ -55,6 +55,21 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   notifications that have no row for the account asking. Notifications
   themselves are never deleted, so dismissing hides an event for one account
   only and leaves it on record for everybody else
+- `babymonitor.environment` (`id`, `event_time`, `temperature`, `humidity`,
+  `brightness`) — the ambient time series behind the Environment page.
+  `temperature` is Celsius and `humidity` a percentage, both `NUMERIC(5,2)`;
+  `brightness` is lux. The script seeds one sample per hour for the previous
+  seven days, following a daily rhythm (coolest before dawn, brightest around
+  noon), only while the table is empty so re-running does not stack another week
+  on top. A camera or sensor writes real rows; delete the seed statement for
+  real readings only
+- `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
+  parameters, keyed by `(camera_number, key)`. There is no separate camera row,
+  so `enabled` (the camera's on/off flag) is repeated on every parameter of that
+  camera and switching it updates them all. The script seeds eight parameters
+  for each of the two cameras the menu links to, inserted only while a
+  `(camera, parameter)` pair is missing, so edits made on the Camera pages
+  survive a re-run. Camera 2 ships switched off so both states are visible
 
 ## Build & run
 
@@ -94,6 +109,11 @@ webhooks.
 | PUT         | `/api/users/me/theme-color`            | `{ "themeColor" }`: palette    |
 | GET         | `/api/notifications`                   | newest first, minus my dismissals |
 | DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
+| GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
+| GET         | `/api/cameras`                         | every camera parameter         |
+| GET         | `/api/cameras/{n}`                     | one camera's parameters        |
+| PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
+| PUT         | `/api/cameras/{n}/enabled`             | `{ "enabled" }`: switch a camera on/off |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
 | POST        | `/api/webhooks/videoNotification`      | device video/motion alert      |
 
@@ -163,16 +183,24 @@ this on: dismiss one as Bob and it stays in Cindy's feed.
 
 ## SPA
 
-React Router routes: `/login`, `/` (stream), `/notifications`, `/settings`,
-`/profile` (Personal settings). The app boots into the live stream (from
-`streaming_url`); a blue title bar with a hamburger menu (upper left) links the
-pages. The title bar text — and the browser tab title — come from the
+React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
+`/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
+`/settings`, `/profile` (Personal settings). The app boots into the live stream
+(from `streaming_url`); a blue title bar with a hamburger menu (upper left)
+links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
 like `/settings` works on refresh.
 
-The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core` +
-`@mantine/hooks`, wired up in `frontend/src/main.jsx` with the PostCSS preset in
+The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
+lists the raw rows under it. Temperature and humidity share the left axis;
+brightness gets its own right axis. The Camera pages show one camera's
+parameters and let each value be edited, plus a switch for the camera's
+`enabled` flag.
+
+The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core`,
+`@mantine/hooks` and `@mantine/charts` on top of `recharts`, wired up in
+`frontend/src/main.jsx` with the PostCSS preset in
 `frontend/postcss.config.cjs`). Only the blue brand bar and the camera frame
 keep hand-written CSS (`frontend/src/styles.css`).
 

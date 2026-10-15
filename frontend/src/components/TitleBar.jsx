@@ -68,6 +68,15 @@ export default function TitleBar() {
           <Menu.Item component={NavLink} to="/notifications">
             Notifications
           </Menu.Item>
+          <Menu.Item component={NavLink} to="/environment">
+            Environment
+          </Menu.Item>
+          <Menu.Item component={NavLink} to="/cameras/1">
+            Camera1
+          </Menu.Item>
+          <Menu.Item component={NavLink} to="/cameras/2">
+            Camera2
+          </Menu.Item>
           <Menu.Item component={NavLink} to="/settings">
             Settings
           </Menu.Item>
