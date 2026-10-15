@@ -1,7 +1,10 @@
 package com.babymonitor.resource;
 
+import com.babymonitor.auth.AuthFilter;
+import com.babymonitor.auth.Session;
 import com.babymonitor.dto.ErrorResponse;
 import com.babymonitor.dto.NotificationDto;
+import com.babymonitor.entity.User;
 import com.babymonitor.service.NotificationService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -9,10 +12,16 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
@@ -20,12 +29,15 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * Notification endpoints backing the SPA's Notifications page.
  *
  * <ul>
- *   <li>{@code GET    /api/notifications}      -- list (newest first)</li>
- *   <li>{@code DELETE /api/notifications/{id}} -- dismiss</li>
+ *   <li>{@code GET    /api/notifications}      -- list (newest first), minus the
+ *       ones the calling account has dismissed</li>
+ *   <li>{@code DELETE /api/notifications/{id}} -- dismiss for the calling account</li>
  * </ul>
  *
- * <p>Rows live in {@code babymonitor.notifications}; transactions are handled by
- * {@link NotificationService}.
+ * <p>Dismissal is per account: it records a row in
+ * {@code babymonitor.notification_dismissals} and the notification itself stays
+ * put, so another account still sees it and the event stays on record.
+ * Transactions are handled by {@link NotificationService}.
  */
 @Path("/api/notifications")
 @Produces(MediaType.APPLICATION_JSON)
@@ -37,20 +49,62 @@ public class NotificationsResource {
     NotificationService notifications;
 
     @GET
-    @Operation(summary = "List notifications", description = "Newest event first.")
-    public List<NotificationDto> list() {
-        return notifications.list();
+    @Operation(
+            summary = "List notifications",
+            description = "Newest event first. Notifications the calling account has dismissed "
+                    + "are left out; notifications dismissed by other accounts are not.")
+    public List<NotificationDto> list(@Context ContainerRequestContext requestContext) {
+        User user = currentUser(requestContext);
+        return notifications.list(user.id);
     }
 
     @DELETE
     @Path("/{id}")
-    @Operation(summary = "Dismiss a notification", description = "Deletes the row.")
-    public Response dismiss(@PathParam("id") Long id) {
-        if (!notifications.dismiss(id)) {
+    @Operation(
+            summary = "Dismiss a notification",
+            description = "Dismisses the notification for the calling account only, which hides it "
+                    + "from that account's feed. Idempotent: dismissing it again still returns 204.")
+    @APIResponse(
+            responseCode = "204",
+            description = "Dismissed, or already dismissed by this account")
+    @APIResponse(
+            responseCode = "404",
+            description = "No notification with that id",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public Response dismiss(@PathParam("id") Long id, @Context ContainerRequestContext requestContext) {
+        User user = currentUser(requestContext);
+        if (!notifications.dismiss(id, user.id)) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(new ErrorResponse("No such notification: " + id))
                     .build();
         }
         return Response.noContent().build();
+    }
+
+    /**
+     * The account making the request, from the session {@link AuthFilter}
+     * attached. Both failures are inconsistencies rather than normal outcomes:
+     * the filter turns away an unauthenticated caller before it gets here, and a
+     * session is only ever issued to a user row that exists.
+     */
+    private static User currentUser(ContainerRequestContext requestContext) {
+        Session session = (Session) requestContext.getProperty(AuthFilter.SESSION_PROPERTY);
+        if (session == null) {
+            throw abort(Response.Status.UNAUTHORIZED, "Authentication required");
+        }
+        User user = User.findByName(session.name());
+        if (user == null) {
+            throw abort(Response.Status.NOT_FOUND, "User record not found");
+        }
+        return user;
+    }
+
+    private static WebApplicationException abort(Response.Status status, String message) {
+        return new WebApplicationException(Response.status(status)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(new ErrorResponse(message))
+                .build());
     }
 }

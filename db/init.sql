@@ -83,6 +83,27 @@ ALTER TABLE babymonitor.notifications
 CREATE INDEX IF NOT EXISTS notifications_event_time_idx
     ON babymonitor.notifications (event_time DESC);
 
+-- Per-account dismissal of a notification. A row here means "this account has
+-- dismissed this notification", and the feed hides only those: the notification
+-- itself is never deleted, so it stays visible (and on record) for everyone
+-- else. The (notification, account) pair is the primary key, which makes
+-- dismissing twice a no-op (INSERT ... ON CONFLICT DO NOTHING), and both
+-- cascades keep the table clean if a notification or an account is removed.
+CREATE TABLE IF NOT EXISTS babymonitor.notification_dismissals (
+    notification_id BIGINT      NOT NULL
+        REFERENCES babymonitor.notifications (id) ON DELETE CASCADE,
+    user_id         BIGINT      NOT NULL
+        REFERENCES babymonitor.users (id) ON DELETE CASCADE,
+    dismissed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (notification_id, user_id)
+);
+
+-- PostgreSQL does not index foreign keys, and deleting an account cascades into
+-- this table, so it needs its own index on the account side. The feed needs no
+-- further index: it probes the primary key by (notification_id, user_id).
+CREATE INDEX IF NOT EXISTS notification_dismissals_user_idx
+    ON babymonitor.notification_dismissals (user_id);
+
 -- Seed the streaming URL consumed by the video page.
 INSERT INTO babymonitor.settings (tag, value)
 VALUES ('streaming_url', 'http://192.168.0.2:8081')
@@ -105,21 +126,97 @@ INSERT INTO babymonitor.users (name, password_hash) VALUES
     ('Bob',     '$2a$12$vRZy6FF.VMqt/TAWXyDPJ.Jr9VaVeCNWx4slYvUBFOxB39JS1JNxq')
 ON CONFLICT (name) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
--- Demo notifications for the Notifications page, inserted only while the table
--- is still empty so re-running this script stays idempotent.
+-- Test notifications for the Notifications page: twenty events spread over the
+-- last four days, nine of them video alerts with a clip link, so the feed has a
+-- realistic list to read, refresh, link from and dismiss. They are meant to be
+-- there whenever this script is run, so each row is inserted only while its
+-- description is missing: re-running never duplicates a row, and a row that was
+-- removed comes back. Delete this statement if you ever want a feed of real
+-- events only.
 INSERT INTO babymonitor.notifications (event_time, event_type, description, video_link)
-SELECT * FROM (VALUES
+SELECT seed.event_time, seed.event_type, seed.description, seed.video_link
+  FROM (VALUES
     (now() - interval '3 minutes',
      'Audio'::babymonitor.event_type,
      'Baby cried for more than 30 seconds.',
      NULL::varchar),
+    (now() - interval '12 minutes',
+     'Audio'::babymonitor.event_type,
+     'Loud noise detected in the nursery.',
+     NULL),
     (now() - interval '40 minutes',
      'Video'::babymonitor.event_type,
      'Motion detected near the crib.',
      'http://192.168.0.2:8081/recordings/motion-2026-10-14.mp4'::varchar),
+    (now() - interval '55 minutes',
+     'Video'::babymonitor.event_type,
+     'Baby rolled over in the crib.',
+     'http://192.168.0.2:8081/recordings/rolling-over.mp4'),
+    (now() - interval '1 hour 20 minutes',
+     'Audio'::babymonitor.event_type,
+     'Crying stopped after a few seconds.',
+     NULL),
+    (now() - interval '2 hours',
+     'Audio'::babymonitor.event_type,
+     'Baby babbled happily for a few minutes.',
+     NULL),
+    (now() - interval '3 hours',
+     'Video'::babymonitor.event_type,
+     'Motion detected at the nursery door.',
+     'http://192.168.0.2:8081/recordings/door-motion.mp4'),
+    (now() - interval '5 hours',
+     'Audio'::babymonitor.event_type,
+     'Baby woke up and started talking.',
+     NULL),
     (now() - interval '8 hours',
      'Video'::babymonitor.event_type,
      'Bedtime recording saved to the archive.',
-     'http://192.168.0.2:8081/recordings/night-2026-10-13.mp4'::varchar)
+     'http://192.168.0.2:8081/recordings/night-2026-10-13.mp4'),
+    (now() - interval '9 hours',
+     'Audio'::babymonitor.event_type,
+     'Crying detected for more than 2 minutes.',
+     NULL),
+    (now() - interval '11 hours',
+     'Video'::babymonitor.event_type,
+     'Motion detected on the changing table.',
+     'http://192.168.0.2:8081/recordings/changing-table.mp4'),
+    (now() - interval '14 hours',
+     'Audio'::babymonitor.event_type,
+     'Baby sneezed three times.',
+     NULL),
+    (now() - interval '20 hours',
+     'Video'::babymonitor.event_type,
+     'Nap recording saved to the archive.',
+     'http://192.168.0.2:8081/recordings/nap.mp4'),
+    (now() - interval '26 hours',
+     'Audio'::babymonitor.event_type,
+     'Baby cried briefly and settled.',
+     NULL),
+    (now() - interval '30 hours',
+     'Video'::babymonitor.event_type,
+     'Motion detected: blanket over the crib rail.',
+     'http://192.168.0.2:8081/recordings/blanket.mp4'),
+    (now() - interval '34 hours',
+     'Audio'::babymonitor.event_type,
+     'Coughing detected in the nursery.',
+     NULL),
+    (now() - interval '2 days',
+     'Audio'::babymonitor.event_type,
+     'Baby laughed out loud.',
+     NULL),
+    (now() - interval '2 days 6 hours',
+     'Video'::babymonitor.event_type,
+     'Motion detected: a parent entered the nursery.',
+     'http://192.168.0.2:8081/recordings/visit.mp4'),
+    (now() - interval '3 days',
+     'Audio'::babymonitor.event_type,
+     'Baby slept through the night for the first time.',
+     NULL),
+    (now() - interval '4 days',
+     'Video'::babymonitor.event_type,
+     'Evening recording saved to the archive.',
+     'http://192.168.0.2:8081/recordings/evening.mp4')
 ) AS seed(event_time, event_type, description, video_link)
-WHERE NOT EXISTS (SELECT 1 FROM babymonitor.notifications);
+ WHERE NOT EXISTS (SELECT 1
+                     FROM babymonitor.notifications existing
+                    WHERE existing.description = seed.description);

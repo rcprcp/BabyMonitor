@@ -3,14 +3,15 @@ package com.babymonitor.service;
 import com.babymonitor.dto.NotificationDto;
 import com.babymonitor.entity.EventType;
 import com.babymonitor.entity.Notification;
-import io.quarkus.panache.common.Sort;
+import com.babymonitor.entity.NotificationDismissal;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.List;
 
 /**
- * Notification feed, backed by the {@code babymonitor.notifications} table.
+ * Notification feed, backed by the {@code babymonitor.notifications} table, plus
+ * the per-account dismissals in {@code babymonitor.notification_dismissals}.
  *
  * <p>Rows are written by the device webhooks ({@code WebhookResource}) and read
  * by the Notifications page ({@code NotificationsResource}).
@@ -18,12 +19,27 @@ import java.util.List;
 @ApplicationScoped
 public class NotificationService {
 
-    /** All notifications, newest event first. */
+    /**
+     * The notifications one account should see: everything it has not dismissed,
+     * newest event first.
+     *
+     * <p>The filter is an anti-join on the (notification, account) pair rather
+     * than on the notification alone: a notification another account dismissed
+     * stays visible here.
+     *
+     * @param userId the account reading the feed, from its session
+     */
     @Transactional
-    public List<NotificationDto> list() {
-        // Assigned to a typed local so Panache's generic listAll() infers
-        // Notification (chaining the call directly infers the base type).
-        List<Notification> rows = Notification.listAll(Sort.descending("eventTime"));
+    public List<NotificationDto> list(Long userId) {
+        // Assigned to a typed local so Panache's query type is inferred rather
+        // than resolved from the return statement.
+        List<Notification> rows = Notification.find(
+                        "select n from Notification n where not exists "
+                                + "(select d.notificationId from NotificationDismissal d "
+                                + "where d.notificationId = n.id and d.userId = ?1) "
+                                + "order by n.eventTime desc",
+                        userId)
+                .list();
         return rows.stream()
                 .map(NotificationService::toDto)
                 .toList();
@@ -48,10 +64,21 @@ public class NotificationService {
         return toDto(notification);
     }
 
-    /** Removes one notification. Returns {@code false} when the id is unknown. */
+    /**
+     * Marks a notification dismissed for one account, so the feed hides it for
+     * that account only. Idempotent: dismissing twice is a no-op, not an error.
+     *
+     * @param id     the notification to dismiss
+     * @param userId the account dismissing it, from its session
+     * @return {@code false} when the notification itself does not exist
+     */
     @Transactional
-    public boolean dismiss(Long id) {
-        return Notification.deleteById(id);
+    public boolean dismiss(Long id, Long userId) {
+        if (Notification.findById(id) == null) {
+            return false;
+        }
+        NotificationDismissal.dismiss(id, userId);
+        return true;
     }
 
     private static NotificationDto toDto(Notification notification) {
