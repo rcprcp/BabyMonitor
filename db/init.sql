@@ -104,14 +104,15 @@ CREATE TABLE IF NOT EXISTS babymonitor.notification_dismissals (
 CREATE INDEX IF NOT EXISTS notification_dismissals_user_idx
     ON babymonitor.notification_dismissals (user_id);
 
--- Seed the streaming URL consumed by the video page.
-INSERT INTO babymonitor.settings (tag, value)
-VALUES ('streaming_url', 'http://192.168.0.2:8081')
-ON CONFLICT (tag) DO UPDATE SET value = EXCLUDED.value;
+-- The streaming URL used to be a setting here. It is now each camera's
+-- `stream_url` parameter in babymonitor.cameras, so the old row is removed on
+-- every run (and this script no longer seeds it). The Live stream page has no
+-- source of its own for now.
+DELETE FROM babymonitor.settings WHERE tag = 'streaming_url';
 
--- The name shown in the UI title bar (and the browser tab). Unlike the stream
--- URL this is a cosmetic label the household can rename from the Settings page,
--- so it is only seeded while the tag is absent.
+-- The name shown in the UI title bar (and the browser tab). This is a cosmetic
+-- label the household can rename from the Settings page, so it is only seeded
+-- while the tag is absent.
 INSERT INTO babymonitor.settings (tag, value)
 VALUES ('systemName', 'Cindy & Stephen''s Baby Monitor')
 ON CONFLICT (tag) DO NOTHING;

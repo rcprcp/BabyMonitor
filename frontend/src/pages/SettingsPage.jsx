@@ -13,8 +13,8 @@ import {
 } from '@mantine/core'
 import { api } from '../api'
 
-// Application settings. Every row in babymonitor.settings is editable; the
-// streaming_url one drives the Live stream page and systemName titles the bar.
+// Application settings. Every row in babymonitor.settings is editable;
+// systemName titles the bar.
 export default function SettingsPage() {
   const [settings, setSettings] = useState([])
   const [drafts, setDrafts] = useState({})

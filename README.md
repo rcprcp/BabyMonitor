@@ -33,8 +33,10 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 `db/init.sql` is re-runnable (idempotent). It creates:
 
 - `babymonitor.settings` (`tag`/`value`) — seeded with
-  `streaming_url` = `http://192.168.0.2:8081` and
-  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
+  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA).
+  The live-stream URL is not a setting any more: it is each camera's
+  `stream_url` parameter in `babymonitor.cameras`, and a run of this script
+  drops the old `streaming_url` row
 - `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`) —
   seeded with `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to
   the name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
@@ -185,8 +187,10 @@ this on: dismiss one as Bob and it stays in Cindy's feed.
 
 React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/settings`, `/profile` (Personal settings). The app boots into the live stream
-(from `streaming_url`); a blue title bar with a hamburger menu (upper left)
+`/settings`, `/profile` (Personal settings). The app boots into the Live stream
+page, which has no stream URL of its own for now — each camera's `stream_url`
+parameter is the source of truth — so it shows a placeholder until it is wired
+to one. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link

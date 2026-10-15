@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
  * End-to-end tests against the running PostgreSQL database.
  *
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
- * {@code streaming_url} and {@code systemName} settings, the four accounts
+ * {@code systemName} setting, the four accounts
  * whose password is their own name, and the test notifications. The webhook
  * tests write to {@code babymonitor.notifications} and remove the row they
  * created in a {@code finally}, so the table does not grow on every run --
@@ -198,15 +198,15 @@ class ApiTest {
     }
 
     @Test
-    void settingsReturnStreamingUrlWhenAuthenticated() {
+    void streamingUrlIsNoLongerASetting() {
         String token = login("Bob", "Bob");
         given()
                 .header("Authorization", bearer(token))
                 .when()
                 .get("/api/settings/streaming_url")
                 .then()
-                .statusCode(200)
-                .body("value", equalTo("http://192.168.0.2:8081"));
+                .statusCode(404)
+                .body("error", equalTo("No such setting: streaming_url"));
     }
 
     @Test
@@ -640,6 +640,8 @@ class ApiTest {
         Collections.sort(sorted);
         assertEquals(sorted, keys, "parameters are ordered by name");
         assertEquals("1280x720", parameterNamed(parameters, "resolution").get("value"));
+        // The stream URL now lives here rather than in the settings table.
+        assertNotNull(parameterNamed(parameters, "stream_url").get("value"));
     }
 
     @Test

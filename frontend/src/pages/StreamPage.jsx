@@ -1,59 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Alert, Box, Button, Code, Group, Stack, Text, Title } from '@mantine/core'
+import { Box, Stack, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
-import { api } from '../api'
 
-// The landing page: the live stream pulled from the streaming_url setting.
+// The landing page. The stream URL used to come from the streaming_url setting;
+// that setting is gone, and each camera's stream_url parameter (on the Camera
+// pages) is the source of truth now. Nothing is wired up here yet, so this page
+// shows the player's "no stream URL" placeholder until it is pointed at a
+// camera.
 export default function StreamPage() {
-  const [url, setUrl] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const setting = await api.getSetting('streaming_url')
-      setUrl(setting.value)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
   return (
     <Stack>
-      <Group justify="space-between" align="center">
-        <Title order={2}>Live stream</Title>
-        <Button variant="default" onClick={load} loading={loading}>
-          Reload stream
-        </Button>
-      </Group>
-
-      {error && (
-        <Alert color="red" variant="light">
-          {error}
-        </Alert>
-      )}
+      <Title order={2}>Live stream</Title>
 
       <Box className="stream-frame">
-        {loading ? (
-          <Text c="gray.3">Connecting…</Text>
-        ) : (
-          <StreamPlayer url={url} />
-        )}
+        <StreamPlayer />
       </Box>
-
-      {url && (
-        <Text size="sm" c="dimmed">
-          Source: <Code>{url}</Code>
-        </Text>
-      )}
     </Stack>
   )
 }

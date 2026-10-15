@@ -22,7 +22,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *
  * <ul>
  *   <li>{@code GET /api/settings}         -- all settings</li>
- *   <li>{@code GET /api/settings/{tag}}   -- one setting (e.g. {@code streaming_url})</li>
+ *   <li>{@code GET /api/settings/{tag}}   -- one setting (e.g. {@code systemName})</li>
  *   <li>{@code PUT /api/settings/{tag}}   -- replace a setting's value</li>
  * </ul>
  *
