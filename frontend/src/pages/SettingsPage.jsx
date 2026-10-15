@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Stack,
+  Text,
   TextInput,
   Title,
 } from '@mantine/core'
@@ -86,9 +87,13 @@ export default function SettingsPage() {
               label={setting.tag}
               style={{ flex: 1 }}
               value={drafts[setting.tag] ?? ''}
-              onChange={(event) =>
-                setDrafts((current) => ({ ...current, [setting.tag]: event.currentTarget.value }))
-              }
+              onChange={(event) => {
+                // Read the value before calling setDrafts: the updater runs
+                // later, during the render phase, by which time React has reset
+                // the synthetic event's currentTarget (and reading it throws).
+                const { value } = event.currentTarget
+                setDrafts((current) => ({ ...current, [setting.tag]: value }))
+              }}
             />
             <Button
               onClick={() => save(setting.tag)}
