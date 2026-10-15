@@ -48,7 +48,7 @@ function ColorSchemeSync() {
 
 // The provider order matters: the account's preferences come from AuthProvider
 // (which is deliberately Mantine-free), so MantineProvider sits inside it and
-// its theme is rebuilt whenever the account's accent colour changes.
+// its theme is rebuilt whenever the account's accent color changes.
 function ThemedApp() {
   const { colorScheme, themeColor } = useAuth()
   const theme = useMemo(() => createAppTheme(themeColor), [themeColor])

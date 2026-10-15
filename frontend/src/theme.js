@@ -1,7 +1,7 @@
 import { createTheme } from '@mantine/core'
 
 // Light / dark, stored per account in babymonitor.users.theme. `auto` follows
-// the operating system. The values are also Mantine's own colour-scheme names.
+// the operating system. The values are also Mantine's own color-scheme names.
 export const COLOR_SCHEMES = [
   { label: 'Light', value: 'light' },
   { label: 'Dark', value: 'dark' },
@@ -11,9 +11,9 @@ export const COLOR_SCHEMES = [
 export const DEFAULT_COLOR_SCHEME = 'auto'
 
 // Mantine's own palette (https://mantine.dev/theming/colors/), in the order the
-// Mantine docs list it. `dark` is left out: it is Mantine's surface colour
+// Mantine docs list it. `dark` is left out: it is Mantine's surface color
 // rather than a sensible accent. One of these names is stored in
-// babymonitor.users.theme_color and used as the app's primary colour.
+// babymonitor.users.theme_color and used as the app's primary color.
 export const PALETTE = [
   'gray',
   'red',
@@ -32,9 +32,17 @@ export const PALETTE = [
 
 export const DEFAULT_THEME_COLOR = 'blue'
 
-/** The Mantine theme, with the account's palette colour as its primary. */
+/** The Mantine theme, with the account's palette color as its primary. */
 export function createAppTheme(primaryColor) {
-  return createTheme({ primaryColor, defaultRadius: 'md' })
+  return createTheme({
+    primaryColor,
+    defaultRadius: 'md',
+    // Without this Mantine answers white for every contrast color, so a pale
+    // palette (yellow, lime, gray) would put white text on its own light shade.
+    // With it the text color is picked per palette: dark on pale colors, white
+    // on dark ones.
+    autoContrast: true,
+  })
 }
 
 // The database is the source of truth for a user's preferences, so Mantine is
@@ -49,7 +57,7 @@ export const noPersistenceColorSchemeManager = {
 }
 
 // A throw-away hint, written whenever the account's preferences are applied and
-// read once at startup: it only stops the app from flashing the wrong colours
+// read once at startup: it only stops the app from flashing the wrong colors
 // while /api/users/me is in flight.
 const HINT_KEY = 'babymonitor.prefs'
 

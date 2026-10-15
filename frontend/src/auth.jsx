@@ -10,7 +10,7 @@ import {
 // Auth state is just "is there a valid token in localStorage". We do not trust
 // the stored name for anything security-relevant; it is only a display hint.
 //
-// The UI preferences (light/dark and accent colour) belong to the account
+// The UI preferences (light/dark and accent color) belong to the account
 // (babymonitor.users) and are cached here for the lifetime of the session.
 // Deliberately free of Mantine imports: App.jsx builds the Mantine theme from
 // this state, so this provider has to sit above MantineProvider.
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
   const [colorScheme, setColorScheme] = useState(() => readPrefsHint().colorScheme)
   const [themeColor, setThemeColor] = useState(() => readPrefsHint().themeColor)
 
-  // Remember the preferences so the next page load starts in the right colours.
+  // Remember the preferences so the next page load starts in the right colors.
   // It is a hint only: the account is what actually decides.
   useEffect(() => {
     writePrefsHint({ colorScheme, themeColor })

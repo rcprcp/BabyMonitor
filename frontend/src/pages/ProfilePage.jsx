@@ -28,7 +28,7 @@ function initialOf(name) {
 
 /**
  * Both theme preferences are stored on the account, so they follow the user to
- * any browser: the accent colour (Mantine's palette) and light / dark / auto.
+ * any browser: the accent color (Mantine's palette) and light / dark / auto.
  */
 export default function ProfilePage() {
   const { user, colorScheme, themeColor, saveColorScheme, saveThemeColor } = useAuth()
@@ -153,7 +153,7 @@ export default function ProfilePage() {
             <Stack gap="xs" align="flex-start">
               <Text fw={600}>Theme Selection</Text>
               <Text c="dimmed" size="sm">
-                Mantine&apos;s colour palette. The colour you pick becomes the accent used for
+                Mantine&apos;s color palette. The color you pick becomes the accent used for
                 buttons, links and highlights.
               </Text>
               <ThemePalette value={themeColor} onChange={changeThemeColor} disabled={savingColor} />

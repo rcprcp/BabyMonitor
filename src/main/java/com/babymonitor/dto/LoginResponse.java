@@ -8,7 +8,7 @@ package com.babymonitor.dto;
  * @param expiresAt  ISO-8601 instant when the token stops working
  * @param theme      the account's stored UI theme, so the SPA can apply it
  *                   without a second round trip
- * @param themeColor the account's stored accent colour, applied alongside it
+ * @param themeColor the account's stored accent color, applied alongside it
  */
 public record LoginResponse(
         String token, String name, String expiresAt, String theme, String themeColor) {

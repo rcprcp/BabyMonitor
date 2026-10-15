@@ -403,7 +403,7 @@ class ApiTest {
                     .statusCode(200)
                     .body("themeColor", equalTo("grape"));
 
-            // A new session sees the stored colour again.
+            // A new session sees the stored color again.
             String freshToken = login("Bob", "Bob");
             given()
                     .header("Authorization", bearer(freshToken))
@@ -426,7 +426,7 @@ class ApiTest {
     }
 
     @Test
-    void themeColorRejectsColoursOutsideThePalette() {
+    void themeColorRejectsColorsOutsideThePalette() {
         String token = login("Bob", "Bob");
         given()
                 .header("Authorization", bearer(token))

@@ -9,7 +9,7 @@ package com.babymonitor.dto;
  * @param id         primary key of the user row
  * @param name       login name / display name
  * @param theme      UI preference: {@code light}, {@code dark} or {@code auto}
- * @param themeColor accent colour: a Mantine palette name such as {@code blue}
+ * @param themeColor accent color: a Mantine palette name such as {@code blue}
  */
 public record UserDto(Long id, String name, String theme, String themeColor) {
 }
