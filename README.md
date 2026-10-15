@@ -17,8 +17,9 @@ src/main/java/com/babymonitor/
                                 MotionProcessManager, MotionService
   resource/                     AuthResource, SettingsResource,
                                 NotificationsResource, WebhookResource,
-                                CamerasResource
-  service/                      NotificationService, AfterCommit
+                                CamerasResource, RecordingsResource
+  service/                      NotificationService, AfterCommit,
+                                RecordingsService
   web/                          SpaFallbackFilter
 src/main/resources/motion/      motion.template, motion-notify.sh
 frontend/                       React/Vite SPA (built into the jar)
@@ -75,7 +76,7 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   camera and switching it updates them all. The keys *are* Motion option names:
   the app writes them, almost verbatim, into the camera's generated
   `motion.config.<n>` (see *Motion* below). Both cameras are USB cameras, so
-  they are addressed by `video_device` (`/dev/video0`, `/dev/video2`), not a
+  they are addressed by `video_device` (`/dev/video0`, `/dev/video4`), not a
   network URL. The script seeds twelve parameters for each of the two cameras
   the menu links to, inserted only while a `(camera, parameter)` pair is
   missing, so edits made on the Camera pages survive a re-run; it also drops the
@@ -128,6 +129,8 @@ webhooks.
 | GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |
 | POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
 | POST        | `/api/cameras/{n}/motion/stop`         | stop the camera's Motion       |
+| GET         | `/api/cameras/{n}/recordings`          | the camera's clips, newest first |
+| GET         | `/api/cameras/{n}/recordings/{file}`   | one clip; honours a byte `Range` |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
 | POST        | `/api/webhooks/videoNotification`      | device video/motion alert      |
 
@@ -264,9 +267,20 @@ to `on` to keep the ports on the box itself.
 
 The template's `on_movie_end` runs `motion-notify.sh` with each finished clip,
 which POSTs a Video notification to `/api/webhooks/videoNotification`; the
-webhook URL and any secret are passed in Motion's environment. Recordings are
-not served over HTTP yet, so the notification currently links the clip by its
-file name — serving `<base>/<n>/recordings` is the next step.
+webhook URL, any secret and the camera number are passed in Motion's
+environment. The hook points the notification at the clip through the app's own
+route, `/api/cameras/<n>/recordings/<file>`, derived from the clip's path so it
+still works when Motion is started by hand. Like the template, the script is
+copied into the base directory on first use and never overwritten — delete
+`<base>/motion-notify.sh` to pick up a change to it.
+
+`GET /api/cameras/{n}/recordings` lists a camera's clips and
+`…/recordings/{file}` streams one, from the file's own `target_dir` (either
+absolute or the default `<base>/<n>/recordings`). The name must be a plain file
+name, so a request cannot read outside that directory, and the response honours
+a byte `Range` so a player can seek. Both sit behind the same bearer gate as the
+rest of `/api`; that is why the Notifications page fetches a clip with its token
+and plays it in an in-app player rather than opening the URL in a new tab.
 
 ## SPA
 
@@ -292,6 +306,12 @@ brightness gets its own right axis. The Camera pages show one camera's
 parameters and let each value be edited, plus a switch for the camera's
 `enabled` flag and an **Apply** button that rebuilds and (re)starts its Motion
 process.
+
+The Notifications page lists the feed the webhooks write. A video event links the
+clip through the app's recordings route; because that route needs the bearer
+token, a plain link could not fetch it, so the page pulls the clip with the
+token and plays it in an in-app player. A link the app does not serve (an older
+or an external URL) still opens in a new tab.
 
 The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core`,
 `@mantine/hooks` and `@mantine/charts` on top of `recharts`, wired up in
