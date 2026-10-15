@@ -17,6 +17,6 @@ frontend/dist/
 # Local overrides
 .env
 
-# Session transcripts: exported locally with `opencode session export`, never
-# published. The Markdown summary beside them is tracked.
-docs/agent-sessions/*.json
+# Session history: transcripts and session summaries are local records only
+# (AGENTS.md: "Never check in transcripts or session history").
+docs/
