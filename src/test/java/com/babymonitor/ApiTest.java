@@ -58,7 +58,20 @@ class ApiTest {
                 .when()
                 .post("/api/auth/login")
                 .then()
-                .statusCode(401);
+                .statusCode(401)
+                .body("error", equalTo("Invalid Name or Password."));
+    }
+
+    @Test
+    void loginFailsWithUnknownName() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"Nobody\",\"password\":\"whatever\"}")
+                .when()
+                .post("/api/auth/login")
+                .then()
+                .statusCode(401)
+                .body("error", equalTo("Invalid Name or Password."));
     }
 
     @Test
