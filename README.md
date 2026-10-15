@@ -39,7 +39,7 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   seeded with `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to
   the name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
   `theme` holds the account's UI preference (`light`, `dark` or `auto`,
-  defaulting to `auto`) and `theme_color` its accent colour, a Mantine palette
+  defaulting to `auto`) and `theme_color` its accent color, a Mantine palette
   name (defaulting to `blue`)
 - `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
   `video_link`) — the feed behind the Notifications page. `event_type` is the
@@ -147,19 +147,27 @@ keep hand-written CSS (`frontend/src/styles.css`).
 Each account carries its own preferences in `babymonitor.users`, and the
 Personal settings page writes them straight to the account:
 
-- **Theme Selection** — Mantine's colour palette
+- **Theme Selection** — Mantine's color palette
   (https://mantine.dev/theming/colors/) as clickable swatches. The chosen name
   (`blue`, `grape`, `teal`, …) is stored in `theme_color` with
-  `PUT /api/users/me/theme-color` and becomes the Mantine primary colour, so
+  `PUT /api/users/me/theme-color` and becomes the Mantine primary color, so
   buttons, links and highlights follow it. `gray` is offered too; Mantine's
-  `dark` is not, as it is a surface colour rather than an accent.
+  `dark` is not, as it is a surface color rather than an accent.
 - **Light / dark** — `light`, `dark` or `auto` (follow the OS), stored in
   `theme` with `PUT /api/users/me/theme`.
 
 The database is the single source of truth — Mantine is configured with a
-non-persisting colour-scheme manager (`frontend/src/theme.js`) and its theme is
-built from the account's colour in `frontend/src/App.jsx`, where `AuthProvider`
+non-persisting color-scheme manager (`frontend/src/theme.js`) and its theme is
+built from the account's color in `frontend/src/App.jsx`, where `AuthProvider`
 sits *above* `MantineProvider` for exactly that reason. The login response plus
-`GET /api/users/me` carry both values so the app paints in the right colours. A
+`GET /api/users/me` carry both values so the app paints in the right colors. A
 `babymonitor.prefs` localStorage entry is kept purely as a hint to avoid
 flashing the wrong theme while the profile request is in flight.
+
+The blue title bar is part of this: it is painted with Mantine's
+`--mantine-primary-color-filled` / `-contrast` variables, so it takes the
+account's palette color, and the initial in its top-right circle is the palette
+color on the contrasting color. `createAppTheme` enables Mantine's
+`autoContrast`, without which Mantine answers *white* for every contrast color
+and a pale palette (yellow, lime, gray) would put white text on its own light
+shade.

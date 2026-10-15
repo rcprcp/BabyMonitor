@@ -1,12 +1,21 @@
 /* Mantine supplies the design system (components, spacing, light/dark tokens);
    only the brand bar and the camera frame need styles of their own. */
 
+/* The title bar follows the account's palette color: Mantine's own filled and
+   contrast variables already account for light/dark (shade 6 in light, shade 8
+   in dark) and for pale palettes that need dark text instead of white. */
 .bm-titlebar {
-  background: var(--mantine-color-blue-7);
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
 }
 
-[data-mantine-color-scheme='dark'] .bm-titlebar {
-  background: var(--mantine-color-blue-9);
+/* The account's initial, in the bar's contrasting color, with the palette color
+   as the letter: the two are Mantine's own contrast pair, just swapped, so the
+   initial can never end up light on light. */
+.bm-titlebar .bm-avatar {
+  background: var(--mantine-primary-color-contrast);
+  color: var(--mantine-primary-color-8);
+  font-weight: 600;
 }
 
 /* Black letterbox for the stream, whatever shape the camera sends. */
@@ -28,7 +37,7 @@
   background: #000;
 }
 
-/* The tick on the selected palette swatch: legible on light and dark colours. */
+/* The tick on the selected palette swatch: legible on light and dark colors. */
 .bm-swatch-check {
   color: #fff;
   font-size: 0.8rem;

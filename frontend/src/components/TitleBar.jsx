@@ -54,7 +54,7 @@ export default function TitleBar() {
         <Menu.Target>
           <Burger
             opened={opened}
-            color="white"
+            color="var(--mantine-primary-color-contrast)"
             size="sm"
             aria-label="Open the menu"
             aria-expanded={opened}
@@ -81,7 +81,7 @@ export default function TitleBar() {
         </Menu.Dropdown>
       </Menu>
 
-      <Title order={1} c="white" fz="1.35rem" fw={600} truncate>
+      <Title order={1} fz="1.35rem" fw={600} truncate>
         {systemName}
       </Title>
 
@@ -90,9 +90,7 @@ export default function TitleBar() {
         to="/profile"
         radius="xl"
         size="md"
-        bg="white"
-        c="blue.8"
-        fw={600}
+        className="bm-avatar"
         aria-label="Personal settings"
         title={user ? `Personal settings — ${user}` : 'Personal settings'}
       >

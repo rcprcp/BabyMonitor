@@ -29,7 +29,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * <ul>
  *   <li>{@code GET /api/users/me}             -- read the current user's row</li>
  *   <li>{@code PUT /api/users/me/theme}       -- store light/dark/auto</li>
- *   <li>{@code PUT /api/users/me/theme-color} -- store the accent colour</li>
+ *   <li>{@code PUT /api/users/me/theme-color} -- store the accent color</li>
  * </ul>
  *
  * <p>Backs the "Personal settings" page. The row is re-read on every request
@@ -49,7 +49,7 @@ public class UserResource {
     /**
      * Accepted values of the {@code theme_color} column: Mantine's default
      * palette (https://mantine.dev/theming/colors/) in documentation order,
-     * minus {@code dark}, which is Mantine's surface colour rather than an
+     * minus {@code dark}, which is Mantine's surface color rather than an
      * accent. Kept ordered so the error message reads sensibly, and in step with
      * {@code PALETTE} in the SPA.
      */

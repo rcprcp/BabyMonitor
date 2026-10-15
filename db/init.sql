@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS babymonitor.users (
 ALTER TABLE babymonitor.users
     ADD COLUMN IF NOT EXISTS theme VARCHAR(500) NOT NULL DEFAULT 'auto';
 
--- Per-account accent colour: a Mantine palette name (blue, grape, teal, ...),
+-- Per-account accent color: a Mantine palette name (blue, grape, teal, ...),
 -- chosen from the "Theme Selection" swatches on the Personal settings page and
 -- returned on every login.
 ALTER TABLE babymonitor.users

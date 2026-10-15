@@ -2,11 +2,11 @@ import { ColorSwatch, Group, Tooltip, useMantineTheme } from '@mantine/core'
 import { PALETTE } from '../theme'
 
 /**
- * Mantine's colour palette as clickable swatches
+ * Mantine's color palette as clickable swatches
  * (https://mantine.dev/theming/colors/). The chosen name becomes the app's
- * primary colour — buttons, links and highlights — and is stored on the account.
+ * primary color — buttons, links and highlights — and is stored on the account.
  *
- * Every swatch shows shade 6, which is the shade Mantine treats as the colour's
+ * Every swatch shows shade 6, which is the shade Mantine treats as the color's
  * own identity.
  */
 export default function ThemePalette({ value, onChange, disabled }) {
@@ -29,7 +29,7 @@ export default function ThemePalette({ value, onChange, disabled }) {
               aria-pressed={selected}
               style={
                 selected
-                  ? // A gap in the page colour then a ring in the colour itself, so
+                  ? // A gap in the page color then a ring in the color itself, so
                     // the selection is visible whatever the scheme.
                     { boxShadow: `0 0 0 2px var(--mantine-color-body), 0 0 0 4px ${color}` }
                   : undefined
