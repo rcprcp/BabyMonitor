@@ -7,8 +7,12 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.babymonitor.entity.Notification;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import java.util.List;
@@ -21,8 +25,10 @@ import org.junit.jupiter.api.Test;
  * <p>They rely on the rows seeded by {@code db/init.sql}: the
  * {@code streaming_url} and {@code systemName} settings, the four accounts
  * whose password is their own name, and the demo notifications. The webhook
- * tests write to {@code babymonitor.notifications} and dismiss the row they
- * created, so the table does not grow on every run.
+ * tests write to {@code babymonitor.notifications} and remove the row they
+ * created in a {@code finally}, so the table does not grow on every run --
+ * through {@link #deleteNotificationRow(long)}, because dismissing only hides a
+ * notification for one account and deliberately leaves the row in place.
  */
 @QuarkusTest
 class ApiTest {
@@ -70,6 +76,50 @@ class ApiTest {
                 .filter(row -> description.equals(row.get("description")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no notification with description: " + description));
+    }
+
+    /** Whether a feed shows a notification, without failing when it does not. */
+    private static boolean feedContains(List<Map<String, Object>> feed, String description) {
+        return feed.stream().anyMatch(row -> description.equals(row.get("description")));
+    }
+
+    /** Dismisses a notification for one account. */
+    private static void dismiss(String token, long id) {
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/notifications/" + id)
+                .then()
+                .statusCode(204);
+    }
+
+    /** Posts an audio alert and returns the id of the row it created. */
+    private static long postAudioWebhook(String description) {
+        return given()
+                .contentType(ContentType.JSON)
+                .body("{\"description\":\"" + description + "\"}")
+                .when()
+                .post(AUDIO_WEBHOOK)
+                .then()
+                .statusCode(202)
+                .extract()
+                .jsonPath()
+                .getLong("id");
+    }
+
+    /**
+     * Removes a notification row outright. Dismissing cannot do this any more
+     * (it only hides the notification for one account), so tests that create
+     * rows clean up here. The dismissal rows go with it, by way of the foreign
+     * key's {@code ON DELETE CASCADE}.
+     */
+    private static void deleteNotificationRow(long id) {
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteById(id));
+    }
+
+    /** Whether the notification row is still stored at all. */
+    private static boolean notificationRowExists(long id) {
+        return QuarkusTransaction.requiringNew().call(() -> Notification.findById(id) != null);
     }
 
     @Test
@@ -167,17 +217,14 @@ class ApiTest {
                 .jsonPath()
                 .getLong("id");
 
-        Map<String, Object> row = rowFor(feed(token), "Baby cried in the nursery");
-        assertEquals("2026-10-14T20:15:00Z", row.get("eventTime"));
-        assertEquals("Audio", row.get("eventType"));
-        assertNull(row.get("videoLink"), "audio notifications carry no video link");
-
-        given()
-                .header("Authorization", bearer(token))
-                .when()
-                .delete("/api/notifications/" + id)
-                .then()
-                .statusCode(204);
+        try {
+            Map<String, Object> row = rowFor(feed(token), "Baby cried in the nursery");
+            assertEquals("2026-10-14T20:15:00Z", row.get("eventTime"));
+            assertEquals("Audio", row.get("eventType"));
+            assertNull(row.get("videoLink"), "audio notifications carry no video link");
+        } finally {
+            deleteNotificationRow(id);
+        }
     }
 
     @Test
@@ -196,16 +243,13 @@ class ApiTest {
                 .jsonPath()
                 .getLong("id");
 
-        Map<String, Object> row = rowFor(feed(token), "Baby cried again");
-        assertEquals("Audio", row.get("eventType"));
-        assertNull(row.get("videoLink"), "an audio event never keeps a video link");
-
-        given()
-                .header("Authorization", bearer(token))
-                .when()
-                .delete("/api/notifications/" + id)
-                .then()
-                .statusCode(204);
+        try {
+            Map<String, Object> row = rowFor(feed(token), "Baby cried again");
+            assertEquals("Audio", row.get("eventType"));
+            assertNull(row.get("videoLink"), "an audio event never keeps a video link");
+        } finally {
+            deleteNotificationRow(id);
+        }
     }
 
     @Test
@@ -224,18 +268,63 @@ class ApiTest {
                 .jsonPath()
                 .getLong("id");
 
-        Map<String, Object> row = rowFor(feed(token), "Motion detected");
-        assertEquals("Video", row.get("eventType"));
-        assertEquals("http://cam.local/clip.mp4", row.get("videoLink"));
-        assertNull(row.get("severity"), "severity is no longer part of a notification");
-        assertNull(row.get("read"), "read is no longer part of a notification");
+        try {
+            Map<String, Object> row = rowFor(feed(token), "Motion detected");
+            assertEquals("Video", row.get("eventType"));
+            assertEquals("http://cam.local/clip.mp4", row.get("videoLink"));
+            assertNull(row.get("severity"), "severity is no longer part of a notification");
+            assertNull(row.get("read"), "read is no longer part of a notification");
+        } finally {
+            deleteNotificationRow(id);
+        }
+    }
 
+    @Test
+    void dismissRequiresAToken() {
+        given().when().delete("/api/notifications/999999999").then().statusCode(401);
+    }
+
+    @Test
+    void dismissRejectsAnUnknownNotification() {
+        String token = login("Bob", "Bob");
         given()
                 .header("Authorization", bearer(token))
                 .when()
-                .delete("/api/notifications/" + id)
+                .delete("/api/notifications/999999999")
                 .then()
-                .statusCode(204);
+                .statusCode(404)
+                .body("error", equalTo("No such notification: 999999999"));
+    }
+
+    @Test
+    void dismissHidesTheNotificationForThatAccountOnly() {
+        String bob = login("Bob", "Bob");
+        String cindy = login("Cindy", "Cindy");
+        String description = "Baby laughed at the mobile";
+        long id = postAudioWebhook(description);
+
+        try {
+            // Both accounts see the new event to begin with.
+            assertTrue(feedContains(feed(bob), description));
+            assertTrue(feedContains(feed(cindy), description));
+
+            // Cindy dismisses it: hidden for her, still there for Bob.
+            dismiss(cindy, id);
+            assertFalse(feedContains(feed(cindy), description), "dismissed notification is hidden");
+            assertTrue(feedContains(feed(bob), description), "another account still sees it");
+            assertTrue(notificationRowExists(id), "the notification row itself is kept");
+
+            // Dismissing twice is a no-op rather than an error.
+            dismiss(cindy, id);
+            assertFalse(feedContains(feed(cindy), description));
+
+            // Bob's own dismissal is independent of hers.
+            dismiss(bob, id);
+            assertFalse(feedContains(feed(bob), description));
+            assertTrue(notificationRowExists(id), "still on record for the household");
+        } finally {
+            deleteNotificationRow(id);
+        }
     }
 
     @Test

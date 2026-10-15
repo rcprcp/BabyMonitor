@@ -83,6 +83,27 @@ ALTER TABLE babymonitor.notifications
 CREATE INDEX IF NOT EXISTS notifications_event_time_idx
     ON babymonitor.notifications (event_time DESC);
 
+-- Per-account dismissal of a notification. A row here means "this account has
+-- dismissed this notification", and the feed hides only those: the notification
+-- itself is never deleted, so it stays visible (and on record) for everyone
+-- else. The (notification, account) pair is the primary key, which makes
+-- dismissing twice a no-op (INSERT ... ON CONFLICT DO NOTHING), and both
+-- cascades keep the table clean if a notification or an account is removed.
+CREATE TABLE IF NOT EXISTS babymonitor.notification_dismissals (
+    notification_id BIGINT      NOT NULL
+        REFERENCES babymonitor.notifications (id) ON DELETE CASCADE,
+    user_id         BIGINT      NOT NULL
+        REFERENCES babymonitor.users (id) ON DELETE CASCADE,
+    dismissed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (notification_id, user_id)
+);
+
+-- PostgreSQL does not index foreign keys, and deleting an account cascades into
+-- this table, so it needs its own index on the account side. The feed needs no
+-- further index: it probes the primary key by (notification_id, user_id).
+CREATE INDEX IF NOT EXISTS notification_dismissals_user_idx
+    ON babymonitor.notification_dismissals (user_id);
+
 -- Seed the streaming URL consumed by the video page.
 INSERT INTO babymonitor.settings (tag, value)
 VALUES ('streaming_url', 'http://192.168.0.2:8081')

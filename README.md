@@ -45,6 +45,12 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   `video_link`) — the feed behind the Notifications page. `event_type` is the
   PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`;
   a few demo rows are inserted only while the table is still empty
+- `babymonitor.notification_dismissals` (`notification_id`, `user_id`,
+  `dismissed_at`) — one row per notification an account has dismissed. The pair
+  is the primary key, so dismissing twice is a no-op, and the feed lists the
+  notifications that have no row for the account asking. Notifications
+  themselves are never deleted, so dismissing hides an event for one account
+  only and leaves it on record for everybody else
 
 ## Build & run
 
@@ -82,8 +88,8 @@ webhooks.
 | GET         | `/api/users/me`                        | the signed-in user's record    |
 | PUT         | `/api/users/me/theme`                  | `{ "theme" }`: light/dark/auto |
 | PUT         | `/api/users/me/theme-color`            | `{ "themeColor" }`: palette    |
-| GET         | `/api/notifications`                   | newest first                   |
-| DELETE      | `/api/notifications/{id}`              | dismiss                        |
+| GET         | `/api/notifications`                   | newest first, minus my dismissals |
+| DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
 | POST        | `/api/webhooks/videoNotification`      | device video/motion alert      |
 
@@ -126,6 +132,27 @@ A missing `description` (or a missing `videoLink` on the video endpoint) returns
 `X-Webhook-Secret` header; leave it unset to accept any caller (dev default).
 The `GET` variants return `{"status":"ready"}` so a provider can verify the URL
 first.
+
+### Dismissing a notification
+
+`DELETE /api/notifications/{id}` dismisses the notification **for the calling
+account only**. It writes a row to `babymonitor.notification_dismissals` and
+leaves the notification itself alone, so the event stays on record and stays
+visible to every other account. `GET /api/notifications` therefore returns the
+notifications that have no dismissal row for the account asking.
+
+Dismissing is idempotent — a second call still returns `204` — and an id that is
+not a notification at all returns `404`. There is no way to dismiss an event for
+the household through the API: nothing deletes notification rows any more.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"name":"Bob","password":"Bob"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+
+curl -X DELETE http://localhost:8080/api/notifications/4 \
+  -H "Authorization: Bearer $TOKEN"   # -> 204, hidden for Bob only
+```
 
 ## SPA
 

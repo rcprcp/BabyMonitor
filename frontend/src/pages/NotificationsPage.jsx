@@ -15,7 +15,9 @@ import {
 import { api } from '../api'
 
 // DB-backed feed: rows come from babymonitor.notifications and are written by
-// the device webhooks, so video events link to the relevant clip.
+// the device webhooks, so video events link to the relevant clip. The feed is
+// per account: the backend leaves out the notifications this account has
+// dismissed, so dismissing only takes the row out of this list.
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
