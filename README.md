@@ -35,11 +35,12 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
 - `babymonitor.settings` (`tag`/`value`) — seeded with
   `streaming_url` = `http://192.168.0.2:8081` and
   `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
-- `babymonitor.users` (`id`, `name`, `password_hash`, `theme`) — seeded with
-  `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to the name
-  (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`). `theme`
-  holds the account's UI preference (`light`, `dark` or `auto`), defaulting to
-  `auto`
+- `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`) —
+  seeded with `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to
+  the name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
+  `theme` holds the account's UI preference (`light`, `dark` or `auto`,
+  defaulting to `auto`) and `theme_color` its accent colour, a Mantine palette
+  name (defaulting to `blue`)
 - `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
   `video_link`) — the feed behind the Notifications page. `event_type` is the
   PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`;
@@ -75,6 +76,7 @@ webhooks.
 | GET/PUT     | `/api/settings/{tag}`                  | read / update one setting      |
 | GET         | `/api/users/me`                        | the signed-in user's record    |
 | PUT         | `/api/users/me/theme`                  | `{ "theme" }`: light/dark/auto |
+| PUT         | `/api/users/me/theme-color`            | `{ "themeColor" }`: palette    |
 | GET         | `/api/notifications`                   | newest first                   |
 | DELETE      | `/api/notifications/{id}`              | dismiss                        |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
@@ -137,11 +139,22 @@ keep hand-written CSS (`frontend/src/styles.css`).
 
 ### Theme
 
-Each account carries its own light/dark preference in
-`babymonitor.users.theme`: the Personal settings page offers Light / Dark /
-Auto, and picking one writes it to the account with `PUT /api/users/me/theme`.
+Each account carries its own preferences in `babymonitor.users`, and the
+Personal settings page writes them straight to the account:
+
+- **Theme Selection** — Mantine's colour palette
+  (https://mantine.dev/theming/colors/) as clickable swatches. The chosen name
+  (`blue`, `grape`, `teal`, …) is stored in `theme_color` with
+  `PUT /api/users/me/theme-color` and becomes the Mantine primary colour, so
+  buttons, links and highlights follow it. `gray` is offered too; Mantine's
+  `dark` is not, as it is a surface colour rather than an accent.
+- **Light / dark** — `light`, `dark` or `auto` (follow the OS), stored in
+  `theme` with `PUT /api/users/me/theme`.
+
 The database is the single source of truth — Mantine is configured with a
-non-persisting colour-scheme manager (`frontend/src/theme.js`), and the login
-response plus `GET /api/users/me` carry the stored value so the app paints in
-the right colours. A `babymonitor.theme` localStorage entry is kept purely as a
-hint to avoid flashing the wrong theme while the profile request is in flight.
+non-persisting colour-scheme manager (`frontend/src/theme.js`) and its theme is
+built from the account's colour in `frontend/src/App.jsx`, where `AuthProvider`
+sits *above* `MantineProvider` for exactly that reason. The login response plus
+`GET /api/users/me` carry both values so the app paints in the right colours. A
+`babymonitor.prefs` localStorage entry is kept purely as a hint to avoid
+flashing the wrong theme while the profile request is in flight.

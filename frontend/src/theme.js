@@ -1,23 +1,44 @@
 import { createTheme } from '@mantine/core'
 
-// The three choices the Theme selector offers. The values are used verbatim as
-// Mantine colour-scheme names and as the `theme` column value in
-// babymonitor.users, so the two can never drift apart. `auto` follows the OS.
-export const THEMES = [
+// Light / dark, stored per account in babymonitor.users.theme. `auto` follows
+// the operating system. The values are also Mantine's own colour-scheme names.
+export const COLOR_SCHEMES = [
   { label: 'Light', value: 'light' },
   { label: 'Dark', value: 'dark' },
   { label: 'Auto', value: 'auto' },
 ]
 
-export const DEFAULT_THEME = 'auto'
+export const DEFAULT_COLOR_SCHEME = 'auto'
 
-export const theme = createTheme({
-  primaryColor: 'blue',
-  defaultRadius: 'md',
-})
+// Mantine's own palette (https://mantine.dev/theming/colors/), in the order the
+// Mantine docs list it. `dark` is left out: it is Mantine's surface colour
+// rather than a sensible accent. One of these names is stored in
+// babymonitor.users.theme_color and used as the app's primary colour.
+export const PALETTE = [
+  'gray',
+  'red',
+  'pink',
+  'grape',
+  'violet',
+  'indigo',
+  'blue',
+  'cyan',
+  'teal',
+  'green',
+  'lime',
+  'yellow',
+  'orange',
+]
 
-// The database is the source of truth for a user's theme, so Mantine is told
-// not to keep a copy of its own (two stores would fight, and a stale
+export const DEFAULT_THEME_COLOR = 'blue'
+
+/** The Mantine theme, with the account's palette colour as its primary. */
+export function createAppTheme(primaryColor) {
+  return createTheme({ primaryColor, defaultRadius: 'md' })
+}
+
+// The database is the source of truth for a user's preferences, so Mantine is
+// told not to keep a copy of its own (two stores would fight, and a stale
 // localStorage value would beat the account setting).
 export const noPersistenceColorSchemeManager = {
   get: (defaultValue) => defaultValue,
@@ -27,16 +48,30 @@ export const noPersistenceColorSchemeManager = {
   clear: () => {},
 }
 
-// A throw-away hint, written whenever the account's theme is applied and read
-// once at startup: it only stops the app from flashing the wrong colours while
-// /api/users/me is in flight.
-const HINT_KEY = 'babymonitor.theme'
+// A throw-away hint, written whenever the account's preferences are applied and
+// read once at startup: it only stops the app from flashing the wrong colours
+// while /api/users/me is in flight.
+const HINT_KEY = 'babymonitor.prefs'
 
-export function readThemeHint() {
-  const value = localStorage.getItem(HINT_KEY)
-  return THEMES.some((option) => option.value === value) ? value : DEFAULT_THEME
+export function readPrefsHint() {
+  let stored = null
+  try {
+    stored = JSON.parse(localStorage.getItem(HINT_KEY))
+  } catch {
+    // Unreadable or malformed: fall through to the defaults.
+  }
+  return {
+    colorScheme: COLOR_SCHEMES.some((option) => option.value === stored?.colorScheme)
+      ? stored.colorScheme
+      : DEFAULT_COLOR_SCHEME,
+    themeColor: PALETTE.includes(stored?.themeColor) ? stored.themeColor : DEFAULT_THEME_COLOR,
+  }
 }
 
-export function writeThemeHint(value) {
-  localStorage.setItem(HINT_KEY, value)
+export function writePrefsHint({ colorScheme, themeColor }) {
+  try {
+    localStorage.setItem(HINT_KEY, JSON.stringify({ colorScheme, themeColor }))
+  } catch {
+    // Storage can be unavailable (private browsing); the hint is optional.
+  }
 }

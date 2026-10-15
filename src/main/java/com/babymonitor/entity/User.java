@@ -33,6 +33,10 @@ public class User extends PanacheEntityBase {
     @Column(name = "theme", length = 500, nullable = false)
     public String theme = "auto";
 
+    /** Accent colour for the UI: a Mantine palette name such as {@code blue}. */
+    @Column(name = "theme_color", length = 500, nullable = false)
+    public String themeColor = "blue";
+
     public User() {
     }
 
