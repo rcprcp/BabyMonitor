@@ -14,6 +14,7 @@ import {
   Text,
   Title,
 } from '@mantine/core'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { COLOR_SCHEMES } from '../theme'
@@ -31,7 +32,8 @@ function initialOf(name) {
  * any browser: the accent color (Mantine's palette) and light / dark / auto.
  */
 export default function ProfilePage() {
-  const { user, colorScheme, themeColor, saveColorScheme, saveThemeColor } = useAuth()
+  const { user, colorScheme, themeColor, saveColorScheme, saveThemeColor, logout } = useAuth()
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -88,6 +90,12 @@ export default function ProfilePage() {
     }
   }
 
+  // Sign out, then bounce to the login screen (same as the title bar menu).
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
   // Prefer the freshly loaded record, but fall back to the stored name while
   // the request is in flight.
   const displayName = profile?.name ?? user ?? ''
@@ -96,8 +104,8 @@ export default function ProfilePage() {
     <Stack>
       <Group justify="space-between" align="center">
         <Title order={2}>Personal settings</Title>
-        <Button variant="default" onClick={load} loading={loading}>
-          Refresh
+        <Button variant="default" color="red" onClick={handleLogout}>
+          Logout
         </Button>
       </Group>
 

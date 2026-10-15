@@ -188,9 +188,12 @@ this on: dismiss one as Bob and it stays in Cindy's feed.
 React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
 `/settings`, `/profile` (Personal settings). The app boots into the Live stream
-page, which has no stream URL of its own for now — each camera's `stream_url`
-parameter is the source of truth — so it shows a placeholder until it is wired
-to one. A blue title bar with a hamburger menu (upper left)
+page, which has a camera drop-down: both cameras are always selectable, and it
+plays the `stream_url` parameter of the chosen one. It defaults to Camera 1 when
+that is enabled, otherwise to Camera 2 when that one is enabled, and shows no
+stream when both are disabled. An Enabled switch beside the drop-down turns the
+selected camera on or off — the same flag the Camera page edits — so a
+switched-off camera can be turned back on right there. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link

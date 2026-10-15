@@ -81,21 +81,16 @@ export default function CameraPage({ cameraNumber }) {
 
   return (
     <Stack>
-      <Group justify="space-between" align="center">
-        <Group gap="sm" align="center">
-          <Title order={2}>Camera {cameraNumber}</Title>
-          {name && (
-            <Text c="dimmed" size="lg">
-              {name}
-            </Text>
-          )}
-          <Badge color={enabled ? 'green' : 'gray'} variant="light">
-            {enabled ? 'Enabled' : 'Disabled'}
-          </Badge>
-        </Group>
-        <Button variant="default" onClick={load} loading={loading}>
-          Refresh
-        </Button>
+      <Group gap="sm" align="center">
+        <Title order={2}>Camera {cameraNumber}</Title>
+        {name && (
+          <Text c="dimmed" size="lg">
+            {name}
+          </Text>
+        )}
+        <Badge color={enabled ? 'green' : 'gray'} variant="light">
+          {enabled ? 'Enabled' : 'Disabled'}
+        </Badge>
       </Group>
 
       <Group>

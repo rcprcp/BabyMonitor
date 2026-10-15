@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
-  Button,
   Card,
   Center,
   Group,
@@ -72,12 +71,7 @@ export default function EnvironmentPage() {
 
   return (
     <Stack>
-      <Group justify="space-between" align="center">
-        <Title order={2}>Environment</Title>
-        <Button variant="default" onClick={load} loading={loading}>
-          Refresh
-        </Button>
-      </Group>
+      <Title order={2}>Environment</Title>
 
       <Group justify="space-between" align="center" wrap="wrap">
         <SegmentedControl value={range} onChange={setRange} data={RANGES} />

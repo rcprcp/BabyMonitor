@@ -58,12 +58,7 @@ export default function SettingsPage() {
 
   return (
     <Stack>
-      <Group justify="space-between" align="center">
-        <Title order={2}>Settings</Title>
-        <Button variant="default" onClick={load} loading={loading}>
-          Refresh
-        </Button>
-      </Group>
+      <Title order={2}>Settings</Title>
 
       {error && (
         <Alert color="red" variant="light">
