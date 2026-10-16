@@ -7,7 +7,6 @@ import {
   Group,
   Loader,
   Stack,
-  Switch,
   Table,
   Text,
   TextInput,
@@ -18,9 +17,9 @@ import { api } from '../api'
 // One camera's parameters, from babymonitor.cameras. The same page backs both
 // menu entries, "Camera1" and "Camera2": the camera number arrives as a prop.
 // The parameter names are Motion option names; editing one only stores it, and
-// the Apply button rebuilds the camera's Motion config from the current rows and
+// Start/Apply rebuilds the camera's Motion config from the current rows and
 // starts the process (or reloads it with SIGHUP when it is already running).
-// The Enabled switch is separate and immediate: on starts Motion, off kills it.
+// Disable kills this camera's Motion process; Start/Apply brings it back.
 export default function CameraPage({ cameraNumber }) {
   const [parameters, setParameters] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -29,7 +28,7 @@ export default function CameraPage({ cameraNumber }) {
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState(null)
   const [savedKey, setSavedKey] = useState(null)
-  const [savingEnabled, setSavingEnabled] = useState(false)
+  const [savingMotion, setSavingMotion] = useState(false)
   const [applying, setApplying] = useState(false)
 
   const load = useCallback(async () => {
@@ -82,24 +81,21 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
-  const toggleEnabled = async (next) => {
+  // Kill this camera's Motion process. Explicit rather than a persisted flag:
+  // Start/Apply brings it back.
+  const disable = async () => {
     setError(null)
-    setSavingEnabled(true)
+    setSavingMotion(true)
     try {
-      const updated = await api.updateCameraEnabled(cameraNumber, next)
-      setParameters(updated)
-      setDrafts(Object.fromEntries(updated.map((p) => [p.key, p.value])))
-      setMotion(await api.getCameraMotion(cameraNumber))
+      setMotion(await api.stopCameraMotion(cameraNumber))
     } catch (err) {
       setError(err.message)
     } finally {
-      setSavingEnabled(false)
+      setSavingMotion(false)
     }
   }
 
   const name = parameters.find((p) => p.key === 'camera_name')?.value
-  // The flag is repeated on every row of the camera, so any row carries it.
-  const enabled = parameters[0]?.enabled ?? false
   const running = motion?.running ?? false
 
   return (
@@ -112,22 +108,22 @@ export default function CameraPage({ cameraNumber }) {
               {name}
             </Text>
           )}
-          <Badge color={enabled ? 'green' : 'gray'} variant="light">
-            {enabled ? 'Enabled' : 'Disabled'}
-          </Badge>
         </Group>
         <Group gap="sm" align="center">
-          <Switch
-            checked={enabled}
-            disabled={loading || savingEnabled}
-            label="Enabled"
-            onChange={(event) => toggleEnabled(event.currentTarget.checked)}
-          />
+          <Button
+            variant="light"
+            color="red"
+            onClick={disable}
+            loading={savingMotion}
+            disabled={loading}
+          >
+            Disable
+          </Button>
           <Badge color={running ? 'green' : 'gray'} variant="light">
             {running ? 'Motion running' : 'Motion stopped'}
           </Badge>
           <Button onClick={apply} loading={applying} disabled={loading}>
-            Apply
+            Start/Apply
           </Button>
         </Group>
       </Group>
