@@ -117,6 +117,12 @@ export default function CameraPage({ cameraNumber }) {
           </Badge>
         </Group>
         <Group gap="sm" align="center">
+          <Switch
+            checked={enabled}
+            disabled={loading || savingEnabled}
+            label="Enabled"
+            onChange={(event) => toggleEnabled(event.currentTarget.checked)}
+          />
           <Badge color={running ? 'green' : 'gray'} variant="light">
             {running ? 'Motion running' : 'Motion stopped'}
           </Badge>
@@ -124,15 +130,6 @@ export default function CameraPage({ cameraNumber }) {
             Apply
           </Button>
         </Group>
-      </Group>
-
-      <Group>
-        <Switch
-          checked={enabled}
-          disabled={loading || savingEnabled}
-          label="Enabled"
-          onChange={(event) => toggleEnabled(event.currentTarget.checked)}
-        />
       </Group>
 
       {error && (

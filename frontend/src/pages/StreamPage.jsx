@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Center, Group, Loader, Select, Stack, Switch, Title } from '@mantine/core'
+import { Alert, Box, Center, Group, Loader, Select, Stack, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
 import { api } from '../api'
 
@@ -8,8 +8,8 @@ import { api } from '../api'
 // `stream_port` row (8081 for Camera 1, 8082 for Camera 2), so the feed shown is
 // the one Motion is producing and recording. Both cameras are always selectable;
 // the default is the first enabled one (Camera 1, else Camera 2). A switched-off
-// camera has no process, so the player shows its "no stream" state until the
-// Enabled switch turns it back on -- which starts Motion immediately.
+// camera has no process, so the player shows its "no stream" state; switch it
+// back on from that camera's page.
 const DEFAULT_CAMERA = 1
 
 export default function StreamPage() {
@@ -18,7 +18,6 @@ export default function StreamPage() {
   const [selected, setSelected] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [savingEnabled, setSavingEnabled] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -81,8 +80,8 @@ export default function StreamPage() {
   }, [selected, cameras.length, defaultCameraNumber])
 
   // Every camera is offered, enabled or not: picking a switched-off one just
-  // shows the player's "no stream" state, where the Enabled switch can turn it
-  // back on.
+  // shows the player's "no stream" state; it can be switched back on from that
+  // camera's page.
   const options = cameras.map((camera) => ({
     value: String(camera.cameraNumber),
     label: camera.name ? `Camera ${camera.cameraNumber} (${camera.name})` : `Camera ${camera.cameraNumber}`,
@@ -95,49 +94,19 @@ export default function StreamPage() {
       ? `${streamBase}:${selectedCamera.streamPort}`
       : null
 
-  // Switch the selected camera on or off. The flag is stored on every one of
-  // its rows in babymonitor.cameras, and the server starts or kills Motion to
-  // match, so swap those rows for the server's response.
-  const toggleEnabled = async (enabled) => {
-    if (!selectedCamera) {
-      return
-    }
-    setError(null)
-    setSavingEnabled(true)
-    try {
-      const updated = await api.updateCameraEnabled(selectedCamera.cameraNumber, enabled)
-      setParameters((current) => [
-        ...current.filter((p) => p.cameraNumber !== selectedCamera.cameraNumber),
-        ...updated,
-      ])
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSavingEnabled(false)
-    }
-  }
-
   return (
     <Stack>
       <Group justify="space-between" align="center">
         <Title order={2}>Live stream</Title>
-        <Group gap="lg" align="center">
-          <Switch
-            label="Enabled"
-            checked={selectedCamera?.enabled ?? false}
-            disabled={loading || savingEnabled || !selectedCamera}
-            onChange={(event) => toggleEnabled(event.currentTarget.checked)}
-          />
-          <Select
-            aria-label="Camera"
-            data={options}
-            value={selected}
-            onChange={(value) => value && setSelected(value)}
-            allowDeselect={false}
-            disabled={loading || options.length === 0}
-            w={200}
-          />
-        </Group>
+        <Select
+          aria-label="Camera"
+          data={options}
+          value={selected}
+          onChange={(value) => value && setSelected(value)}
+          allowDeselect={false}
+          disabled={loading || options.length === 0}
+          w={200}
+        />
       </Group>
 
       {error && (
