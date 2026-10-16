@@ -3,6 +3,7 @@ import {
   Alert,
   Avatar,
   Badge,
+  Box,
   Button,
   Card,
   Center,
@@ -18,6 +19,7 @@ import {
   Text,
   Title,
 } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import {
@@ -158,6 +160,9 @@ export default function ProfilePage() {
   // the request is in flight.
   const displayName = profile?.name ?? user ?? ''
 
+  // Detect whether we're on a medium screen or larger (>=992px) so the dropdown can grow to ~30% of the viewport width in "large" mode and stay full-width on mobile.
+  const isLarge = useMediaQuery('(min-width: 992px)')
+
   return (
     <Stack>
       <Group justify="space-between" align="center">
@@ -290,13 +295,19 @@ export default function ProfilePage() {
               <Text c="dimmed" size="sm">
                 Select the tone played when an audio alert (crying, noise) arrives. Saved on your account so it follows you across browsers.
               </Text>
-              <Popover position="bottom" withArrow width={360}>
+              <Popover position="bottom" withArrow p={0}>
                 <Popover.Target>
-                  <Button variant="outline" fullWidth radius="md">
-                    {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? 'Select a sound'}
-                  </Button>
-                </Popover.Target>
-                <Popover.Dropdown mah={300} style={{ overflow: 'hidden' }}>
+                    <Box w={isLarge ? '30vw' : undefined}>
+                      <Button variant="outline" fullWidth radius="md">
+                        {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? 'Select a sound'}
+                      </Button>
+                    </Box>
+                  </Popover.Target>
+                <Popover.Dropdown
+                  mah={300}
+                  w={isLarge ? '30vw' : undefined}
+                  style={{ overflow: 'hidden', marginLeft: 0 }}
+                >
                   <ScrollArea.Autosize mah={300}>
                     {PROMPT_SOUNDS.map((sound) => (
                       <Group
