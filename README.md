@@ -124,7 +124,9 @@ webhooks.
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
+| POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
 | PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
+| DELETE      | `/api/cameras/{n}/parameters/{key}`    | remove a parameter             |
 | PUT         | `/api/cameras/{n}/enabled`             | `{ "enabled" }`: switch a camera on/off (starts/kills Motion) |
 | GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |
 | POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
@@ -305,7 +307,9 @@ lists the raw rows under it. Temperature and humidity share the left axis;
 brightness gets its own right axis. The Camera pages show one camera's
 parameters and let each value be edited, plus a switch for the camera's
 `enabled` flag and an **Apply** button that rebuilds and (re)starts its Motion
-process.
+process. An **Add Row** button beside Apply opens a blank row so a parameter
+can be added, and each row has a trash-can button that removes it; both only
+touch the table, so Apply is still what reaches Motion.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer

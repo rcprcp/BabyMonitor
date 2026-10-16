@@ -134,6 +134,13 @@ export const api = {
       `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
       { value },
     ),
+  createCameraParameter: (cameraNumber, key, value) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters`, { key, value }),
+  deleteCameraParameter: (cameraNumber, key) =>
+    request(
+      'DELETE',
+      `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
+    ),
   updateCameraEnabled: (cameraNumber, enabled) =>
     request('PUT', `/api/cameras/${encodeURIComponent(cameraNumber)}/enabled`, { enabled }),
   getCameraMotion: (cameraNumber) =>

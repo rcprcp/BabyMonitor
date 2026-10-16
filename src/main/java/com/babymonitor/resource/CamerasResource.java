@@ -1,6 +1,7 @@
 package com.babymonitor.resource;
 
 import com.babymonitor.dto.CameraParameterDto;
+import com.babymonitor.dto.CreateCameraParameterRequest;
 import com.babymonitor.dto.ErrorResponse;
 import com.babymonitor.dto.UpdateCameraEnabledRequest;
 import com.babymonitor.dto.UpdateCameraParameterRequest;
@@ -10,6 +11,7 @@ import com.babymonitor.service.AfterCommit;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -33,7 +35,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * <ul>
  *   <li>{@code GET /api/cameras}                          -- every camera's parameters</li>
  *   <li>{@code GET /api/cameras/{cameraNumber}}            -- one camera's parameters</li>
+ *   <li>{@code POST /api/cameras/{n}/parameters}           -- add a parameter</li>
  *   <li>{@code PUT /api/cameras/{n}/parameters/{key}}      -- replace a parameter's value</li>
+ *   <li>{@code DELETE /api/cameras/{n}/parameters/{key}}   -- remove a parameter</li>
  *   <li>{@code PUT /api/cameras/{n}/enabled}               -- switch a camera on or off</li>
  *   <li>{@code GET /api/cameras/{n}/motion}                -- Motion's state for the camera</li>
  *   <li>{@code POST /api/cameras/{n}/motion/apply}         -- rebuild the config and (re)start Motion</li>
@@ -42,8 +46,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *
  * <p>Because {@code enabled} is stored on every row of a camera, switching it
  * updates all of that camera's rows together, and the process is started or
- * killed once the write has committed. Editing a parameter is deliberately
- * passive: nothing reaches Motion until {@code motion/apply}. All of it sits
+ * killed once the write has committed. Adding, editing or removing a parameter
+ * is deliberately passive: nothing reaches Motion until {@code motion/apply}. All of it sits
  * behind {@link com.babymonitor.auth.AuthFilter}.
  */
 @Path("/api/cameras")
@@ -124,6 +128,71 @@ public class CamerasResource {
         }
         parameter.value = request.value();
         return Response.ok(toDto(parameter)).build();
+    }
+
+    @POST
+    @Path("/{cameraNumber}/parameters")
+    @Operation(
+            summary = "Add a camera parameter",
+            description = "Returns the created parameter. Adding a row is passive, so "
+                    + "nothing reaches Motion until POST /api/cameras/{n}/motion/apply.")
+    @APIResponse(responseCode = "400", description = "No name or value supplied")
+    @APIResponse(
+            responseCode = "409",
+            description = "The camera already defines that parameter",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public Response createParameter(
+            @PathParam("cameraNumber") int cameraNumber,
+            CreateCameraParameterRequest request) {
+        if (request == null || request.key() == null || request.key().isBlank()) {
+            return badRequest("A parameter name is required");
+        }
+        if (request.value() == null || request.value().isBlank()) {
+            return badRequest("A value is required");
+        }
+        String key = request.key().strip();
+        if (Camera.findOne(cameraNumber, key) != null) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(new ErrorResponse("Camera " + cameraNumber + " already defines " + key))
+                    .build();
+        }
+        Camera parameter = new Camera();
+        parameter.cameraNumber = cameraNumber;
+        parameter.paramKey = key;
+        parameter.value = request.value();
+        // `enabled` is the camera's own flag, repeated on every row, so a new row
+        // joins the camera in whatever state it is already in.
+        List<Camera> existing = Camera.listByCamera(cameraNumber);
+        parameter.enabled = !existing.isEmpty() && existing.get(0).enabled;
+        parameter.persist();
+        return Response.status(Response.Status.CREATED).entity(toDto(parameter)).build();
+    }
+
+    @DELETE
+    @Path("/{cameraNumber}/parameters/{key}")
+    @Operation(
+            summary = "Remove a camera parameter",
+            description = "Returns nothing. Removing a row is passive, so nothing reaches "
+                    + "Motion until POST /api/cameras/{n}/motion/apply.")
+    @APIResponse(responseCode = "204", description = "The parameter was removed")
+    @APIResponse(
+            responseCode = "404",
+            description = "The camera does not define that parameter",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public Response deleteParameter(
+            @PathParam("cameraNumber") int cameraNumber, @PathParam("key") String key) {
+        Camera parameter = Camera.findOne(cameraNumber, key);
+        if (parameter == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("No such parameter: " + key + " on camera " + cameraNumber))
+                    .build();
+        }
+        parameter.delete();
+        return Response.noContent().build();
     }
 
     @PUT
@@ -244,6 +313,12 @@ public class CamerasResource {
     private static Response notFound(int cameraNumber) {
         return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("No such camera: " + cameraNumber))
+                .build();
+    }
+
+    private static Response badRequest(String message) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse(message))
                 .build();
     }
 

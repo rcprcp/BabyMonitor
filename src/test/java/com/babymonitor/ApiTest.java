@@ -703,6 +703,100 @@ class ApiTest {
     }
 
     @Test
+    void cameraParameterCanBeAddedAndRemoved() {
+        String token = login("Bob", "Bob");
+        String key = "zz_test_option";
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"key\":\"" + key + "\",\"value\":\"1\"}")
+                    .when()
+                    .post("/api/cameras/1/parameters")
+                    .then()
+                    .statusCode(201)
+                    .body("key", equalTo(key))
+                    .body("value", equalTo("1"))
+                    .body("cameraNumber", equalTo(1))
+                    // enabled is the camera's own flag, so a new row inherits it.
+                    .body("enabled", equalTo(true));
+
+            assertTrue(
+                    cameraParameters(token, 1).stream().anyMatch(row -> key.equals(row.get("key"))),
+                    "the new row is listed");
+        } finally {
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .delete("/api/cameras/1/parameters/" + key)
+                    .then()
+                    .statusCode(204);
+        }
+
+        assertFalse(
+                cameraParameters(token, 1).stream().anyMatch(row -> key.equals(row.get("key"))),
+                "the deleted row is gone");
+    }
+
+    @Test
+    void cameraParameterCreateRejectsABlankName() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"   \",\"value\":\"1\"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("A parameter name is required"));
+    }
+
+    @Test
+    void cameraParameterCreateRejectsABlankValue() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"zz_test_option\",\"value\":\"  \"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("A value is required"));
+    }
+
+    @Test
+    void cameraParameterCreateRejectsADuplicate() {
+        String token = login("Bob", "Bob");
+        String original = (String) parameterNamed(cameraParameters(token, 1), "width").get("value");
+
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"width\",\"value\":\"640\"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(409);
+
+        // The refused create must leave the existing row's value alone.
+        assertEquals(original, parameterNamed(cameraParameters(token, 1), "width").get("value"));
+    }
+
+    @Test
+    void cameraParameterDeleteOfAnUnknownIsNotFound() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/cameras/1/parameters/zz_no_such_option")
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("No such parameter: zz_no_such_option on camera 1"));
+    }
+
+    @Test
     void cameraEnabledToggleUpdatesEveryRowAndIsRestored() {
         String token = login("Bob", "Bob");
         boolean original = (Boolean) parameterNamed(cameraParameters(token, 2), "camera_name").get("enabled");
