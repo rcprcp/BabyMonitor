@@ -18,6 +18,7 @@ export default function StreamPage() {
   const [selected, setSelected] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -110,6 +111,26 @@ export default function StreamPage() {
       ? `${streamBase}:${selectedCamera.streamPort}`
       : null
 
+  // Switching a camera on starts Motion on the server. Give the MJPEG stream a
+  // chance to accept connections a moment after the process is up, before the
+  // player tries (and retries) to load it. A camera is brought up from its
+  // Camera page's Start/Apply, so this is the stream catching up.
+  useEffect(() => {
+    if (!selectedCamera?.enabled) {
+      setReloadKey(0)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      setReloadKey((k) => k + 1)
+    }, 800)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [selectedCamera?.cameraNumber, selectedCamera?.enabled])
+
   return (
     <Stack>
       <Group justify="space-between" align="center">
@@ -142,7 +163,7 @@ export default function StreamPage() {
             <Loader size="sm" />
           </Center>
         ) : (
-          <StreamPlayer url={url} />
+          <StreamPlayer url={url} reloadKey={reloadKey} />
         )}
       </Box>
     </Stack>
