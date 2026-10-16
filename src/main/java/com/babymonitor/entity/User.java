@@ -37,6 +37,10 @@ public class User extends PanacheEntityBase {
     @Column(name = "theme_color", length = 500, nullable = false)
     public String themeColor = "blue";
 
+    /** Notification prompt sound: a file prefix in {@code frontend/public/sounds/}. */
+    @Column(name = "prompt_sound", length = 500, nullable = false)
+    public String promptSound = "chime";
+
     public User() {
     }
 

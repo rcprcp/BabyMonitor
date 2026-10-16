@@ -25,32 +25,50 @@ const POLL_MS = 5000
 const POLL_HIDDEN_MS = 20000
 const POLL_WITH_STREAM_MS = 60000
 
+/** Map a stored sound key to the actual file prefix used in /sounds/. */
+function soundPrefix(id) {
+  switch (id) {
+    case 'alarm-loud':   return 'alarm-loud'
+    case 'doorbell':     return 'doorbell-ding-dong'
+    case 'beep':         return 'beep-short'
+    case 'chime':        return 'notification-chime'
+    default:             return id ?? 'chime'
+  }
+}
+
 export default function useNotificationAlerts() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, promptSound } = useAuth()
   const timer = useRef(null)
   const source = useRef(null)
   const inFlight = useRef(false)
   const streamHealthy = useRef(false)
+  // Captures the latest prefix so alertFor always uses it without becoming a hook.
+  const prefixRef = useRef('')
+
+  // Keep prefixRef in sync.
+  useEffect(() => {
+    prefixRef.current = soundPrefix(promptSound)
+  }, [promptSound])
+
+  // Alert a single notification — captures prompt via ref so it is cheap and
+  // does not need to be re-created each effect run.
+  const alertFor = (notification) => {
+    if (!alertsEnabled()) return
+    withAlertLock(notification.id, () => {
+      showAlert(notification)
+      if (notification.eventType === 'Audio') {
+        playAlertSound(prefixRef.current)
+      }
+    })
+  }
 
   useEffect(() => {
     if (!isAuthenticated) {
       return undefined
     }
     let cancelled = false
-    const watermark = { current: readWatermark() }
 
-    const alertFor = (notification) => {
-      if (!alertsEnabled()) {
-        return
-      }
-      // One tab wins per id, so several open tabs don't all alert at once.
-      withAlertLock(notification.id, () => {
-        showAlert(notification)
-        if (notification.eventType === 'Audio') {
-          playAlertSound()
-        }
-      })
-    }
+    const watermark = { current: readWatermark() }
 
     const process = (rows) => {
       const before = watermark.current
@@ -68,9 +86,7 @@ export default function useNotificationAlerts() {
     }
 
     const poll = async () => {
-      if (cancelled || inFlight.current) {
-        return
-      }
+      if (cancelled || inFlight.current) return
       inFlight.current = true
       try {
         process(await api.listNotifications())
@@ -83,16 +99,12 @@ export default function useNotificationAlerts() {
     }
 
     const nextDelay = () => {
-      if (document.hidden) {
-        return POLL_HIDDEN_MS
-      }
+      if (document.hidden) return POLL_HIDDEN_MS
       return streamHealthy.current ? POLL_WITH_STREAM_MS : POLL_MS
     }
 
     const schedule = () => {
-      if (cancelled) {
-        return
-      }
+      if (cancelled) return
       timer.current = setTimeout(async () => {
         await poll()
         schedule()
@@ -101,16 +113,12 @@ export default function useNotificationAlerts() {
 
     const openStream = () => {
       const token = getToken()
-      if (!token || cancelled || source.current) {
-        return
-      }
-      // EventSource cannot set an Authorization header, so the token goes in the
-      // query string for this one endpoint (see AuthFilter). lastId lets a
-      // reconnect (or first load) catch up on what it missed.
-      const url =
-        `/api/notifications/stream?token=${encodeURIComponent(token)}` +
-        `&lastId=${watermark.current}`
-      const stream = new EventSource(url)
+      if (!token || cancelled || source.current) return
+      // EventSource cannot set an Authorization header. lastId lets a reconnect
+      // catch up on what it missed.
+      const stream = new EventSource(
+        `/api/notifications/stream?token=${encodeURIComponent(token)}&lastId=${watermark.current}`,
+      )
       source.current = stream
       stream.onopen = () => {
         streamHealthy.current = true
@@ -119,19 +127,16 @@ export default function useNotificationAlerts() {
         try {
           process([JSON.parse(event.data)])
         } catch {
-          // Ignore a malformed frame; polling will still catch the event.
+          // Ignore malformed frames; polling will still catch the event.
         }
       })
       stream.onerror = () => {
-        // Close rather than let EventSource retry forever against a token that
-        // may have expired. Polling carries on and surfaces a 401 normally.
         streamHealthy.current = false
         stream.close()
         source.current = null
       }
     }
 
-    // An immediate poll (e.g. the tab became visible) also re-opens the stream.
     const refresh = () => {
       clearTimeout(timer.current)
       openStream()

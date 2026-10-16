@@ -20,8 +20,19 @@ export const NOTIFICATIONS_ARRIVED_EVENT = 'babymonitor:notifications'
 // last night would be worse than useless.
 export const MAX_ALERT_AGE_MS = 5 * 60 * 1000
 
-// A short two-tone chime, served from the app's static resources.
-const CHIME_URL = '/sounds/notification-chime.mp3'
+// A default chime, served from the app's static resources.
+const DEFAULT_CHIME_URL = '/sounds/notification-chime.mp3'
+
+/** Build an alert-sound URL for the given stored sound key. */
+export function getSoundUrl(name) {
+  switch (name) {
+    case 'alarm-loud':   return '/sounds/alarm-loud.mp3'
+    case 'doorbell':     return '/sounds/doorbell-ding-dong.mp3'
+    case 'beep':         return '/sounds/beep-short.mp3'
+    case 'chime':        return DEFAULT_CHIME_URL
+    default:             return `/sounds/${name}.mp3`
+  }
+}
 
 function watermarkKey() {
   return `babymonitor.alertWatermark.${getName() || 'anon'}`
@@ -99,16 +110,18 @@ export function showAlert(notification) {
 
 // --- Audible chime ---------------------------------------------------------
 
-// One shared element, so overlapping alerts restart the chime rather than
-// layering several copies.
-let alertAudio = null
+// One shared element per URL, so overlapping alerts of the same sound restart
+// rather than layering several copies. The cache key is the file path itself.
+const audioCache = new Map()
 
-function chime() {
-  if (!alertAudio) {
-    alertAudio = new Audio(CHIME_URL)
-    alertAudio.preload = 'auto'
+function chime(url) {
+  let audio = audioCache.get(url)
+  if (!audio) {
+    audio = new Audio(url)
+    audio.preload = 'auto'
+    audioCache.set(url, audio)
   }
-  return alertAudio
+  return audio
 }
 
 /**
@@ -117,7 +130,7 @@ function chime() {
  * has been interacted with, and a real alert arrives without any interaction.
  */
 export function unlockAudio() {
-  const audio = chime()
+  const audio = chime(DEFAULT_CHIME_URL)
   audio.muted = true
   const restore = () => {
     audio.pause()
@@ -134,9 +147,10 @@ export function unlockAudio() {
   }
 }
 
-/** Plays the chime. A blocked or failed play is not fatal: the toast still shows. */
-export function playAlertSound() {
-  const audio = chime()
+/** Plays the chosen sound. A blocked or failed play is not fatal. */
+export function playAlertSound(name) {
+  const url = getSoundUrl(name)
+  const audio = chime(url)
   try {
     audio.currentTime = 0
   } catch {

@@ -3,6 +3,7 @@ package com.babymonitor.resource;
 import com.babymonitor.auth.AuthFilter;
 import com.babymonitor.auth.Session;
 import com.babymonitor.dto.ErrorResponse;
+import com.babymonitor.dto.UpdatePromptSoundRequest;
 import com.babymonitor.dto.UpdateThemeColorRequest;
 import com.babymonitor.dto.UpdateThemeRequest;
 import com.babymonitor.dto.UserDto;
@@ -30,6 +31,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *   <li>{@code GET /api/users/me}             -- read the current user's row</li>
  *   <li>{@code PUT /api/users/me/theme}       -- store light/dark/auto</li>
  *   <li>{@code PUT /api/users/me/theme-color} -- store the accent color</li>
+ *   <li>{@code PUT /api/users/me/prompt-sound}-- store the alert sound prefix</li>
  * </ul>
  *
  * <p>Backs the "Personal settings" page. The row is re-read on every request
@@ -56,6 +58,10 @@ public class UserResource {
     private static final List<String> THEME_COLORS = List.of(
             "gray", "red", "pink", "grape", "violet", "indigo", "blue", "cyan",
             "teal", "green", "lime", "yellow", "orange");
+
+    /** Accepted prefix names for notification sounds: files in {@code /sounds/}. */
+    private static final List<String> SOUND_NAMES = List.of(
+            "chime", "beep", "chirp", "ding", "doorbell", "soft", "alarm-loud");
 
     @GET
     @Path("/me")
@@ -101,6 +107,23 @@ public class UserResource {
         return Response.ok(dto(user)).build();
     }
 
+    @PUT
+    @Path("/me/prompt-sound")
+    public Response updatePromptSound(
+            UpdatePromptSoundRequest request, @Context ContainerRequestContext requestContext) {
+        String value = normalise(request == null ? null : request.promptSound());
+        if (value == null || !SOUND_NAMES.contains(value)) {
+            return badRequest("promptSound must be one of: " + String.join(", ", SOUND_NAMES));
+        }
+
+        User user = currentUser(requestContext);
+        if (user == null) {
+            return notFound();
+        }
+        user.promptSound = value;
+        return Response.ok(dto(user)).build();
+    }
+
     private static String normalise(String value) {
         return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
     }
@@ -111,7 +134,7 @@ public class UserResource {
     }
 
     private static UserDto dto(User user) {
-        return new UserDto(user.id, user.name, user.theme, user.themeColor);
+        return new UserDto(user.id, user.name, user.theme, user.themeColor, user.promptSound);
     }
 
     private static Response badRequest(String message) {

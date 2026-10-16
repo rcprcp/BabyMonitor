@@ -33,6 +33,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *   <li>{@code POST /api/auth/logout} -- discard the current token</li>
  *   <li>{@code GET  /api/auth/me}     -- describe the current session</li>
  * </ul>
+ * <p>The login response carries {@code theme}, {@code themeColor} and
+ * {@code promptSound} so the SPA can apply user preferences immediately.
  */
 @Path("/api/auth")
 @Produces(MediaType.APPLICATION_JSON)
@@ -74,7 +76,8 @@ public class AuthResource {
                         user.name,
                         session.expiresAt().toString(),
                         user.theme,
-                        user.themeColor))
+                        user.themeColor,
+                        user.promptSound))
                 .build();
     }
 

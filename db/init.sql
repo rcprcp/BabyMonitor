@@ -34,6 +34,11 @@ ALTER TABLE babymonitor.users
 ALTER TABLE babymonitor.users
     ADD COLUMN IF NOT EXISTS theme_color VARCHAR(500) NOT NULL DEFAULT 'blue';
 
+-- Per-account alert-sound choice: a file prefix in {@code frontend/public/sounds/}
+-- that becomes the notification chime when new events arrive.
+ALTER TABLE babymonitor.users
+    ADD COLUMN IF NOT EXISTS prompt_sound VARCHAR(500) NOT NULL DEFAULT 'chime';
+
 -- Notifications raised by the device webhooks (see WebhookResource) and shown
 -- on the Notifications page. `event_type` is the Video/Audio enum; `video_link`
 -- is NULL for audio events.

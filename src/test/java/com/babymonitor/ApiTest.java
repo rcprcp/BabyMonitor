@@ -47,6 +47,11 @@ class ApiTest {
         "teal", "green", "lime", "yellow", "orange",
     };
 
+    /** Accepted values of promptSound on the UserDto and via {@code PUT /api/users/me/prompt-sound}. */
+    private static final String[] PROMPT_SOUNDS = {
+        "chime", "beep", "chirp", "ding", "doorbell", "soft", "alarm-loud",
+    };
+
     private static String login(String name, String password) {
         return given()
                 .contentType(ContentType.JSON)
@@ -393,7 +398,8 @@ class ApiTest {
                 .body("name", equalTo("Bob"))
                 .body("id", notNullValue())
                 .body("theme", oneOf("light", "dark", "auto"))
-                .body("themeColor", oneOf(PALETTE));
+                .body("themeColor", oneOf(PALETTE))
+                .body("promptSound", oneOf(PROMPT_SOUNDS));
     }
 
     @Test
@@ -565,6 +571,88 @@ class ApiTest {
                 .then()
                 .statusCode(400)
                 .body("error", equalTo("themeColor must be one of: " + String.join(", ", PALETTE)));
+    }
+
+    @Test
+    void promptSoundRequiresAToken() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"alarm-loud\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    void promptSoundIsStoredAndPickedUpByTheNextLogin() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"alarm-loud\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(200)
+                .body("promptSound", equalTo("alarm-loud"));
+
+        String freshToken = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(freshToken))
+                .when()
+                .get("/api/users/me")
+                .then()
+                .statusCode(200)
+                .body("promptSound", equalTo("alarm-loud"));
+
+        // Restore default.
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"chime\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(200);
+    }
+
+    @Test
+    void promptSoundRejectsUnknownValues() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"siren\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("promptSound must be one of: " + String.join(", ", PROMPT_SOUNDS)));
+    }
+
+    @Test
+    void promptSoundAcceptsCaseInsensitiveValues() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"CHIME\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(200)
+                .body("promptSound", equalTo("chime"));
+
+        // Restore default.
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"promptSound\":\"chime\"}")
+                .when()
+                .put("/api/users/me/prompt-sound")
+                .then()
+                .statusCode(200);
     }
 
     // --- Environment time series ------------------------------------------

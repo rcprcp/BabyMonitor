@@ -9,7 +9,10 @@ import {
   Divider,
   Group,
   Loader,
+  Popover,
+  ScrollArea,
   SegmentedControl,
+  Select,
   Stack,
   Switch,
   Text,
@@ -22,9 +25,15 @@ import {
   setAlertsEnabled,
   unlockAudio,
 } from '../alerting'
-import { useAuth } from '../auth'
+import { useAuth, PROMPT_SOUNDS } from '../auth'
 import { COLOR_SCHEMES } from '../theme'
 import ThemePalette from '../components/ThemePalette'
+
+/** Plays the selected sound once so the user can audition it. */
+function previewSound(name) {
+  const audio = new Audio(`/sounds/${name}.mp3`)
+  audio.play().catch(() => {})
+}
 
 // The signed-in user's own record, pulled from babymonitor.users and shown
 // in the main content area. Reached by clicking the initial in the title bar.
@@ -38,12 +47,13 @@ function initialOf(name) {
  * any browser: the accent color (Mantine's palette) and light / dark / auto.
  */
 export default function ProfilePage() {
-  const { user, colorScheme, themeColor, saveColorScheme, saveThemeColor, logout } = useAuth()
+  const { user, colorScheme, themeColor, promptSound, setPromptSound, saveColorScheme, saveThemeColor, savePromptSound, logout } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [savingAlertSound, setSavingAlertSound] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
   const [colorSaved, setColorSaved] = useState(false)
   const [colorError, setColorError] = useState(null)
@@ -53,6 +63,34 @@ export default function ProfilePage() {
   const [schemeError, setSchemeError] = useState(null)
 
   const [alertsOn, setAlertsOn] = useState(() => alertsEnabled())
+
+  // When the user picks a sound on this page we write it through both local and
+  // server state; the component's own save button reflects the result.
+  const [alertSoundSaved, setAlertSoundSaved] = useState(false)
+  const [savingAlertSoundUI, setSavingAlertSoundUI] = useState(false)
+
+  /** Read (or re-read) the profile so the fresh promptSound is reflected here. */
+  const refreshAlertSound = useCallback(async () => {
+    try {
+      const current = await api.getProfile()
+      if (current.promptSound) {
+        setPromptSound(current.promptSound)
+      }
+    } catch {
+      // If the call fails we keep whatever's already there.
+    } finally {
+      setSavingAlertSoundUI(false)
+    }
+  }, [setPromptSound])
+
+  const changeAlertSound = async (next) => {
+    setAlertSoundSaved(false)
+    setSavingAlertSoundUI(true)
+    savePromptSound(next).then(() => {
+      setAlertSoundSaved(true)
+      setTimeout(() => setAlertSoundSaved(false), 3000)
+    })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -232,6 +270,77 @@ export default function ProfilePage() {
                 onChange={toggleAlerts}
                 label="Alert me to new notifications"
               />
+            </Stack>
+
+            <Stack gap="xs" align="flex-start">
+              <Group gap={0}>
+                <Text fw={600}>Notification sound</Text>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  disabled={savingAlertSoundUI}
+                  onClick={() => {
+                    setSavingAlertSoundUI(true)
+                    refreshAlertSound()
+                  }}
+                >
+                  Refresh
+                </Button>
+              </Group>
+              <Text c="dimmed" size="sm">
+                Select the tone played when an audio alert (crying, noise) arrives. Saved on your account so it follows you across browsers.
+              </Text>
+              <Popover position="bottom" withArrow width={360}>
+                <Popover.Target>
+                  <Button variant="outline" fullWidth radius="md">
+                    {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? 'Select a sound'}
+                  </Button>
+                </Popover.Target>
+                <Popover.Dropdown mah={300} style={{ overflow: 'hidden' }}>
+                  <ScrollArea.Autosize mah={300}>
+                    {PROMPT_SOUNDS.map((sound) => (
+                      <Group
+                        key={sound.id}
+                        gap="sm"
+                        justify="space-between"
+                        wrap="nowrap"
+                        px="xs"
+                        py="xs"
+                        radius="md"
+                        bg={sound.id === promptSound ? 'var(--mantine-primary-color-light)' : undefined}
+                        onClick={() => { previewSound(sound.prefix); changeAlertSound(sound.id) }}
+                        style={{ cursor: savingAlertSoundUI ? 'wait' : 'pointer', userSelect: 'none' }}
+                      >
+                        <Group gap="xs" wrap="nowrap">
+                          <Button
+                            variant="light"
+                            size="xs"
+                            px={8}
+                            fw={600}
+                            c="blue"
+                            radius="md"
+                            onClick={(e) => { e.stopPropagation(); previewSound(sound.prefix) }}
+                          >
+                            Play ▶
+                          </Button>{" "}
+                          <Text>{sound.label}</Text>
+                        </Group>
+                      </Group>
+                    ))}
+                  </ScrollArea.Autosize>
+                </Popover.Dropdown>
+              </Popover>
+              {alertSoundSaved && (
+                <Badge color="green" variant="light">
+                  Saved
+                </Badge>
+              )}
+              <Group gap={0}>
+                <Text c="dimmed" size="sm" fw={500}>Current:</Text>{' '}
+                <Text c="blue" fw={500} span>
+                  {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? '—'}
+                </Text>
+              </Group>
             </Stack>
           </Stack>
         </Card>

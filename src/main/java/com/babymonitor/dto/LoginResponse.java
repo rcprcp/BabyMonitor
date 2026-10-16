@@ -9,7 +9,8 @@ package com.babymonitor.dto;
  * @param theme      the account's stored UI theme, so the SPA can apply it
  *                   without a second round trip
  * @param themeColor the account's stored accent color, applied alongside it
+ * @param promptSound the account's selected notification sound prefix
  */
 public record LoginResponse(
-        String token, String name, String expiresAt, String theme, String themeColor) {
+        String token, String name, String expiresAt, String theme, String themeColor, String promptSound) {
 }

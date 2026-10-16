@@ -10,6 +10,7 @@ package com.babymonitor.dto;
  * @param name       login name / display name
  * @param theme      UI preference: {@code light}, {@code dark} or {@code auto}
  * @param themeColor accent color: a Mantine palette name such as {@code blue}
+ * @param promptSound notification sound prefix (a file in {@code /sounds/})
  */
-public record UserDto(Long id, String name, String theme, String themeColor) {
+public record UserDto(Long id, String name, String theme, String themeColor, String promptSound) {
 }
