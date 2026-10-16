@@ -11,10 +11,10 @@ import { useAuth } from './auth'
 import {
   alertsEnabled,
   announceNotifications,
-  playAlertTone,
+  playAlertSound,
   readWatermark,
   selectAlerts,
-  showBrowserNotification,
+  showAlert,
   withAlertLock,
   writeWatermark,
 } from './alerting'
@@ -45,10 +45,10 @@ export default function useNotificationAlerts() {
       }
       // One tab wins per id, so several open tabs don't all alert at once.
       withAlertLock(notification.id, () => {
+        showAlert(notification)
         if (notification.eventType === 'Audio') {
-          playAlertTone()
+          playAlertSound()
         }
-        showBrowserNotification(notification)
       })
     }
 

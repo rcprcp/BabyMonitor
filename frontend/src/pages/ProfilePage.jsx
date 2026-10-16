@@ -19,8 +19,6 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import {
   alertsEnabled,
-  notificationPermission,
-  requestNotificationPermission,
   setAlertsEnabled,
   unlockAudio,
 } from '../alerting'
@@ -55,17 +53,6 @@ export default function ProfilePage() {
   const [schemeError, setSchemeError] = useState(null)
 
   const [alertsOn, setAlertsOn] = useState(() => alertsEnabled())
-  const [alertsError, setAlertsError] = useState(null)
-  const [alertsNote, setAlertsNote] = useState(() => {
-    const permission = notificationPermission()
-    if (permission === 'denied') {
-      return 'Notifications are blocked in your browser settings.'
-    }
-    if (permission === 'unsupported') {
-      return 'This browser cannot show desktop notifications; the in-app tone still plays.'
-    }
-    return null
-  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -117,32 +104,16 @@ export default function ProfilePage() {
     navigate('/login', { replace: true })
   }
 
-  // Turning alerts on asks for notification permission and primes the audio
-  // context — both must happen inside this click's user gesture.
-  const toggleAlerts = async () => {
-    setAlertsError(null)
+  // Turning alerts on primes the audio context so later alerts can sound.
+  const toggleAlerts = () => {
     if (alertsOn) {
       setAlertsEnabled(false)
       setAlertsOn(false)
       return
     }
     unlockAudio()
-    const permission = await requestNotificationPermission()
     setAlertsEnabled(true)
     setAlertsOn(true)
-    if (permission === 'denied') {
-      setAlertsNote(null)
-      setAlertsError(
-        'Notifications are blocked in your browser settings, so only the in-app tone will play.',
-      )
-    } else if (permission === 'unsupported') {
-      setAlertsNote(null)
-      setAlertsError(
-        'This browser cannot show desktop notifications, so only the in-app tone will play.',
-      )
-    } else {
-      setAlertsNote('Alerts are on for this device and account.')
-    }
   }
 
   // Prefer the freshly loaded record, but fall back to the stored name while
@@ -252,25 +223,15 @@ export default function ProfilePage() {
             <Stack gap="xs" align="flex-start">
               <Text fw={600}>Alerts</Text>
               <Text c="dimmed" size="sm">
-                Show a desktop notification when the cameras report a new event, and sound a
-                tone for audio events such as a cry. Alerts are per device, so turn them on on
-                every screen you want woken.
+                Show an in-app notification when the cameras report a new event, and sound a
+                chime for audio events such as a cry. Alerts are per device, so turn them on
+                on every screen you want alerted.
               </Text>
               <Switch
                 checked={alertsOn}
                 onChange={toggleAlerts}
                 label="Alert me to new notifications"
               />
-              {alertsNote && (
-                <Text size="xs" c="dimmed">
-                  {alertsNote}
-                </Text>
-              )}
-              {alertsError && (
-                <Alert color="orange" variant="light">
-                  {alertsError}
-                </Alert>
-              )}
             </Stack>
           </Stack>
         </Card>

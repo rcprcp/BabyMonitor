@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar, Burger, Button, Group, Menu, Title } from '@mantine/core'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { requestNotificationPermission, unlockAudio } from '../alerting'
+import { unlockAudio } from '../alerting'
 import { useAuth } from '../auth'
 
 // Shown until the systemName setting has been read (and if it is missing).
@@ -53,14 +53,13 @@ export default function TitleBar() {
   }
 
   // A testing convenience: fire a real audio alert through the webhook so the
-  // whole path (stream push, tone, desktop notification) can be exercised from
-  // any page. The audio context is primed first, inside this click's gesture.
+  // whole path (stream push, chime, in-app notification) can be exercised from
+  // any page. The audio element is primed inside this click's gesture.
   const sendTestAlert = async () => {
     clearTimeout(resetAlert.current)
     setAlertState('sending')
     try {
       unlockAudio()
-      await requestNotificationPermission()
       await api.sendTestAlert(`Test alert at ${new Date().toLocaleTimeString()}`)
       setAlertState('sent')
     } catch {

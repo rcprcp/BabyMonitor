@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { AppShell, MantineProvider, useMantineColorScheme } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import useNotificationAlerts from './useNotificationAlerts'
@@ -66,6 +67,7 @@ function ThemedApp() {
       colorSchemeManager={noPersistenceColorSchemeManager}
     >
       <ColorSchemeSync />
+      <Notifications position="top-right" limit={3} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedLayout />}>

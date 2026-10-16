@@ -1,11 +1,12 @@
 // Night-time alerting: deciding when a new notification is worth waking the
-// parent, plus the browser notification and audible tone that do it.
+// parent, plus the in-app toast and chime that do it.
 //
-// Everything here is plain JavaScript (no React, no Mantine) so the decision
-// logic stays testable and can run from anywhere. State that must survive a
-// reload (whether alerts are on, and the last notification already alerted for)
-// lives in localStorage, per account.
+// The decision logic (`selectAlerts`) is plain JavaScript so it stays testable;
+// only the presentation reaches for Mantine and the browser. State that must
+// survive a reload (whether alerts are on, and the last notification already
+// alerted for) lives in localStorage, per account.
 
+import { notifications } from '@mantine/notifications'
 import { getName } from './api'
 
 const ENABLED_KEY = 'babymonitor.alertsEnabled'
@@ -18,6 +19,9 @@ export const NOTIFICATIONS_ARRIVED_EVENT = 'babymonitor:notifications'
 // catch-up can dump a backlog, and waking a parent for something that happened
 // last night would be worse than useless.
 export const MAX_ALERT_AGE_MS = 5 * 60 * 1000
+
+// A short two-tone chime, served from the app's static resources.
+const CHIME_URL = '/sounds/notification-chime.mp3'
 
 function watermarkKey() {
   return `babymonitor.alertWatermark.${getName() || 'anon'}`
@@ -75,90 +79,72 @@ export function announceNotifications() {
   window.dispatchEvent(new Event(NOTIFICATIONS_ARRIVED_EVENT))
 }
 
-// --- Browser notifications -------------------------------------------------
+// --- In-app alert ----------------------------------------------------------
 
-export function notificationPermission() {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'unsupported'
-  }
-  return Notification.permission
+/**
+ * Shows an alert as a Mantine notification: a dismissible toast that stacks in
+ * the corner of the app. The `id` is derived from the notification so the store
+ * updates an existing toast rather than stacking a duplicate.
+ */
+export function showAlert(notification) {
+  notifications.show({
+    id: `bm-notification-${notification.id}`,
+    title: notification.eventType === 'Audio' ? 'Audio alert' : 'Video alert',
+    message: notification.description,
+    color: notification.eventType === 'Audio' ? 'blue' : 'grape',
+    withBorder: true,
+    autoClose: 10000,
+  })
 }
 
-/** Asks for permission. Must be called from a user gesture in most browsers. */
-export async function requestNotificationPermission() {
-  if (!('Notification' in window)) {
-    return 'unsupported'
+// --- Audible chime ---------------------------------------------------------
+
+// One shared element, so overlapping alerts restart the chime rather than
+// layering several copies.
+let alertAudio = null
+
+function chime() {
+  if (!alertAudio) {
+    alertAudio = new Audio(CHIME_URL)
+    alertAudio.preload = 'auto'
   }
-  if (Notification.permission !== 'default') {
-    return Notification.permission
-  }
-  try {
-    return await Notification.requestPermission()
-  } catch {
-    return Notification.permission
-  }
+  return alertAudio
 }
 
-export function showBrowserNotification(notification) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') {
-    return
-  }
-  try {
-    const shown = new Notification('BabyMonitor', {
-      body: `${notification.eventType}: ${notification.description}`,
-      // Same tag per notification: two tabs racing cannot stack duplicates.
-      tag: `bm-notification-${notification.id}`,
-      requireInteraction: notification.eventType === 'Audio',
-    })
-    shown.onclick = () => {
-      window.focus()
-      shown.close()
-    }
-  } catch {
-    // Some browsers (notably Android Chrome) only allow notifications from a
-    // service worker; the in-app tone still fires.
-  }
-}
-
-// --- Audible tone ----------------------------------------------------------
-
-// Created and resumed from a user gesture (the enable toggle), otherwise the
-// browser blocks playback.
-let audioContext = null
-
+/**
+ * Primes playback inside a user gesture (turning alerts on, or the test
+ * button). Browsers only allow audible playback without a gesture once the page
+ * has been interacted with, and a real alert arrives without any interaction.
+ */
 export function unlockAudio() {
-  const Ctx = window.AudioContext || window.webkitAudioContext
-  if (!Ctx) {
-    return
+  const audio = chime()
+  audio.muted = true
+  const restore = () => {
+    audio.pause()
+    audio.currentTime = 0
+    audio.muted = false
   }
-  if (!audioContext) {
-    audioContext = new Ctx()
-  }
-  if (audioContext.state === 'suspended') {
-    audioContext.resume()
+  const played = audio.play()
+  if (played && typeof played.then === 'function') {
+    played.then(restore).catch(() => {
+      audio.muted = false
+    })
+  } else {
+    restore()
   }
 }
 
-/** A short two-tone chime, audible but not alarming. */
-export function playAlertTone() {
-  if (!audioContext || audioContext.state !== 'running') {
-    return
+/** Plays the chime. A blocked or failed play is not fatal: the toast still shows. */
+export function playAlertSound() {
+  const audio = chime()
+  try {
+    audio.currentTime = 0
+  } catch {
+    // Not seekable yet on some browsers; play it from wherever it is.
   }
-  const start = audioContext.currentTime
-  for (const [offset, frequency] of [
-    [0, 880],
-    [0.35, 660],
-  ]) {
-    const oscillator = audioContext.createOscillator()
-    const gain = audioContext.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = frequency
-    gain.gain.setValueAtTime(0.0001, start + offset)
-    gain.gain.exponentialRampToValueAtTime(0.3, start + offset + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.3)
-    oscillator.connect(gain).connect(audioContext.destination)
-    oscillator.start(start + offset)
-    oscillator.stop(start + offset + 0.32)
+  const played = audio.play()
+  if (played && typeof played.catch === 'function') {
+    played.catch(() => {})
   }
 }
 
@@ -167,7 +153,7 @@ export function playAlertTone() {
 /**
  * Runs {@code action} only if no other tab is already handling this notification
  * id. Falls back to running it when the Web Locks API is unavailable; the
- * notification's {@code tag} still collapses any OS-level duplicates.
+ * notification's {@code id} still collapses any in-store duplicates.
  */
 export function withAlertLock(id, action) {
   if (typeof navigator === 'undefined' || !navigator.locks) {
