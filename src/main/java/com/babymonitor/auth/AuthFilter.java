@@ -33,6 +33,8 @@ public class AuthFilter implements ContainerRequestFilter {
     private static final String API_PREFIX = "api/";
     private static final String LOGIN_PATH = "api/auth/login";
     private static final String WEBHOOK_PREFIX = "api/webhooks/";
+    private static final String NOTIFICATION_STREAM_PATH = "api/notifications/stream";
+    private static final String TOKEN_QUERY_PARAM = "token";
     private static final String BEARER_PREFIX = "Bearer ";
 
     @Inject
@@ -58,8 +60,18 @@ public class AuthFilter implements ContainerRequestFilter {
         }
 
         String header = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION);
+        String token = null;
         if (header != null && header.startsWith(BEARER_PREFIX)) {
-            String token = header.substring(BEARER_PREFIX.length()).trim();
+            token = header.substring(BEARER_PREFIX.length()).trim();
+        }
+        // The notification stream is consumed with EventSource, which cannot set
+        // an Authorization header, so it also accepts the session token as a
+        // query parameter. Restricted to this one path: everywhere else the
+        // token stays in the header, out of URLs and access logs.
+        if ((token == null || token.isBlank()) && NOTIFICATION_STREAM_PATH.equals(path)) {
+            token = requestContext.getUriInfo().getQueryParameters().getFirst(TOKEN_QUERY_PARAM);
+        }
+        if (token != null && !token.isBlank()) {
             Session session = sessions.validate(token);
             if (session != null) {
                 requestContext.setProperty(SESSION_PROPERTY, session);

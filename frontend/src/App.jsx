@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { AppShell, MantineProvider, useMantineColorScheme } from '@mantine/core'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
+import useNotificationAlerts from './useNotificationAlerts'
 import TitleBar from './components/TitleBar'
 import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
@@ -18,6 +19,9 @@ import { createAppTheme, noPersistenceColorSchemeManager } from './theme'
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth()
   const location = useLocation()
+
+  // Alert the parent to new notifications from whatever page they are on.
+  useNotificationAlerts()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />

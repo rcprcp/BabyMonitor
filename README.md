@@ -18,8 +18,8 @@ src/main/java/com/babymonitor/
   resource/                     AuthResource, SettingsResource,
                                 NotificationsResource, WebhookResource,
                                 CamerasResource, RecordingsResource
-  service/                      NotificationService, AfterCommit,
-                                RecordingsService
+  service/                      NotificationService, NotificationBroadcaster,
+                                AfterCommit, RecordingsService
   web/                          SpaFallbackFilter
 src/main/resources/motion/      motion.template, motion-notify.sh
 frontend/                       React/Vite SPA (built into the jar)
@@ -120,6 +120,7 @@ webhooks.
 | PUT         | `/api/users/me/theme`                  | `{ "theme" }`: light/dark/auto |
 | PUT         | `/api/users/me/theme-color`            | `{ "themeColor" }`: palette    |
 | GET         | `/api/notifications`                   | newest first, minus my dismissals |
+| GET         | `/api/notifications/stream`            | server-sent events: live push of new notifications (`?token=`, `?lastId=`) |
 | DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
 | GET         | `/api/cameras`                         | every camera parameter         |
@@ -197,6 +198,36 @@ curl -X DELETE http://localhost:8080/api/notifications/4 \
 
 A freshly initialized database has the twenty seeded test notifications to try
 this on: dismiss one as Bob and it stays in Cindy's feed.
+
+### Live alerts
+
+`GET /api/notifications/stream` is a [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
+stream: every new notification is pushed as a `notification` event the moment
+the webhook that recorded it commits, so the Notifications page updates and the
+parent is alerted without waiting for a refresh.
+
+A reconnecting client passes the last event id it saw, via the standard
+`Last-Event-ID` header (set automatically by the browser's `EventSource`) or a
+`lastId` query parameter, and is sent everything newer, in id order. `eventTime`
+is deliberately not used for this: a webhook may back-date an event, while the
+id is always monotonic.
+
+Because `EventSource` cannot set an `Authorization` header, this one endpoint
+also accepts the session token as a `token` query parameter. That is the only
+path where a URL-borne token is accepted; every other request must use the
+`Bearer` header, so the token does not leak into URLs or logs elsewhere.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"name":"Bob","password":"Bob"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+
+curl -N "http://localhost:8080/api/notifications/stream?token=$TOKEN&lastId=0"
+```
+
+The SPA (Personal settings → **Alerts**) turns on the audible tone and desktop
+notifications for this device; the stream is consumed from any page while signed
+in, with short polling as a fallback when the stream is unavailable.
 
 ## Motion
 

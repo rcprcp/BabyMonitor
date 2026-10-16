@@ -11,11 +11,19 @@ import {
   Loader,
   SegmentedControl,
   Stack,
+  Switch,
   Text,
   Title,
 } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import {
+  alertsEnabled,
+  notificationPermission,
+  requestNotificationPermission,
+  setAlertsEnabled,
+  unlockAudio,
+} from '../alerting'
 import { useAuth } from '../auth'
 import { COLOR_SCHEMES } from '../theme'
 import ThemePalette from '../components/ThemePalette'
@@ -45,6 +53,19 @@ export default function ProfilePage() {
   const [savingScheme, setSavingScheme] = useState(false)
   const [schemeSaved, setSchemeSaved] = useState(false)
   const [schemeError, setSchemeError] = useState(null)
+
+  const [alertsOn, setAlertsOn] = useState(() => alertsEnabled())
+  const [alertsError, setAlertsError] = useState(null)
+  const [alertsNote, setAlertsNote] = useState(() => {
+    const permission = notificationPermission()
+    if (permission === 'denied') {
+      return 'Notifications are blocked in your browser settings.'
+    }
+    if (permission === 'unsupported') {
+      return 'This browser cannot show desktop notifications; the in-app tone still plays.'
+    }
+    return null
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -94,6 +115,34 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
+  }
+
+  // Turning alerts on asks for notification permission and primes the audio
+  // context — both must happen inside this click's user gesture.
+  const toggleAlerts = async () => {
+    setAlertsError(null)
+    if (alertsOn) {
+      setAlertsEnabled(false)
+      setAlertsOn(false)
+      return
+    }
+    unlockAudio()
+    const permission = await requestNotificationPermission()
+    setAlertsEnabled(true)
+    setAlertsOn(true)
+    if (permission === 'denied') {
+      setAlertsNote(null)
+      setAlertsError(
+        'Notifications are blocked in your browser settings, so only the in-app tone will play.',
+      )
+    } else if (permission === 'unsupported') {
+      setAlertsNote(null)
+      setAlertsError(
+        'This browser cannot show desktop notifications, so only the in-app tone will play.',
+      )
+    } else {
+      setAlertsNote('Alerts are on for this device and account.')
+    }
   }
 
   // Prefer the freshly loaded record, but fall back to the stored name while
@@ -196,6 +245,30 @@ export default function ProfilePage() {
               {schemeError && (
                 <Alert color="red" variant="light">
                   {schemeError}
+                </Alert>
+              )}
+            </Stack>
+
+            <Stack gap="xs" align="flex-start">
+              <Text fw={600}>Alerts</Text>
+              <Text c="dimmed" size="sm">
+                Show a desktop notification when the cameras report a new event, and sound a
+                tone for audio events such as a cry. Alerts are per device, so turn them on on
+                every screen you want woken.
+              </Text>
+              <Switch
+                checked={alertsOn}
+                onChange={toggleAlerts}
+                label="Alert me to new notifications"
+              />
+              {alertsNote && (
+                <Text size="xs" c="dimmed">
+                  {alertsNote}
+                </Text>
+              )}
+              {alertsError && (
+                <Alert color="orange" variant="light">
+                  {alertsError}
                 </Alert>
               )}
             </Stack>

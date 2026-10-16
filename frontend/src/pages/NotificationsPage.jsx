@@ -14,6 +14,7 @@ import {
   Title,
 } from '@mantine/core'
 import { api } from '../api'
+import { NOTIFICATIONS_ARRIVED_EVENT } from '../alerting'
 
 // DB-backed feed: rows come from babymonitor.notifications and are written by
 // the device webhooks, so video events link to the relevant clip. The feed is
@@ -57,9 +58,24 @@ export default function NotificationsPage() {
     }
   }, [])
 
+  // A new notification arrived (stream or poll): refresh the list in place,
+  // without the loading spinner flashing over the page.
+  const refresh = useCallback(async () => {
+    try {
+      setNotifications(await api.listNotifications())
+    } catch {
+      // Leave the list as-is; the next explicit Refresh will surface any error.
+    }
+  }, [])
+
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    window.addEventListener(NOTIFICATIONS_ARRIVED_EVENT, refresh)
+    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED_EVENT, refresh)
+  }, [refresh])
 
   // Revoke the last object URL when the page goes away.
   useEffect(

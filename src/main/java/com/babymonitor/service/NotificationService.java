@@ -5,6 +5,7 @@ import com.babymonitor.entity.EventType;
 import com.babymonitor.entity.Notification;
 import com.babymonitor.entity.NotificationDismissal;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.List;
@@ -15,9 +16,18 @@ import java.util.List;
  *
  * <p>Rows are written by the device webhooks ({@code WebhookResource}) and read
  * by the Notifications page ({@code NotificationsResource}).
+ *
+ * <p>New rows are also pushed to any open event streams ({@link NotificationBroadcaster})
+ * so the SPA can alert without polling.
  */
 @ApplicationScoped
 public class NotificationService {
+
+    @Inject
+    NotificationBroadcaster broadcaster;
+
+    @Inject
+    AfterCommit afterCommit;
 
     /**
      * The notifications one account should see: everything it has not dismissed,
@@ -46,7 +56,37 @@ public class NotificationService {
     }
 
     /**
+     * The notifications one account should see with an id greater than
+     * {@code lastId}, oldest first — the catch-up an event stream sends when a
+     * client reconnects with the last id it saw.
+     *
+     * <p>Ordered by id rather than {@code eventTime} because a webhook may
+     * back-date an event; the id is monotonic regardless.
+     *
+     * @param userId the account reading the feed, from its session
+     * @param lastId the highest id the client has already seen
+     */
+    @Transactional
+    public List<NotificationDto> listNewerThan(Long userId, Long lastId) {
+        List<Notification> rows = Notification.find(
+                        "select n from Notification n where n.id > ?1 and not exists "
+                                + "(select d.notificationId from NotificationDismissal d "
+                                + "where d.notificationId = n.id and d.userId = ?2) "
+                                + "order by n.id asc",
+                        lastId, userId)
+                .list();
+        return rows.stream()
+                .map(NotificationService::toDto)
+                .toList();
+    }
+
+    /**
      * Persists a new notification and returns it.
+     *
+     * <p>The row is also pushed to any open event streams, once the surrounding
+     * transaction has committed, so a client cannot be told about a row that
+     * later rolls back. Broadcasting is best-effort: a dead stream never fails
+     * the write.
      *
      * @param eventType   {@link EventType#Video} or {@link EventType#Audio}
      * @param description what happened
@@ -61,7 +101,9 @@ public class NotificationService {
                 description,
                 videoLink);
         notification.persist();
-        return toDto(notification);
+        NotificationDto dto = toDto(notification);
+        afterCommit.run(() -> broadcaster.broadcast(dto));
+        return dto;
     }
 
     /**
