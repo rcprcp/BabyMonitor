@@ -19,6 +19,7 @@ export default function StreamPage() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingEnabled, setSavingEnabled] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,6 +96,25 @@ export default function StreamPage() {
       ? `${streamBase}:${selectedCamera.streamPort}`
       : null
 
+  // Switching a camera on starts Motion on the server. Give the MJPEG stream a
+  // chance to accept connections a moment after enabling before the player
+  // tries (and retries) to load it.
+  useEffect(() => {
+    if (!selectedCamera?.enabled) {
+      setReloadKey(0)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      setReloadKey((k) => k + 1)
+    }, 800)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [selectedCamera?.cameraNumber, selectedCamera?.enabled])
+
   // Switch the selected camera on or off. The flag is stored on every one of
   // its rows in babymonitor.cameras, and the server starts or kills Motion to
   // match, so swap those rows for the server's response.
@@ -152,7 +172,7 @@ export default function StreamPage() {
             <Loader size="sm" />
           </Center>
         ) : (
-          <StreamPlayer url={url} />
+          <StreamPlayer url={url} reloadKey={reloadKey} />
         )}
       </Box>
     </Stack>

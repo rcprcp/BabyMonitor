@@ -68,14 +68,46 @@ function HlsVideo({ url }) {
   )
 }
 
-export default function StreamPlayer({ url }) {
+export default function StreamPlayer({ url, reloadKey = 0 }) {
   const [imgError, setImgError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const retryTimer = useRef(null)
+  const RETRY_INTERVALS_MS = [0, 1000, 2000, 3000, 5000]
 
   // A new URL gets a fresh chance: without this the error box would stick
   // around after the camera comes back.
   useEffect(() => {
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current)
+      retryTimer.current = null
+    }
     setImgError(false)
-  }, [url])
+    setAttempt(0)
+  }, [url, reloadKey])
+
+  useEffect(
+    () => () => {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current)
+        retryTimer.current = null
+      }
+    },
+    [],
+  )
+
+  const scheduleRetry = () => {
+    const nextInterval = RETRY_INTERVALS_MS[attempt + 1]
+    if (nextInterval === undefined) {
+      setImgError(true)
+      return
+    }
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current)
+    }
+    retryTimer.current = setTimeout(() => {
+      setAttempt((a) => a + 1)
+    }, nextInterval)
+  }
 
   if (!url) {
     return <Text c="gray.3">No stream URL is configured.</Text>
@@ -99,12 +131,21 @@ export default function StreamPlayer({ url }) {
     )
   }
 
+  const src = attempt === 0 ? url : `${url}${url.includes('?') ? '&' : '?'}_cache=${Date.now()}`
+
   return (
     <img
       className="stream-media"
-      src={url}
+      src={src}
       alt="Live baby monitor stream"
-      onError={() => setImgError(true)}
+      onError={scheduleRetry}
+      onLoad={() => {
+        if (retryTimer.current) {
+          clearTimeout(retryTimer.current)
+          retryTimer.current = null
+        }
+        setAttempt(0)
+      }}
     />
   )
 }
