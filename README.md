@@ -225,9 +225,12 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
 curl -N "http://localhost:8080/api/notifications/stream?token=$TOKEN&lastId=0"
 ```
 
-The SPA (Personal settings → **Alerts**) turns on the audible tone and desktop
-notifications for this device; the stream is consumed from any page while signed
-in, with short polling as a fallback when the stream is unavailable.
+The SPA (Personal settings → **Alerts**) turns on the in-app notification toasts
+and a chime for this device; the stream is consumed from any page while signed
+in, with short polling as a fallback when the stream is unavailable. The chime is
+a small two-tone file (`/sounds/notification-chime.mp3`) that is primed on user
+gesture (turning alerts on or using the title-bar Test alert button) to satisfy
+autoplay policies.
 
 ## Motion
 
