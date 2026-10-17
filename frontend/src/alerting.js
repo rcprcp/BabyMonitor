@@ -100,12 +100,32 @@ export function announceNotifications() {
 export function showAlert(notification) {
   notifications.show({
     id: `bm-notification-${notification.id}`,
-    title: notification.eventType === 'Audio' ? 'Audio alert' : 'Video alert',
+    title: titleFor(notification.eventType),
     message: notification.description,
-    color: notification.eventType === 'Audio' ? 'blue' : 'grape',
+    color: colorFor(notification.eventType),
     withBorder: true,
     autoClose: 10000,
   })
+}
+
+function titleFor(eventType) {
+  if (eventType === 'Video') {
+    return 'Video alert'
+  }
+  if (eventType === 'Audio') {
+    return 'Audio alert'
+  }
+  return 'Monitor alert'
+}
+
+function colorFor(eventType) {
+  if (eventType === 'Video') {
+    return 'blue'
+  }
+  if (eventType === 'Audio') {
+    return 'blue'
+  }
+  return 'orange'
 }
 
 // --- Audible chime ---------------------------------------------------------

@@ -35,11 +35,10 @@ class MotionStartupTest {
         List<Camera> rows = Camera.listByCamera(cameraNumber);
         assertFalse(rows.isEmpty(), "camera 2 is seeded with parameters");
 
-        // A user switches the camera on from its page: the config is written and
+        // A user starts the camera from its page: the config is written and
         // the process comes up.
-        MotionStatusDto up =
-                motion.apply(cameraNumber, MotionService.toParameters(rows));
-        assertTrue(up.running(), "switching a camera on should start Motion");
+        MotionStatusDto up = motion.apply(cameraNumber, MotionService.toParameters(rows));
+        assertTrue(up.running(), "starting a camera should start Motion");
 
         // Then the app restarts. The child outlives the JVM that spawned it, so
         // the reset has to kill it rather than leave it orphaned.
@@ -50,6 +49,6 @@ class MotionStartupTest {
         assertNull(after.pid(), "the leftover process should be gone");
         assertFalse(
                 Camera.listByCamera(cameraNumber).get(0).enabled,
-                "every camera comes back switched off");
+                "every camera comes back with desired state false");
     }
 }

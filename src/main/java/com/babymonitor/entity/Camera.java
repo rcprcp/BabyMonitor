@@ -13,10 +13,10 @@ import java.util.List;
  *
  * <p>The table has no surrogate id: it is keyed by camera and parameter name,
  * so {@link CameraId} is the composite primary key. {@code enabled} is the
- * camera's own on/off state and is carried on each of its parameter rows, so
- * switching a camera on or off touches every row it owns.
+ * camera's persisted desired state and is carried on each of its parameter
+ * rows, so starting or stopping a camera touches every row it owns.
  *
- * <p>Maps a row of the table created by {@code db/init.sql} and backs the
+ * <p>Maps a row of the table created by the Flyway migrations and backs the
  * Camera1 / Camera2 pages.
  */
 @Entity
@@ -42,7 +42,11 @@ public class Camera extends PanacheEntityBase {
     @Column(name = "value", length = 500, nullable = false)
     public String value;
 
-    /** Whether the camera is switched on. Repeated on every row it owns. */
+    /**
+     * The camera's persisted desired state: {@code true} means "this camera
+     * should be running". Repeated on every row it owns. The Motion supervisor
+     * reads it to decide which cameras to keep alive.
+     */
     @Column(name = "enabled", nullable = false)
     public boolean enabled;
 

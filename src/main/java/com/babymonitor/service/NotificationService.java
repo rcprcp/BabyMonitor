@@ -88,9 +88,10 @@ public class NotificationService {
      * later rolls back. Broadcasting is best-effort: a dead stream never fails
      * the write.
      *
-     * @param eventType   {@link EventType#Video} or {@link EventType#Audio}
+     * @param eventType   {@link EventType#Video}, {@link EventType#Audio} or
+     *                    {@link EventType#System}
      * @param description what happened
-     * @param videoLink   link to the relevant clip, or {@code null} for audio
+     * @param videoLink   link to the relevant clip, or {@code null} for audio/system
      * @param eventTime   when it happened; defaults to now when {@code null}
      */
     @Transactional

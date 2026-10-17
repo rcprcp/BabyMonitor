@@ -7,7 +7,6 @@ import {
   Group,
   Loader,
   Stack,
-  Switch,
   Table,
   Text,
   TextInput,
@@ -19,11 +18,12 @@ import { api } from '../api'
 // menu entries, "Camera1" and "Camera2": the camera number arrives as a prop.
 // The parameter names are Motion option names; editing one only stores it.
 //
-// One switch owns the camera's enabled flag. Switching it on writes the config
-// and starts Motion; switching off kills the process. Startup is cold -- the app
-// marks every camera not enabled -- so this switch is where a camera comes up.
-// Start/Apply is for after an edit: it rebuilds the config and reloads a running
-// process, or starts one if it is down.
+// Start/Apply marks the camera as running, rebuilds its config and starts
+// Motion (or reloads it if it is already up). Stop marks it not running and
+// kills the process. The backend's MotionSupervisor keeps a camera that is
+// marked running alive: if its process dies it is restarted and a System
+// notification is recorded. Startup is cold, so a camera comes up only from
+// here.
 export default function CameraPage({ cameraNumber }) {
   const [parameters, setParameters] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -32,7 +32,7 @@ export default function CameraPage({ cameraNumber }) {
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState(null)
   const [savedKey, setSavedKey] = useState(null)
-  const [savingMotion, setSavingMotion] = useState(false)
+  const [stopping, setStopping] = useState(false)
   const [applying, setApplying] = useState(false)
 
   const load = useCallback(async () => {
@@ -78,6 +78,9 @@ export default function CameraPage({ cameraNumber }) {
     try {
       const status = await api.applyCameraMotion(cameraNumber)
       setMotion(status)
+      // Apply marks the camera as running on the server; mirror it locally so
+      // the "restarting" hint below is accurate without a reload.
+      setParameters((current) => current.map((p) => ({ ...p, enabled: true })))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -85,26 +88,26 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
-  // One switch owns the camera's enabled flag. Switching on writes the config
-  // and starts Motion; switching off kills it. The flag lives on every row, so
-  // the response replaces them all.
-  const toggleEnabled = async (next) => {
+  // Stop marks the camera not running and kills its process, so the backend
+  // supervisor stops watching it.
+  const stop = async () => {
     setError(null)
-    setSavingMotion(true)
+    setStopping(true)
     try {
-      const rows = await api.updateCameraEnabled(cameraNumber, next)
-      setParameters(rows)
-      setDrafts(Object.fromEntries(rows.map((p) => [p.key, p.value])))
-      setMotion(await api.getCameraMotion(cameraNumber))
+      const status = await api.stopCameraMotion(cameraNumber)
+      setMotion(status)
+      setParameters((current) => current.map((p) => ({ ...p, enabled: false })))
     } catch (err) {
       setError(err.message)
     } finally {
-      setSavingMotion(false)
+      setStopping(false)
     }
   }
 
   const name = parameters.find((p) => p.key === 'camera_name')?.value
-  const enabled = parameters[0]?.enabled ?? false
+  // The persisted desired state: set by Start/Apply, cleared by Stop. The badge
+  // follows the process, not this flag.
+  const desired = parameters[0]?.enabled ?? false
   const running = motion?.running ?? false
   const configWritten = motion?.configExists ?? false
 
@@ -120,21 +123,32 @@ export default function CameraPage({ cameraNumber }) {
           )}
         </Group>
         <Group gap="sm" align="center">
-          <Switch
-            label="Camera on"
-            checked={enabled}
-            onChange={(event) => toggleEnabled(event.currentTarget.checked)}
-            disabled={loading}
-            loading={savingMotion}
-          />
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
-          <Badge color={running ? 'green' : 'gray'} variant="light">
-            {running ? `Motion running (pid ${motion.pid})` : 'Motion stopped'}
-          </Badge>
+          {running ? (
+            <Badge color="green" variant="light">
+              Motion running (pid {motion.pid})
+            </Badge>
+          ) : desired ? (
+            <Badge color="yellow" variant="light">
+              Motion down - restarting
+            </Badge>
+          ) : (
+            <Badge color="gray" variant="light">
+              Motion stopped
+            </Badge>
+          )}
           <Button onClick={apply} loading={applying} disabled={loading}>
             Start/Apply
+          </Button>
+          <Button
+            onClick={stop}
+            loading={stopping}
+            disabled={loading || (!running && !desired)}
+            variant="default"
+          >
+            Stop
           </Button>
         </Group>
       </Group>

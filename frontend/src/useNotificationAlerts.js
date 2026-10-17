@@ -59,6 +59,9 @@ export default function useNotificationAlerts() {
       if (notification.eventType === 'Audio') {
         playAlertSound(prefixRef.current)
       }
+      // System alerts are informational; the supervisor already logged the
+      // restart and recorded it, so we skip the chime to avoid startling a
+      // sleeping parent for an automatic recovery.
     })
   }
 

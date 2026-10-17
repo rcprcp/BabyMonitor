@@ -21,7 +21,7 @@ import java.util.Map;
  * and repoints {@code binary} and {@code base-dir}.
  *
  * <p>{@code reset-on-start} is left on, so the cold start is exercised for
- * real: each app boot kills leftovers and marks every camera not enabled, which
+ * real: each app boot kills leftovers and marks every camera not running, and the MotionSupervisor is disabled under %test so a timer never fires, which
  * also gives every test class a deterministic all-disabled starting point.
  */
 public class MotionTestResource implements QuarkusTestResourceLifecycleManager {

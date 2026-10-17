@@ -7,8 +7,8 @@ import { api } from '../api'
 // the host comes from the `stream_url` setting and the port from that camera's
 // `stream_port` row (8081 for Camera 1, 8082 for Camera 2), so the feed shown is
 // the one Motion is producing and recording. Both cameras are always selectable;
-// the default is the first enabled one (Camera 1, else Camera 2). A switched-off
-// camera has no process, so the player shows its "no stream" state; switch it
+// the default is the first enabled one (Camera 1, else Camera 2). A stopped
+// camera has no process, so the player shows its "no stream" state; start it
 // back on from that camera's page.
 const DEFAULT_CAMERA = 1
 
@@ -67,9 +67,10 @@ export default function StreamPage() {
     return [...map.values()].sort((a, b) => a.cameraNumber - b.cameraNumber)
   }, [parameters])
 
-  // The default is Camera 1 while it is switched on, otherwise Camera 2 when
-  // that one is on. With both off there is nothing to play: the choice stays on
-  // Camera 1 and the player shows its "no stream" state.
+  // The default is Camera 1 if it is marked running/should-be-running, otherwise
+  // Camera 2 when that one is marked running, and otherwise Camera 1. A stopped
+  // camera has no process, so the player shows its "no stream" state; start it
+  // from that camera's page.
   const defaultCameraNumber =
     cameras.find((camera) => camera.enabled)?.cameraNumber ?? DEFAULT_CAMERA
 
@@ -79,16 +80,16 @@ export default function StreamPage() {
     }
   }, [selected, cameras.length, defaultCameraNumber])
 
-  // Every camera is offered, enabled or not: picking a switched-off one just
-  // shows the player's "no stream" state; it can be switched back on from that
-  // camera's page.
+  // Every camera is offered, enabled or not: picking a stopped one just shows
+  // the player's "no stream" state; it can be started from that camera's page.
   const options = cameras.map((camera) => ({
     value: String(camera.cameraNumber),
     label: camera.name ? `Camera ${camera.cameraNumber} (${camera.name})` : `Camera ${camera.cameraNumber}`,
   }))
 
   const selectedCamera = cameras.find((camera) => String(camera.cameraNumber) === selected)
-  // A switched-off camera, or one with no host/port, has nothing to play.
+  // A stopped camera, or one with no host/port, has nothing to play. The page
+  // still renders the selector and player so the user can start it.
   const url =
     selectedCamera?.enabled && streamBase && selectedCamera.streamPort
       ? `${streamBase}:${selectedCamera.streamPort}`

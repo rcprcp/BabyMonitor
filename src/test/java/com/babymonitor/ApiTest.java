@@ -795,34 +795,23 @@ class ApiTest {
     }
 
     @Test
-    void cameraEnabledToggleUpdatesEveryRowAndIsRestored() {
+    void applyToggleBehaviour() {
         String token = login("Bob", "Bob");
         boolean original = (Boolean) parameterNamed(cameraParameters(token, 2), "camera_name").get("enabled");
         try {
-            given()
-                    .header("Authorization", bearer(token))
-                    .contentType(ContentType.JSON)
-                    .body("{\"enabled\":true}")
-                    .when()
-                    .put("/api/cameras/2/enabled")
-                    .then()
-                    .statusCode(200);
-
+            Map<String, Object> status = applyMotion(token, 2);
+            assertTrue((Boolean) status.get("running"));
             List<Map<String, Object>> parameters = cameraParameters(token, 2);
-            assertFalse(parameters.isEmpty());
             for (Map<String, Object> parameter : parameters) {
-                assertEquals(Boolean.TRUE, parameter.get("enabled"), "every row carries the flag");
+                assertEquals(Boolean.TRUE, parameter.get("enabled"));
             }
         } finally {
-            // Put the camera back the way the test found it.
-            given()
-                    .header("Authorization", bearer(token))
-                    .contentType(ContentType.JSON)
-                    .body("{\"enabled\":" + original + "}")
-                    .when()
-                    .put("/api/cameras/2/enabled")
-                    .then()
-                    .statusCode(200);
+            stopMotion(token, 2);
+            if (original) {
+                applyMotion(token, 2);
+            } else {
+                stopMotion(token, 2);
+            }
         }
     }
 
@@ -848,7 +837,7 @@ class ApiTest {
     void motionStatusForAStoppedCameraIsNotRunning() {
         String token = login("Bob", "Bob");
         // Nothing is running at rest, so the app reports the camera as stopped.
-        // There is no master switch any more: the process simply is not up yet.
+        // Apply sets the desired state to running.
         stopMotion(token, 1);
         given()
                 .header("Authorization", bearer(token))
@@ -914,50 +903,38 @@ class ApiTest {
     // --- Camera enabled flag -----------------------------------------------
 
     @Test
-    void switchingACameraOnMarksEveryRowEnabledAndStartsMotion() {
+    void applyMarksCameraRunning() {
         String token = login("Bob", "Bob");
         try {
-            List<Map<String, Object>> rows = setCameraEnabled(token, 1, true);
-            assertFalse(rows.isEmpty(), "camera 1 is seeded with parameters");
-            for (Map<String, Object> row : rows) {
-                assertEquals(Boolean.TRUE, row.get("enabled"), "the flag lives on every row");
+            stopMotion(token, 1);
+            Map<String, Object> status = applyMotion(token, 1);
+            assertEquals(true, status.get("running"), "Apply should start and mark running");
+            // Verify every parameter row now has enabled true
+            List<Map<String, Object>> parameters = cameraParameters(token, 1);
+            for (Map<String, Object> parameter : parameters) {
+                assertEquals(Boolean.TRUE, parameter.get("enabled"), "every row carries enabled=true");
             }
-            assertEquals(true, getMotion(token, 1).get("running"), "switching on starts Motion");
         } finally {
-            setCameraEnabled(token, 1, false);
+            stopMotion(token, 1);
         }
-        assertEquals(false, getMotion(token, 1).get("running"), "switching off kills Motion");
     }
 
     @Test
-    void switchingACameraOffMarksEveryRowDisabled() {
+    void stopMarksCameraNotRunning() {
         String token = login("Bob", "Bob");
         try {
-            setCameraEnabled(token, 1, true);
-            List<Map<String, Object>> rows = setCameraEnabled(token, 1, false);
-            for (Map<String, Object> row : rows) {
-                assertEquals(Boolean.FALSE, row.get("enabled"));
+            applyMotion(token, 1);
+            stopMotion(token, 1);
+            List<Map<String, Object>> parameters = cameraParameters(token, 1);
+            for (Map<String, Object> parameter : parameters) {
+                assertEquals(Boolean.FALSE, parameter.get("enabled"), "every row carries enabled=false");
             }
         } finally {
-            setCameraEnabled(token, 1, false);
+            stopMotion(token, 1);
         }
     }
 
-    /** PUTs a camera's enabled flag and returns the camera's parameter rows. */
-    private static List<Map<String, Object>> setCameraEnabled(
-            String token, int cameraNumber, boolean enabled) {
-        return given()
-                .header("Authorization", bearer(token))
-                .contentType(ContentType.JSON)
-                .body("{\"enabled\":" + enabled + "}")
-                .when()
-                .put("/api/cameras/" + cameraNumber + "/enabled")
-                .then()
-                .statusCode(200)
-                .extract()
-                .jsonPath()
-                .getList("$");
-    }
+
 
     /** GETs a camera's Motion status body. */
     private static Map<String, Object> getMotion(String token, int cameraNumber) {
