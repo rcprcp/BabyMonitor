@@ -20,6 +20,9 @@ import { api } from '../api'
 // Start/Apply rebuilds the camera's Motion config from the current rows and
 // starts the process (or reloads it with SIGHUP when it is already running).
 // Disable kills this camera's Motion process; Start/Apply brings it back.
+// A camera may be stopped, but the app can always start or stop it, so the
+// badges below report the two things that can go wrong: no config written yet,
+// and the process being down.
 export default function CameraPage({ cameraNumber }) {
   const [parameters, setParameters] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -97,6 +100,7 @@ export default function CameraPage({ cameraNumber }) {
 
   const name = parameters.find((p) => p.key === 'camera_name')?.value
   const running = motion?.running ?? false
+  const configWritten = motion?.configExists ?? false
 
   return (
     <Stack>
@@ -119,8 +123,11 @@ export default function CameraPage({ cameraNumber }) {
           >
             Disable
           </Button>
+          <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
+            {configWritten ? 'Config written' : 'No config yet'}
+          </Badge>
           <Badge color={running ? 'green' : 'gray'} variant="light">
-            {running ? 'Motion running' : 'Motion stopped'}
+            {running ? `Motion running (pid ${motion.pid})` : 'Motion stopped'}
           </Badge>
           <Button onClick={apply} loading={applying} disabled={loading}>
             Start/Apply

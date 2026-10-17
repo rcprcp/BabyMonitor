@@ -191,8 +191,7 @@ public class CamerasResource {
     @Operation(
             summary = "Rebuild a camera's Motion config and (re)start it",
             description = "Writes the camera's config from its parameters. If Motion is already "
-                    + "running it is sent SIGHUP to reload; otherwise it is started. Nothing "
-                    + "happens while babymonitor.motion.enabled is false, which is the default.")
+                    + "running it is sent SIGHUP to reload; otherwise it is started.")
     @APIResponse(
             responseCode = "400",
             description = "A parameter cannot safely be written",

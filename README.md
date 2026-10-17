@@ -285,11 +285,13 @@ Each camera's pid is written to `<base>/<n>/motion.pid`. When the app restarts
 not start rather than launching a second one, then stops it if the camera is
 disabled — see `MotionService.reconcile`.
 
-`babymonitor.motion.enabled` is a master switch and defaults to **false**, so
-development and tests never spawn a real `motion`. Set
-`BABYMONITOR_MOTION_ENABLED=true` (and, if needed,
-`BABYMONITOR_MOTION_BASE_DIR` or `BABYMONITOR_MOTION_BINARY`) to let the app
-drive it; the rest of the knobs are in `application.properties`.
+There is no master switch: a camera may have no process running, but the app can
+always write its config and start or stop its process. Development therefore
+runs a real `motion` — set `BABYMONITOR_MOTION_BASE_DIR` or
+`BABYMONITOR_MOTION_BINARY` if you want it somewhere other than the defaults in
+`application.properties`. The tests never spawn a real one: `MotionTestResource`
+points `binary` at a stub that just sleeps and `base-dir` at a scratch
+directory.
 
 ### Live stream and recordings
 

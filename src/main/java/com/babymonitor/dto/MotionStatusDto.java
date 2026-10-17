@@ -4,7 +4,6 @@ package com.babymonitor.dto;
  * The state of one camera's Motion process, as returned to the SPA.
  *
  * @param cameraNumber the camera
- * @param managed      whether the app may drive Motion ({@code babymonitor.motion.enabled})
  * @param running      whether a Motion process is running for this camera
  * @param pid          its process id, or {@code null} when it is stopped
  * @param configFile   the generated config file the process reads
@@ -12,7 +11,6 @@ package com.babymonitor.dto;
  */
 public record MotionStatusDto(
         int cameraNumber,
-        boolean managed,
         boolean running,
         Long pid,
         String configFile,

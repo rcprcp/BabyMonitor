@@ -9,15 +9,11 @@ import io.smallrye.config.WithDefault;
  * <p>BabyMonitor owns one {@code motion} process per camera: their generated
  * configuration files live in {@link #baseDir()}, and each camera also gets a
  * data directory named after its number. Everything is driven from here rather
- * than from systemd, so the master switch {@link #enabled()} keeps development
- * and tests from spawning real processes (it defaults to {@code false}).
+ * than from systemd. A camera may have no process running, but the app can
+ * always start or stop one, so there is no master switch.
  */
 @ConfigMapping(prefix = "babymonitor.motion")
 public interface MotionConfig {
-
-    /** Master switch. While false, no config is written and no process is started. */
-    @WithDefault("false")
-    boolean enabled();
 
     /** The Motion executable to run. */
     @WithDefault("/usr/bin/motion")

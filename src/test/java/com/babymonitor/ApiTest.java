@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.babymonitor.entity.Notification;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.Test;
  * notification for one account and deliberately leaves the row in place.
  */
 @QuarkusTest
+@QuarkusTestResource(MotionTestResource.class)
 class ApiTest {
 
     private static final String AUDIO_WEBHOOK = "/api/webhooks/audioNotification";
@@ -841,10 +845,11 @@ class ApiTest {
     }
 
     @Test
-    void motionReportsStoppedWhileTheFeatureIsDisabled() {
+    void motionStatusForAStoppedCameraIsNotRunning() {
         String token = login("Bob", "Bob");
-        // babymonitor.motion.enabled defaults to false, so nothing is driven and
-        // no process is ever spawned by the tests.
+        // Nothing is running at rest, so the app reports the camera as stopped.
+        // There is no master switch any more: the process simply is not up yet.
+        stopMotion(token, 1);
         given()
                 .header("Authorization", bearer(token))
                 .when()
@@ -852,29 +857,49 @@ class ApiTest {
                 .then()
                 .statusCode(200)
                 .body("cameraNumber", equalTo(1))
-                .body("managed", equalTo(false))
                 .body("running", equalTo(false))
-                .body("pid", equalTo(null))
-                .body("configExists", equalTo(false));
+                .body("pid", equalTo(null));
     }
 
     @Test
-    void motionApplyIsAcceptedButSpawnsNothingWhileDisabled() {
+    void motionApplyWritesTheConfigAndStartsTheProcess() throws Exception {
         String token = login("Bob", "Bob");
-        given()
-                .header("Authorization", bearer(token))
-                .contentType(ContentType.JSON)
-                .when()
-                .post("/api/cameras/1/motion/apply")
-                .then()
-                .statusCode(200)
-                .body("managed", equalTo(false))
-                .body("running", equalTo(false));
+        stopMotion(token, 1);
+
+        Map<String, Object> status = applyMotion(token, 1);
+        assertEquals(true, status.get("configExists"), "Apply should write the camera's config");
+        assertTrue(((Number) status.get("pid")).longValue() > 0, "Apply should start Motion");
+        assertEquals(true, status.get("running"));
+
+        // The config is the shared template with this camera's rows appended, so
+        // a hand-edited template is kept and only the per-camera values differ.
+        String configFile = (String) status.get("configFile");
+        String content = Files.readString(Path.of(configFile));
+        assertTrue(content.contains("on_movie_end"), "the template should be copied in");
+        assertTrue(
+                content.contains("camera_name Nursery"),
+                "the camera's rows should be appended to the template");
     }
 
     @Test
-    void motionStopIsAcceptedAndIsANoOpWhileDisabled() {
+    void motionApplyReloadsARunningProcessInsteadOfStartingASecond() {
         String token = login("Bob", "Bob");
+        stopMotion(token, 1);
+        Long first = ((Number) applyMotion(token, 1).get("pid")).longValue();
+
+        // A second Apply leaves the pid alone: the config is rewritten and the
+        // running process is SIGHUP'd rather than duplicated.
+        Long second = ((Number) applyMotion(token, 1).get("pid")).longValue();
+        assertEquals(first, second, "Apply should reload the running process, not spawn another");
+
+        stopMotion(token, 1);
+    }
+
+    @Test
+    void motionStopKillsTheProcess() {
+        String token = login("Bob", "Bob");
+        assertTrue(((Number) applyMotion(token, 1).get("pid")).longValue() > 0);
+
         given()
                 .header("Authorization", bearer(token))
                 .contentType(ContentType.JSON)
@@ -882,6 +907,32 @@ class ApiTest {
                 .post("/api/cameras/1/motion/stop")
                 .then()
                 .statusCode(200)
-                .body("running", equalTo(false));
+                .body("running", equalTo(false))
+                .body("pid", equalTo(null));
+    }
+
+    /** POSTs an Apply and returns the status body. */
+    private static Map<String, Object> applyMotion(String token, int cameraNumber) {
+        return given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/" + cameraNumber + "/motion/apply")
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getObject("", Map.class);
+    }
+
+    /** Stops a camera so a test can start from a known state. */
+    private static void stopMotion(String token, int cameraNumber) {
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/" + cameraNumber + "/motion/stop")
+                .then()
+                .statusCode(200);
     }
 }

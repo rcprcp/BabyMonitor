@@ -34,9 +34,9 @@ import org.jboss.logging.Logger;
  * outright. The app never writes the shared template, so local edits to it
  * survive.
  *
- * <p>While {@link MotionConfig#enabled()} is false nothing is written and
- * nothing is started -- the default, so development and tests never spawn a real
- * {@code motion}.
+ * <p>There is no master switch: a camera may be stopped, but the app can always
+ * write its config and bring its process up. Tests point {@link MotionConfig}
+ * at a stub binary and a scratch directory so nothing real is spawned.
  */
 @ApplicationScoped
 public class MotionService {
@@ -62,7 +62,6 @@ public class MotionService {
         Long pid = processes.pidOf(cameraNumber);
         return new MotionStatusDto(
                 cameraNumber,
-                config.enabled(),
                 pid != null,
                 pid,
                 configFile.toString(),
@@ -77,9 +76,6 @@ public class MotionService {
      * @throws UncheckedIOException     when the files cannot be prepared
      */
     public MotionStatusDto apply(int cameraNumber, Map<String, String> parameters) {
-        if (!config.enabled()) {
-            return status(cameraNumber);
-        }
         ReentrantLock lock = locks.computeIfAbsent(cameraNumber, number -> new ReentrantLock());
         lock.lock();
         try {
@@ -103,9 +99,7 @@ public class MotionService {
 
     /** Stops a camera's Motion, if it is running. */
     public MotionStatusDto stop(int cameraNumber) {
-        if (config.enabled()) {
-            processes.stop(cameraNumber);
-        }
+        processes.stop(cameraNumber);
         return status(cameraNumber);
     }
 
@@ -124,7 +118,7 @@ public class MotionService {
      * rather than duplicated, and a disabled camera is stopped.
      */
     void reconcile(@Observes StartupEvent event) {
-        if (!config.enabled() || !config.reconcileOnStart()) {
+        if (!config.reconcileOnStart()) {
             return;
         }
         List<Camera> rows;
