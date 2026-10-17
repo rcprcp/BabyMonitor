@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
@@ -16,13 +17,13 @@ import { api } from '../api'
 
 // One camera's parameters, from babymonitor.cameras. The same page backs both
 // menu entries, "Camera1" and "Camera2": the camera number arrives as a prop.
-// The parameter names are Motion option names; editing one only stores it, and
-// Start/Apply rebuilds the camera's Motion config from the current rows and
-// starts the process (or reloads it with SIGHUP when it is already running).
-// Disable kills this camera's Motion process; Start/Apply brings it back.
-// A camera may be stopped, but the app can always start or stop it, so the
-// badges below report the two things that can go wrong: no config written yet,
-// and the process being down.
+// The parameter names are Motion option names; editing one only stores it.
+//
+// One switch owns the camera's enabled flag. Switching it on writes the config
+// and starts Motion; switching off kills the process. Startup is cold -- the app
+// marks every camera not enabled -- so this switch is where a camera comes up.
+// Start/Apply is for after an edit: it rebuilds the config and reloads a running
+// process, or starts one if it is down.
 export default function CameraPage({ cameraNumber }) {
   const [parameters, setParameters] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -84,13 +85,17 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
-  // Kill this camera's Motion process. Explicit rather than a persisted flag:
-  // Start/Apply brings it back.
-  const disable = async () => {
+  // One switch owns the camera's enabled flag. Switching on writes the config
+  // and starts Motion; switching off kills it. The flag lives on every row, so
+  // the response replaces them all.
+  const toggleEnabled = async (next) => {
     setError(null)
     setSavingMotion(true)
     try {
-      setMotion(await api.stopCameraMotion(cameraNumber))
+      const rows = await api.updateCameraEnabled(cameraNumber, next)
+      setParameters(rows)
+      setDrafts(Object.fromEntries(rows.map((p) => [p.key, p.value])))
+      setMotion(await api.getCameraMotion(cameraNumber))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -99,6 +104,7 @@ export default function CameraPage({ cameraNumber }) {
   }
 
   const name = parameters.find((p) => p.key === 'camera_name')?.value
+  const enabled = parameters[0]?.enabled ?? false
   const running = motion?.running ?? false
   const configWritten = motion?.configExists ?? false
 
@@ -114,15 +120,13 @@ export default function CameraPage({ cameraNumber }) {
           )}
         </Group>
         <Group gap="sm" align="center">
-          <Button
-            variant="light"
-            color="red"
-            onClick={disable}
-            loading={savingMotion}
+          <Switch
+            label="Camera on"
+            checked={enabled}
+            onChange={(event) => toggleEnabled(event.currentTarget.checked)}
             disabled={loading}
-          >
-            Disable
-          </Button>
+            loading={savingMotion}
+          />
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>

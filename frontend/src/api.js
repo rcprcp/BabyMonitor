@@ -157,8 +157,9 @@ export const api = {
     request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion`),
   applyCameraMotion: (cameraNumber) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/apply`),
-  stopCameraMotion: (cameraNumber) =>
-    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/stop`),
+  // Switching on writes the config and starts Motion; switching off kills it.
+  updateCameraEnabled: (cameraNumber, enabled) =>
+    request('PUT', `/api/cameras/${encodeURIComponent(cameraNumber)}/enabled`, { enabled }),
 
   // A camera's recordings, and one clip's bytes for in-app playback.
   listRecordings: (cameraNumber) =>

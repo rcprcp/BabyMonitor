@@ -724,7 +724,7 @@ class ApiTest {
         assertFalse(parameters.isEmpty(), "camera 1 is seeded with parameters");
         for (Map<String, Object> parameter : parameters) {
             assertEquals(1, ((Number) parameter.get("cameraNumber")).intValue());
-            assertEquals(Boolean.TRUE, parameter.get("enabled"), "camera 1 is seeded enabled");
+            assertEquals(Boolean.FALSE, parameter.get("enabled"), "cameras ship switched off");
         }
 
         List<String> keys = parameters.stream().map(row -> (String) row.get("key")).toList();
@@ -909,6 +909,67 @@ class ApiTest {
                 .statusCode(200)
                 .body("running", equalTo(false))
                 .body("pid", equalTo(null));
+    }
+
+    // --- Camera enabled flag -----------------------------------------------
+
+    @Test
+    void switchingACameraOnMarksEveryRowEnabledAndStartsMotion() {
+        String token = login("Bob", "Bob");
+        try {
+            List<Map<String, Object>> rows = setCameraEnabled(token, 1, true);
+            assertFalse(rows.isEmpty(), "camera 1 is seeded with parameters");
+            for (Map<String, Object> row : rows) {
+                assertEquals(Boolean.TRUE, row.get("enabled"), "the flag lives on every row");
+            }
+            assertEquals(true, getMotion(token, 1).get("running"), "switching on starts Motion");
+        } finally {
+            setCameraEnabled(token, 1, false);
+        }
+        assertEquals(false, getMotion(token, 1).get("running"), "switching off kills Motion");
+    }
+
+    @Test
+    void switchingACameraOffMarksEveryRowDisabled() {
+        String token = login("Bob", "Bob");
+        try {
+            setCameraEnabled(token, 1, true);
+            List<Map<String, Object>> rows = setCameraEnabled(token, 1, false);
+            for (Map<String, Object> row : rows) {
+                assertEquals(Boolean.FALSE, row.get("enabled"));
+            }
+        } finally {
+            setCameraEnabled(token, 1, false);
+        }
+    }
+
+    /** PUTs a camera's enabled flag and returns the camera's parameter rows. */
+    private static List<Map<String, Object>> setCameraEnabled(
+            String token, int cameraNumber, boolean enabled) {
+        return given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"enabled\":" + enabled + "}")
+                .when()
+                .put("/api/cameras/" + cameraNumber + "/enabled")
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getList("$");
+    }
+
+    /** GETs a camera's Motion status body. */
+    private static Map<String, Object> getMotion(String token, int cameraNumber) {
+        return given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/" + cameraNumber + "/motion")
+                .then()
+                .statusCode(200)
+                .extract()
+                .jsonPath()
+                .getObject("", Map.class);
     }
 
     /** POSTs an Apply and returns the status body. */

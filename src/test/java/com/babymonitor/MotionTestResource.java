@@ -18,11 +18,11 @@ import java.util.Map;
  * genuinely writes a config and starts a process. Left alone, the tests would
  * open real cameras and write into the real base directory, so this copies
  * {@code fake-motion.sh} out of the classpath (a jar entry is not executable)
- * and repoints {@code binary}, {@code base-dir} and {@code reconcile-on-start}.
+ * and repoints {@code binary} and {@code base-dir}.
  *
- * <p>{@code reconcile-on-start} is switched off so the app does not start a
- * process behind the tests' backs; each test drives its own apply/stop and so
- * stays order-independent.
+ * <p>{@code reset-on-start} is left on, so the cold start is exercised for
+ * real: each app boot kills leftovers and marks every camera not enabled, which
+ * also gives every test class a deterministic all-disabled starting point.
  */
 public class MotionTestResource implements QuarkusTestResourceLifecycleManager {
 
@@ -37,8 +37,7 @@ public class MotionTestResource implements QuarkusTestResourceLifecycleManager {
             Files.setPosixFilePermissions(binary, PosixFilePermissions.fromString("rwx------"));
             return Map.of(
                     "babymonitor.motion.binary", binary.toString(),
-                    "babymonitor.motion.base-dir", directory.resolve("motion").toString(),
-                    "babymonitor.motion.reconcile-on-start", "false");
+                    "babymonitor.motion.base-dir", directory.resolve("motion").toString());
         } catch (IOException e) {
             throw new IllegalStateException("Could not prepare the stub Motion binary", e);
         }

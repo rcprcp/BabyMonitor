@@ -16,10 +16,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
@@ -34,9 +35,12 @@ import org.jboss.logging.Logger;
  * outright. The app never writes the shared template, so local edits to it
  * survive.
  *
- * <p>There is no master switch: a camera may be stopped, but the app can always
- * write its config and bring its process up. Tests point {@link MotionConfig}
- * at a stub binary and a scratch directory so nothing real is spawned.
+ * <p>Startup is deliberately cold: every camera is marked not enabled and any
+ * process left over from a previous run is killed, so nothing runs until the
+ * user switches a camera on from its page. A camera may be stopped, but the app
+ * can always write its config and bring its process up. Tests point
+ * {@link MotionConfig} at a stub binary and a scratch directory so nothing real
+ * is spawned.
  */
 @ApplicationScoped
 public class MotionService {
@@ -113,37 +117,45 @@ public class MotionService {
     }
 
     /**
-     * Brings the running processes in line with the database when the app starts:
-     * a process this JVM did not start (adopted through its pid file) is reloaded
-     * rather than duplicated, and a disabled camera is stopped.
+     * Gives the app a cold start: any {@code motion} left over from a previous run
+     * is killed and every camera is marked not enabled.
+     *
+     * <p>A started child outlives the JVM that spawned it, so without this a
+     * dev-mode recompile would leave an orphaned process that nothing tracks and
+     * the next Apply would duplicate. Enabled state is deliberately not carried
+     * across restarts: the user switches a camera on from its own page.
      */
-    void reconcile(@Observes StartupEvent event) {
-        if (!config.reconcileOnStart()) {
+    void resetOnStartup(@Observes StartupEvent event) {
+        if (!config.resetOnStart()) {
             return;
         }
         List<Camera> rows;
         try {
             rows = QuarkusTransaction.requiringNew().call(Camera::listAllOrdered);
         } catch (RuntimeException e) {
-            LOG.warnf("Skipping the Motion reconciliation: %s", e.getMessage());
+            LOG.warnf("Skipping the Motion reset: %s", e.getMessage());
             return;
         }
-        Map<Integer, List<Camera>> byCamera = new LinkedHashMap<>();
+        Set<Integer> cameraNumbers = new TreeSet<>();
         for (Camera row : rows) {
-            byCamera.computeIfAbsent(row.cameraNumber, number -> new ArrayList<>()).add(row);
+            cameraNumbers.add(row.cameraNumber);
         }
-        for (Map.Entry<Integer, List<Camera>> entry : byCamera.entrySet()) {
-            int cameraNumber = entry.getKey();
-            List<Camera> cameraRows = entry.getValue();
+        for (Integer cameraNumber : cameraNumbers) {
             try {
-                if (cameraRows.get(0).enabled) {
-                    apply(cameraNumber, toParameters(cameraRows));
-                } else {
-                    stop(cameraNumber);
-                }
+                stop(cameraNumber);
             } catch (RuntimeException e) {
-                LOG.errorf("Could not reconcile Motion for camera %d: %s", cameraNumber, e.getMessage());
+                LOG.errorf("Could not stop leftover Motion for camera %d: %s", cameraNumber, e.getMessage());
             }
+        }
+        clearEnabled();
+    }
+
+    /** Marks every camera not enabled, so a restart always begins switched off. */
+    private void clearEnabled() {
+        try {
+            QuarkusTransaction.requiringNew().run(() -> Camera.update("set enabled = false"));
+        } catch (RuntimeException e) {
+            LOG.warnf("Could not mark the cameras not enabled: %s", e.getMessage());
         }
     }
 

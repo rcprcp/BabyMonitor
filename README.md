@@ -81,7 +81,8 @@ PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
   the menu links to, inserted only while a `(camera, parameter)` pair is
   missing, so edits made on the Camera pages survive a re-run; it also drops the
   pre-Motion parameter names (`stream_url`, `resolution`, `frame_rate`, …) from
-  any older database. Camera 2 ships switched off so both states are visible
+  any older database. Both cameras ship switched off, so startup is clean and a
+  camera only comes up when the user switches it on from its own page.
 
 ## Build & run
 
@@ -276,14 +277,22 @@ two processes in `ps -ef`.
 | Action | Effect |
 | --- | --- |
 | Save a camera parameter | stored only; Motion is untouched until Apply |
-| **Apply** | rebuild the config, then start Motion or `SIGHUP` it |
-| **Enabled** on | start Motion (build the config first if needed) |
-| **Enabled** off | kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
+| **Start/Apply** | rebuild the config, then start Motion or `SIGHUP` it |
+| **Camera on** | start Motion (build the config first if needed) |
+| **Camera off** | kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
 
-Each camera's pid is written to `<base>/<n>/motion.pid`. When the app restarts
-(dev mode recompiles constantly) it reads that file and adopts a process it did
-not start rather than launching a second one, then stops it if the camera is
-disabled — see `MotionService.reconcile`.
+### Startup is cold
+
+Nothing runs when the app starts. With `babymonitor.motion.reset-on-start` on
+(the default), boot kills any `motion` left over from a previous run and marks
+every camera not enabled — see `MotionService.resetOnStartup`. Both cameras
+therefore ship switched off in `db/init.sql`, and a camera only comes up when
+the user switches it on from its own page.
+
+The kill matters because a started child outlives the JVM that spawned it: a
+dev-mode recompile would otherwise leave an orphaned `motion` that nothing
+tracks, and the next Apply would start a second one. Each camera's pid is
+written to `<base>/<n>/motion.pid`, which is how boot finds the leftovers.
 
 There is no master switch: a camera may have no process running, but the app can
 always write its config and start or stop its process. Development therefore
@@ -327,10 +336,9 @@ page, which has a camera drop-down: both cameras are always selectable, and it
 plays Motion's stream for the chosen one, built from the `stream_url` setting
 and that camera's `stream_port` row. It defaults to Camera 1 when
 that is enabled, otherwise to Camera 2 when that one is enabled, and shows no
-stream when both are disabled. An Enabled switch beside the drop-down turns the
-selected camera on or off — the same flag the Camera page edits, and the server
-starts or kills Motion to match — so a
-switched-off camera can be turned back on right there. A blue title bar with a hamburger menu (upper left)
+stream when both are disabled — which is how a cold start looks, since both
+cameras come up switched off. Switching a camera on or off is done on its own
+Camera page, whose switch owns the `enabled` flag. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link

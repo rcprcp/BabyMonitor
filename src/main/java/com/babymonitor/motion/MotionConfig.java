@@ -31,9 +31,9 @@ public interface MotionConfig {
     @WithDefault("motion-notify.sh")
     String notifyScriptName();
 
-    /** Reconcile running processes with the database when the app starts. */
+    /** Kill leftover processes and switch every camera off when the app starts. */
     @WithDefault("true")
-    boolean reconcileOnStart();
+    boolean resetOnStart();
 
     /** Webhook the event script posts recordings to. */
     @WithDefault("http://localhost:8080/api/webhooks/videoNotification")

@@ -200,21 +200,21 @@ DELETE FROM babymonitor.cameras WHERE key IN (
 
 -- Motion options for the two cameras the menu links to. Inserted only while a
 -- (camera, parameter) pair is missing, so the edits made on the Camera pages
--- survive a re-run of this script. Camera 2 ships switched off so that both
--- states are visible; switch it on from its page.
+-- survive a re-run of this script. Both cameras ship switched off: startup is
+-- cold, so nothing runs until one is switched on from its own page.
 INSERT INTO babymonitor.cameras (camera_number, key, value, enabled) VALUES
-    (1, 'camera_name',         'Nursery',                          TRUE),
-    (1, 'video_device',        '/dev/video0',                      TRUE),
-    (1, 'width',               '1280',                             TRUE),
-    (1, 'height',              '720',                              TRUE),
-    (1, 'framerate',           '15',                               TRUE),
-    (1, 'threshold',           '1500',                             TRUE),
-    (1, 'stream_port',         '8081',                             TRUE),
-    (1, 'webcontrol_port',     '8091',                             TRUE),
-    (1, 'stream_localhost',    'off',                              TRUE),
-    (1, 'webcontrol_localhost','off',                              TRUE),
-    (1, 'target_dir',          '/home/bob/motion/1/recordings',    TRUE),
-    (1, 'log_file',            '/home/bob/motion/1/logs/motion.log', TRUE),
+    (1, 'camera_name',         'Nursery',                          FALSE),
+    (1, 'video_device',        '/dev/video0',                      FALSE),
+    (1, 'width',               '1280',                             FALSE),
+    (1, 'height',              '720',                              FALSE),
+    (1, 'framerate',           '15',                               FALSE),
+    (1, 'threshold',           '1500',                             FALSE),
+    (1, 'stream_port',         '8081',                             FALSE),
+    (1, 'webcontrol_port',     '8091',                             FALSE),
+    (1, 'stream_localhost',    'off',                              FALSE),
+    (1, 'webcontrol_localhost','off',                              FALSE),
+    (1, 'target_dir',          '/home/bob/motion/1/recordings',    FALSE),
+    (1, 'log_file',            '/home/bob/motion/1/logs/motion.log', FALSE),
     (2, 'camera_name',         'Hallway',                          FALSE),
     (2, 'video_device',        '/dev/video4',                      FALSE),
     (2, 'width',               '1920',                             FALSE),
