@@ -2,11 +2,10 @@ package com.babymonitor.resource;
 
 import com.babymonitor.dto.CameraParameterDto;
 import com.babymonitor.dto.ErrorResponse;
-import com.babymonitor.dto.UpdateCameraEnabledRequest;
+import com.babymonitor.dto.MotionStatusDto;
 import com.babymonitor.dto.UpdateCameraParameterRequest;
 import com.babymonitor.entity.Camera;
 import com.babymonitor.motion.MotionService;
-import com.babymonitor.service.AfterCommit;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
@@ -31,20 +30,21 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * process the app runs for each camera.
  *
  * <ul>
- *   <li>{@code GET /api/cameras}                          -- every camera's parameters</li>
- *   <li>{@code GET /api/cameras/{cameraNumber}}            -- one camera's parameters</li>
- *   <li>{@code PUT /api/cameras/{n}/parameters/{key}}      -- replace a parameter's value</li>
- *   <li>{@code PUT /api/cameras/{n}/enabled}               -- switch a camera on or off</li>
- *   <li>{@code GET /api/cameras/{n}/motion}                -- Motion's state for the camera</li>
- *   <li>{@code POST /api/cameras/{n}/motion/apply}         -- rebuild the config and (re)start Motion</li>
- *   <li>{@code POST /api/cameras/{n}/motion/stop}          -- stop the camera's Motion</li>
+ *   <li>{@code GET /api/cameras}                     -- every camera's parameters</li>
+ *   <li>{@code GET /api/cameras/{n}}                  -- one camera's parameters</li>
+ *   <li>{@code PUT /api/cameras/{n}/parameters/{key}} -- replace a parameter's value</li>
+ *   <li>{@code GET /api/cameras/{n}/motion}           -- Motion's state for the camera</li>
+ *   <li>{@code POST /api/cameras/{n}/motion/apply}    -- start (or reload) Motion</li>
+ *   <li>{@code POST /api/cameras/{n}/motion/stop}     -- stop the camera's Motion</li>
  * </ul>
  *
- * <p>Because {@code enabled} is stored on every row of a camera, switching it
- * updates all of that camera's rows together, and the process is started or
- * killed once the write has committed. Editing a parameter is deliberately
- * passive: nothing reaches Motion until {@code motion/apply}. All of it sits
- * behind {@link com.babymonitor.auth.AuthFilter}.
+ * <p>{@code enabled} on a camera's rows is its persisted desired state. Apply
+ * sets it (writing every row of the camera together) and starts Motion; Stop
+ * clears it and kills the process. The
+ * {@link com.babymonitor.motion.MotionSupervisor} then keeps a camera marked
+ * running alive, restarting its process if it dies. Editing a parameter is
+ * deliberately passive: nothing reaches Motion until {@code motion/apply}. All
+ * of it sits behind {@link com.babymonitor.auth.AuthFilter}.
  */
 @Path("/api/cameras")
 @Produces(MediaType.APPLICATION_JSON)
@@ -56,9 +56,6 @@ public class CamerasResource {
 
     @Inject
     MotionService motion;
-
-    @Inject
-    AfterCommit afterCommit;
 
     @GET
     @Operation(
@@ -126,47 +123,6 @@ public class CamerasResource {
         return Response.ok(toDto(parameter)).build();
     }
 
-    @PUT
-    @Path("/{cameraNumber}/enabled")
-    @Operation(
-            summary = "Switch a camera on or off",
-            description = "Applies to every parameter row of the camera and returns them all. "
-                    + "Switching on starts Motion for the camera; switching off kills it. The "
-                    + "process is only touched once the write has committed.")
-    @APIResponse(
-            responseCode = "400",
-            description = "No enabled flag supplied",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON,
-                    schema = @Schema(implementation = ErrorResponse.class)))
-    @APIResponse(
-            responseCode = "404",
-            description = "No such camera",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON,
-                    schema = @Schema(implementation = ErrorResponse.class)))
-    public Response updateEnabled(
-            @PathParam("cameraNumber") int cameraNumber,
-            UpdateCameraEnabledRequest request) {
-        if (request == null || request.enabled() == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("An enabled flag is required"))
-                    .build();
-        }
-        List<Camera> parameters = Camera.listByCamera(cameraNumber);
-        if (parameters.isEmpty()) {
-            return notFound(cameraNumber);
-        }
-        for (Camera parameter : parameters) {
-            parameter.enabled = request.enabled();
-        }
-        List<CameraParameterDto> body = parameters.stream().map(CamerasResource::toDto).toList();
-        boolean enabled = request.enabled();
-        var values = MotionService.toParameters(parameters);
-        afterCommit.run(() -> motion.onEnabledChanged(cameraNumber, enabled, values));
-        return Response.ok(body).build();
-    }
-
     @GET
     @Path("/{cameraNumber}/motion")
     @Operation(
@@ -189,9 +145,10 @@ public class CamerasResource {
     @POST
     @Path("/{cameraNumber}/motion/apply")
     @Operation(
-            summary = "Rebuild a camera's Motion config and (re)start it",
-            description = "Writes the camera's config from its parameters. If Motion is already "
-                    + "running it is sent SIGHUP to reload; otherwise it is started.")
+            summary = "Start (or reload) a camera's Motion",
+            description = "Marks the camera as running and rebuilds its config from its "
+                    + "parameters. If Motion is already running it is sent SIGHUP to reload; "
+                    + "otherwise it is started.")
     @APIResponse(
             responseCode = "400",
             description = "A parameter cannot safely be written",
@@ -210,7 +167,15 @@ public class CamerasResource {
             return notFound(cameraNumber);
         }
         try {
-            return Response.ok(motion.apply(cameraNumber, MotionService.toParameters(parameters))).build();
+            MotionStatusDto status =
+                    motion.apply(cameraNumber, MotionService.toParameters(parameters));
+            // Only once Motion is actually up (or reloaded) does the camera
+            // become one the supervisor keeps alive, so a rejected parameter
+            // does not leave a camera marked running with no process.
+            for (Camera parameter : parameters) {
+                parameter.enabled = true;
+            }
+            return Response.ok(status).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new ErrorResponse(e.getMessage()))
@@ -226,7 +191,8 @@ public class CamerasResource {
     @Path("/{cameraNumber}/motion/stop")
     @Operation(
             summary = "Stop a camera's Motion",
-            description = "Kills the process if it is running. A no-op otherwise.")
+            description = "Marks the camera as not running and kills the process if it is up. "
+                    + "The supervisor leaves a stopped camera alone.")
     @APIResponse(
             responseCode = "404",
             description = "No such camera",
@@ -234,10 +200,17 @@ public class CamerasResource {
                     mediaType = MediaType.APPLICATION_JSON,
                     schema = @Schema(implementation = ErrorResponse.class)))
     public Response motionStop(@PathParam("cameraNumber") int cameraNumber) {
-        if (Camera.listByCamera(cameraNumber).isEmpty()) {
+        List<Camera> parameters = Camera.listByCamera(cameraNumber);
+        if (parameters.isEmpty()) {
             return notFound(cameraNumber);
         }
-        return Response.ok(motion.stop(cameraNumber)).build();
+        MotionStatusDto status = motion.stop(cameraNumber);
+        // The user has said "do not run this one": record that, so the
+        // supervisor does not revive it.
+        for (Camera parameter : parameters) {
+            parameter.enabled = false;
+        }
+        return Response.ok(status).build();
     }
 
     private static Response notFound(int cameraNumber) {

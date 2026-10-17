@@ -16,8 +16,8 @@ import org.hibernate.type.SqlTypes;
 /**
  * A notification raised by a device webhook.
  *
- * <p>Maps the {@code babymonitor.notifications} table created by
- * {@code db/init.sql} and backs the Notifications page.
+ * <p>Maps the {@code babymonitor.notifications} table created by the Flyway
+ * migrations and backs the Notifications page.
  */
 @Entity
 @Table(name = "notifications", schema = "babymonitor")
@@ -33,7 +33,8 @@ public class Notification extends PanacheEntityBase {
     public Instant eventTime;
 
     /**
-     * {@link EventType#Video} for clip alerts, {@link EventType#Audio} otherwise.
+     * {@link EventType#Video} for clip alerts, {@link EventType#Audio} for
+     * sound alerts and {@link EventType#System} for app health alerts.
      *
      * <p>{@code NAMED_ENUM} tells Hibernate to bind the value as the native
      * PostgreSQL enum type named by {@code columnDefinition}, rather than as a
@@ -47,7 +48,7 @@ public class Notification extends PanacheEntityBase {
     @Column(name = "description", length = 500, nullable = false)
     public String description;
 
-    /** Link to the relevant video clip; {@code null} for {@link EventType#Audio}. */
+    /** Link to the relevant video clip; {@code null} for audio and system events. */
     @Column(name = "video_link", length = 500)
     public String videoLink;
 

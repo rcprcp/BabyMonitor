@@ -9,9 +9,9 @@ import com.babymonitor.entity.EventType;
  *
  * @param id          database id, used to dismiss the row
  * @param eventTime   ISO-8601 instant the event happened
- * @param eventType   {@code Video} or {@code Audio}
+ * @param eventType   {@code Video}, {@code Audio} or {@code System}
  * @param description what happened
- * @param videoLink   link to the relevant clip, or {@code null} for audio
+ * @param videoLink   link to the relevant clip, or {@code null} for audio/system
  */
 public record NotificationDto(
         Long id,

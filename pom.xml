@@ -69,10 +69,30 @@
             <artifactId>quarkus-jdbc-postgresql</artifactId>
         </dependency>
 
+        <!-- Flyway: the schema is owned by the migrations in
+             src/main/resources/db/migration, applied at startup. The
+             postgresql artifact is the database-specific half Flyway 10+
+             requires. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway-postgresql</artifactId>
+        </dependency>
+
         <!-- CDI -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
+        </dependency>
+
+        <!-- Scheduling: the Motion supervisor checks every camera's process on
+             a timer (see MotionSupervisor). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
         </dependency>
 
         <!-- OpenAPI schema (/q/openapi) + Swagger UI (/q/swagger-ui) -->
