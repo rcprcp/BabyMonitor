@@ -41,6 +41,10 @@ public class User extends PanacheEntityBase {
     @Column(name = "prompt_sound", length = 500, nullable = false)
     public String promptSound = "chime";
 
+    /** Live Stream page active camera number. */
+    @Column(name = "active_camera", length = 500, nullable = false, columnDefinition = "integer default 1")
+    public int activeCameraInt = 1;
+
     public User() {
     }
 

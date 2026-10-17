@@ -114,6 +114,8 @@ export const api = {
   updateThemeColor: (themeColor) => request('PUT', '/api/users/me/theme-color', { themeColor }),
   updatePromptSound: (promptSound) =>
     request('PUT', '/api/users/me/prompt-sound', { promptSound }),
+  updateActiveCamera: (activeCamera) =>
+    request('PUT', '/api/users/me/active-camera', { activeCamera }),
 
   listSettings: () => request('GET', '/api/settings'),
   getSetting: (tag) => request('GET', `/api/settings/${encodeURIComponent(tag)}`),

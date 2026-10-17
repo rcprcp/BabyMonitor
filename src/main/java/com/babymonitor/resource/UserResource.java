@@ -3,6 +3,7 @@ package com.babymonitor.resource;
 import com.babymonitor.auth.AuthFilter;
 import com.babymonitor.auth.Session;
 import com.babymonitor.dto.ErrorResponse;
+import com.babymonitor.dto.UpdateActiveCameraRequest;
 import com.babymonitor.dto.UpdatePromptSoundRequest;
 import com.babymonitor.dto.UpdateThemeColorRequest;
 import com.babymonitor.dto.UpdateThemeRequest;
@@ -32,6 +33,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *   <li>{@code PUT /api/users/me/theme}       -- store light/dark/auto</li>
  *   <li>{@code PUT /api/users/me/theme-color} -- store the accent color</li>
  *   <li>{@code PUT /api/users/me/prompt-sound}-- store the alert sound prefix</li>
+ *   <li>{@code PUT /api/users/me/active-camera}-- store the last active camera number</li>
  * </ul>
  *
  * <p>Backs the "Personal settings" page. The row is re-read on every request
@@ -124,6 +126,23 @@ public class UserResource {
         return Response.ok(dto(user)).build();
     }
 
+    @PUT
+    @Path("/me/active-camera")
+    public Response updateActiveCamera(
+            UpdateActiveCameraRequest request, @Context ContainerRequestContext requestContext) {
+        String value = normalise(request == null ? null : request.activeCamera());
+        if (value == null || !value.matches("[0-9]+") || Integer.parseInt(value) < 1) {
+            return badRequest("activeCamera must be a positive integer, for example: 1");
+        }
+
+        User user = currentUser(requestContext);
+        if (user == null) {
+            return notFound();
+        }
+        user.activeCameraInt = Integer.parseInt(value);
+        return Response.ok(dto(user)).build();
+    }
+
     private static String normalise(String value) {
         return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
     }
@@ -134,7 +153,7 @@ public class UserResource {
     }
 
     private static UserDto dto(User user) {
-        return new UserDto(user.id, user.name, user.theme, user.themeColor, user.promptSound);
+        return new UserDto(user.id, user.name, user.theme, user.themeColor, user.promptSound, Integer.toString(user.activeCameraInt));
     }
 
     private static Response badRequest(String message) {

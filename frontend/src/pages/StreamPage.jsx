@@ -33,6 +33,21 @@ export default function StreamPage() {
     }
   }, [])
 
+  // Restore the user's last-viewed camera from the database profile on mount,
+  // so reloads and cross-device navigation pick up where they left off.
+  useEffect(() => {
+    api.getProfile().then(profile => {
+      if (profile && profile.activeCamera) {
+        const value = String(profile.activeCamera).trim()
+        if (/^\d+$/.test(value) && parseInt(value, 10) >= 1) {
+          setSelected(value)
+          // Persist for the next visit (the SELECT may not have fired yet).
+          api.updateActiveCamera(value).catch(() => {})
+        }
+      }
+    }).catch(() => {}) // profile fetch failure is non-fatal; fall through to defaults
+  }, [])
+
   useEffect(() => {
     load()
   }, [load])
@@ -103,7 +118,12 @@ export default function StreamPage() {
           aria-label="Camera"
           data={options}
           value={selected}
-          onChange={(value) => value && setSelected(value)}
+          onChange={(value) => {
+            if (value) {
+              setSelected(value)
+              api.updateActiveCamera(value).catch(() => {}) // save; non-fatal
+            }
+          }}
           allowDeselect={false}
           disabled={loading || options.length === 0}
           w={200}

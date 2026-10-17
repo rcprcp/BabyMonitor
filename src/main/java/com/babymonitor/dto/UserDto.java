@@ -10,7 +10,8 @@ package com.babymonitor.dto;
  * @param name       login name / display name
  * @param theme      UI preference: {@code light}, {@code dark} or {@code auto}
  * @param themeColor accent color: a Mantine palette name such as {@code blue}
- * @param promptSound notification sound prefix (a file in {@code /sounds/})
+ * @param promptSound  notification sound prefix (a file in {@code /sounds/})
+ * @param activeCamera last viewed camera number on the Live Stream page
  */
-public record UserDto(Long id, String name, String theme, String themeColor, String promptSound) {
+public record UserDto(Long id, String name, String theme, String themeColor, String promptSound, String activeCamera) {
 }
