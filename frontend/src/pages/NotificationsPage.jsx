@@ -30,10 +30,17 @@ function isAppRecording(link) {
     typeof link === 'string' &&
     link.startsWith('/api/cameras/') &&
     link.includes('/recordings/')
-  )
 }
 
-export default function NotificationsPage() {
+function badgeColor(eventType) {
+  if (eventType === 'Video') {
+    return 'blue'
+  }
+  if (eventType === 'Audio') {
+    return 'grape'
+  }
+  return 'orange'
+}
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -152,7 +159,7 @@ export default function NotificationsPage() {
                 <Group gap="xs">
                   <Badge
                     variant="light"
-                    color={notification.eventType === 'Video' ? 'blue' : 'grape'}
+                    color={badgeColor(notification.eventType)}
                   >
                     {notification.eventType}
                   </Badge>

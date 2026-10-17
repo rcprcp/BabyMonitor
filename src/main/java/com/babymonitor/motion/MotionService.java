@@ -31,14 +31,15 @@ import org.jboss.logging.Logger;
  *
  * <p>Each camera's generated config is rebuilt from its rows on every
  * <em>Apply</em>: the process is started if it was not running, or sent a
- * {@code SIGHUP} to reload if it was. Switching a camera off stops its process
+ * {@code SIGHUP} to reload if it was. Stopping a camera stops its process
  * outright. The app never writes the shared template, so local edits to it
  * survive.
  *
- * <p>Startup is deliberately cold: every camera is marked not enabled and any
+ * <p>Startup is deliberately cold: every camera is marked not running and any
  * process left over from a previous run is killed, so nothing runs until the
- * user switches a camera on from its page. A camera may be stopped, but the app
- * can always write its config and bring its process up. Tests point
+ * user starts a camera from its page. A camera may be stopped, but the app can
+ * always write its config and bring its process up. Once a camera is marked
+ * running, {@link MotionSupervisor} keeps its process alive. Tests point
  * {@link MotionConfig} at a stub binary and a scratch directory so nothing real
  * is spawned.
  */
@@ -72,6 +73,11 @@ public class MotionService {
                 Files.exists(configFile));
     }
 
+    /** Whether a Motion process is currently running for this camera. */
+    public boolean isRunning(int cameraNumber) {
+        return processes.isRunning(cameraNumber);
+    }
+
     /**
      * Rebuilds a camera's config from the given rows and brings Motion up to date:
      * start it when it is not running, otherwise {@code SIGHUP} it to reload.
@@ -80,23 +86,58 @@ public class MotionService {
      * @throws UncheckedIOException     when the files cannot be prepared
      */
     public MotionStatusDto apply(int cameraNumber, Map<String, String> parameters) {
-        ReentrantLock lock = locks.computeIfAbsent(cameraNumber, number -> new ReentrantLock());
+        ReentrantLock lock = lockFor(cameraNumber);
         lock.lock();
         try {
-            prepareDirectories(cameraNumber, parameters);
-            ensureSupportFiles();
-            String content = builder.build(cameraNumber, readTemplate(), parameters);
-            Path configFile = configFile(cameraNumber);
-            writeAtomically(configFile, content);
-            if (processes.isRunning(cameraNumber)) {
-                processes.reload(cameraNumber);
-            } else {
-                processes.start(cameraNumber, configFile, outputFile(cameraNumber));
-            }
+            return writeAndStartLocked(cameraNumber, parameters);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not prepare the Motion configuration", e);
         } finally {
             lock.unlock();
+        }
+    }
+
+    /**
+     * Brings a camera up only if it is not already running, rebuilding its
+     * config first. Used by {@link MotionSupervisor} to revive a camera whose
+     * process has died.
+     *
+     * @return {@code true} when a process had to be started, {@code false} when
+     *         Motion was already running and nothing was touched
+     * @throws IllegalArgumentException when a parameter cannot safely be written
+     * @throws UncheckedIOException     when the files cannot be prepared
+     */
+    public boolean ensureRunning(int cameraNumber, Map<String, String> parameters) {
+        ReentrantLock lock = lockFor(cameraNumber);
+        lock.lock();
+        try {
+            if (processes.isRunning(cameraNumber)) {
+                return false;
+            }
+            writeAndStartLocked(cameraNumber, parameters);
+            return true;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not prepare the Motion configuration", e);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Writes the camera's config and starts or reloads its process. Callers hold
+     * the camera's lock, so no other start or stop can interleave.
+     */
+    private MotionStatusDto writeAndStartLocked(int cameraNumber, Map<String, String> parameters)
+            throws IOException {
+        prepareDirectories(cameraNumber, parameters);
+        ensureSupportFiles();
+        String content = builder.build(cameraNumber, readTemplate(), parameters);
+        Path configFile = configFile(cameraNumber);
+        writeAtomically(configFile, content);
+        if (processes.isRunning(cameraNumber)) {
+            processes.reload(cameraNumber);
+        } else {
+            processes.start(cameraNumber, configFile, outputFile(cameraNumber));
         }
         return status(cameraNumber);
     }
@@ -107,23 +148,18 @@ public class MotionService {
         return status(cameraNumber);
     }
 
-    /** Starts or stops a camera's Motion to match its enabled flag. */
-    public void onEnabledChanged(int cameraNumber, boolean enabled, Map<String, String> parameters) {
-        if (enabled) {
-            apply(cameraNumber, parameters);
-        } else {
-            stop(cameraNumber);
-        }
+    private ReentrantLock lockFor(int cameraNumber) {
+        return locks.computeIfAbsent(cameraNumber, number -> new ReentrantLock());
     }
 
     /**
      * Gives the app a cold start: any {@code motion} left over from a previous run
-     * is killed and every camera is marked not enabled.
+     * is killed and every camera is marked not running.
      *
      * <p>A started child outlives the JVM that spawned it, so without this a
      * dev-mode recompile would leave an orphaned process that nothing tracks and
-     * the next Apply would duplicate. Enabled state is deliberately not carried
-     * across restarts: the user switches a camera on from its own page.
+     * the next Apply would duplicate. Desired state is deliberately not carried
+     * across restarts: the user starts a camera from its own page.
      */
     void resetOnStartup(@Observes StartupEvent event) {
         if (!config.resetOnStart()) {
@@ -150,12 +186,12 @@ public class MotionService {
         clearEnabled();
     }
 
-    /** Marks every camera not enabled, so a restart always begins switched off. */
+    /** Marks every camera not running, so a restart always begins cold. */
     private void clearEnabled() {
         try {
             QuarkusTransaction.requiringNew().run(() -> Camera.update("set enabled = false"));
         } catch (RuntimeException e) {
-            LOG.warnf("Could not mark the cameras not enabled: %s", e.getMessage());
+            LOG.warnf("Could not mark the cameras not running: %s", e.getMessage());
         }
     }
 

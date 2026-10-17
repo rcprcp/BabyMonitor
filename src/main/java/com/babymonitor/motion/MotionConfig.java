@@ -38,4 +38,8 @@ public interface MotionConfig {
     /** Webhook the event script posts recordings to. */
     @WithDefault("http://localhost:8080/api/webhooks/videoNotification")
     String webhookUrl();
+
+    /** How often the Motion supervisor checks that running cameras still have a process. */
+    @WithDefault("15s")
+    String checkInterval();
 }

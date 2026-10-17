@@ -1,0 +1,11 @@
+-- Add the System event type.
+--
+-- The Motion supervisor records a notification when it finds a camera that
+-- should be running but whose process is gone, and that is neither a video clip
+-- alert nor an audio alert. This is a separate migration rather than part of V1
+-- so that a database baselined at V1 (an existing install whose schema already
+-- matches V1) still picks the new value up.
+--
+-- PostgreSQL 12+ allows ADD VALUE inside a transaction as long as the new value
+-- is not used until after the commit, which is the case here.
+ALTER TYPE babymonitor.event_type ADD VALUE IF NOT EXISTS 'System';
