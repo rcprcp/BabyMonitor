@@ -110,29 +110,6 @@ function chime(url) {
   return audio
 }
 
-/**
- * Primes playback inside a user gesture (the test alert button). Browsers only
- * allow audible playback without a gesture once the page has been interacted with,
- * and a real alert arrives without any interaction.
- */
-export function unlockAudio() {
-  const audio = chime(DEFAULT_CHIME_URL)
-  audio.muted = true
-  const restore = () => {
-    audio.pause()
-    audio.currentTime = 0
-    audio.muted = false
-  }
-  const played = audio.play()
-  if (played && typeof played.then === 'function') {
-    played.then(restore).catch(() => {
-      audio.muted = false
-    })
-  } else {
-    restore()
-  }
-}
-
 /** Plays the chosen sound. A blocked or failed play is not fatal. */
 export function playAlertSound(name) {
   const url = getSoundUrl(name)
