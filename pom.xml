@@ -105,6 +105,13 @@
             <artifactId>quarkus-swagger-ui</artifactId>
         </dependency>
 
+        <!-- Health endpoints: /q/health (liveness + readiness), /q/health/live,
+             /q/health/ready — used to check the app and by containers/orchestrators. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+
         <!-- bcrypt for password hashes -->
         <dependency>
             <groupId>org.mindrot</groupId>

@@ -162,6 +162,16 @@ class ApiTest {
     }
 
     @Test
+    void healthEndpointReportsUp() {
+        given()
+                .when()
+                .get("/q/health")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("UP"));
+    }
+
+    @Test
     void loginSucceedsForSeededUser() {
         given()
                 .contentType(ContentType.JSON)
