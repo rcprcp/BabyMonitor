@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { Avatar, Burger, Button, Group, Menu, Title } from '@mantine/core'
+import { useEffect, useState } from 'react'
+import { Avatar, Burger, Group, Menu, Title } from '@mantine/core'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { unlockAudio } from '../alerting'
 import { useAuth } from '../auth'
 
 // Shown until the systemName setting has been read (and if it is missing).
@@ -20,9 +19,6 @@ function initialOf(name) {
 export default function TitleBar() {
   const [opened, setOpened] = useState(false)
   const [systemName, setSystemName] = useState(DEFAULT_TITLE)
-  // Feedback for the Test alert button: idle -> sending -> sent / error -> idle.
-  const [alertState, setAlertState] = useState('idle')
-  const resetAlert = useRef(null)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -51,27 +47,6 @@ export default function TitleBar() {
     await logout()
     navigate('/login', { replace: true })
   }
-
-  // A testing convenience: fire a real audio alert through the webhook so the
-  // whole path (stream push, chime, in-app notification) can be exercised from
-  // any page. The audio element is primed inside this click's gesture.
-  const sendTestAlert = async () => {
-    clearTimeout(resetAlert.current)
-    setAlertState('sending')
-    try {
-      unlockAudio()
-      await api.sendTestAlert(`Test alert at ${new Date().toLocaleTimeString()}`)
-      setAlertState('sent')
-    } catch {
-      setAlertState('error')
-    }
-    resetAlert.current = setTimeout(() => setAlertState('idle'), 3000)
-  }
-
-  useEffect(() => () => clearTimeout(resetAlert.current), [])
-
-  const alertLabel =
-    alertState === 'sent' ? 'Alert sent' : alertState === 'error' ? 'Alert failed' : 'Test alert'
 
   return (
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">
@@ -120,16 +95,6 @@ export default function TitleBar() {
       </Title>
 
       <Group gap="sm" wrap="nowrap">
-        <Button
-          variant="transparent"
-          size="compact-sm"
-          className="bm-test-alert"
-          loading={alertState === 'sending'}
-          onClick={sendTestAlert}
-        >
-          {alertLabel}
-        </Button>
-
         <Avatar
           component={NavLink}
           to="/profile"

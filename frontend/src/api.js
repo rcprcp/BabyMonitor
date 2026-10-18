@@ -126,23 +126,6 @@ export const api = {
   dismissNotification: (id) =>
     request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
 
-  // Fires a test audio alert through the device webhook, so the whole alert
-  // path (stream push, tone, desktop notification) can be exercised on demand.
-  // It deliberately bypasses `request`: the webhook is unauthenticated, and a
-  // 401 from it means a bad shared secret, not an expired session, so it must
-  // never sign the user out.
-  sendTestAlert: (description) =>
-    fetch('/api/webhooks/audioNotification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description }),
-    }).then(async (response) => {
-      if (!response.ok) {
-        throw new Error(`Request failed (${response.status})`)
-      }
-      return response.json()
-    }),
-
   // Ambient readings, newest first. `limit` caps the number of rows.
   listEnvironment: (limit) =>
     request('GET', limit === undefined ? '/api/environment' : `/api/environment?limit=${limit}`),
