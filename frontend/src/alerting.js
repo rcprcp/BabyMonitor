@@ -1,15 +1,7 @@
-// Night-time alerting: deciding when a new notification is worth waking the
-// parent, plus the in-app toast and chime that do it.
-//
-// The decision logic (`selectAlerts`) is plain JavaScript so it stays testable;
-// only the presentation reaches for Mantine and the browser. State that must
-// survive a reload (whether alerts are on, and the last notification already
-// alerted for) lives in localStorage, per account.
+// Alert delivery: showing a Mantine toast and playing a chime for Audio events.
+// No opt-in toggle, no watermarks — every event is unconditionally alerted.
 
 import { notifications } from '@mantine/notifications'
-import { getName } from './api'
-
-const ENABLED_KEY = 'babymonitor.alertsEnabled'
 
 // Name of the window event the listener fires when new notifications arrive, so
 // the Notifications page can refresh its list without polling itself.
@@ -34,33 +26,6 @@ export function getSoundUrl(name) {
   }
 }
 
-function watermarkKey() {
-  return `babymonitor.alertWatermark.${getName() || 'anon'}`
-}
-
-/** Whether the parent has opted in to alerts on this device. */
-export function alertsEnabled() {
-  return localStorage.getItem(ENABLED_KEY) === 'true'
-}
-
-export function setAlertsEnabled(enabled) {
-  if (enabled) {
-    localStorage.setItem(ENABLED_KEY, 'true')
-  } else {
-    localStorage.removeItem(ENABLED_KEY)
-  }
-}
-
-/** Highest notification id already alerted for, or 0 when nothing has been. */
-export function readWatermark() {
-  const value = Number(localStorage.getItem(watermarkKey()))
-  return Number.isFinite(value) ? value : 0
-}
-
-export function writeWatermark(id) {
-  localStorage.setItem(watermarkKey(), String(id))
-}
-
 /**
  * Picks what, if anything, to alert for out of the newest-first feed.
  *
@@ -68,7 +33,7 @@ export function writeWatermark(id) {
  * The caller is responsible for persisting the returned {@code maxId}.
  *
  * @param rows      notifications, newest event first
- * @param watermark highest id already alerted for
+ * @param watermark highest id already alerted for (tracks cross-tab dedup)
  * @param now       current time in ms, injectable for tests
  * @returns {{maxId: number, alert: object|null}} the new watermark, and the
  *          notification to alert for (the most recent one, when it is fresh)
@@ -145,9 +110,9 @@ function chime(url) {
 }
 
 /**
- * Primes playback inside a user gesture (turning alerts on, or the test
- * button). Browsers only allow audible playback without a gesture once the page
- * has been interacted with, and a real alert arrives without any interaction.
+ * Primes playback inside a user gesture (the test alert button). Browsers only
+ * allow audible playback without a gesture once the page has been interacted with,
+ * and a real alert arrives without any interaction.
  */
 export function unlockAudio() {
   const audio = chime(DEFAULT_CHIME_URL)

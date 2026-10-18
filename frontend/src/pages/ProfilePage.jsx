@@ -13,20 +13,13 @@ import {
   Popover,
   ScrollArea,
   SegmentedControl,
-  Select,
   Stack,
-  Switch,
   Text,
   Title,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import {
-  alertsEnabled,
-  setAlertsEnabled,
-  unlockAudio,
-} from '../alerting'
 import { useAuth, PROMPT_SOUNDS } from '../auth'
 import { COLOR_SCHEMES } from '../theme'
 import ThemePalette from '../components/ThemePalette'
@@ -63,8 +56,6 @@ export default function ProfilePage() {
   const [savingScheme, setSavingScheme] = useState(false)
   const [schemeSaved, setSchemeSaved] = useState(false)
   const [schemeError, setSchemeError] = useState(null)
-
-  const [alertsOn, setAlertsOn] = useState(() => alertsEnabled())
 
   // When the user picks a sound on this page we write it through both local and
   // server state; the component's own save button reflects the result.
@@ -142,18 +133,6 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
-  }
-
-  // Turning alerts on primes the audio context so later alerts can sound.
-  const toggleAlerts = () => {
-    if (alertsOn) {
-      setAlertsEnabled(false)
-      setAlertsOn(false)
-      return
-    }
-    unlockAudio()
-    setAlertsEnabled(true)
-    setAlertsOn(true)
   }
 
   // Prefer the freshly loaded record, but fall back to the stored name while
@@ -261,20 +240,6 @@ export default function ProfilePage() {
                   {schemeError}
                 </Alert>
               )}
-            </Stack>
-
-            <Stack gap="xs" align="flex-start">
-              <Text fw={600}>Alerts</Text>
-              <Text c="dimmed" size="sm">
-                Show an in-app notification when the cameras report a new event, and sound a
-                chime for audio events such as a cry. Alerts are per device, so turn them on
-                on every screen you want alerted.
-              </Text>
-              <Switch
-                checked={alertsOn}
-                onChange={toggleAlerts}
-                label="Alert me to new notifications"
-              />
             </Stack>
 
             <Stack gap="xs" align="flex-start">

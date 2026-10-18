@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar, Burger, Button, Group, Menu, Title } from '@mantine/core'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { playAlertSound, unlockAudio } from '../alerting'
+import { unlockAudio } from '../alerting'
 import { useAuth } from '../auth'
 
 // Shown until the systemName setting has been read (and if it is missing).
@@ -23,7 +23,7 @@ export default function TitleBar() {
   // Feedback for the Test alert button: idle -> sending -> sent / error -> idle.
   const [alertState, setAlertState] = useState('idle')
   const resetAlert = useRef(null)
-  const { user, logout, promptSound } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
 
   // The title comes from the systemName setting, so the system can be renamed
@@ -66,22 +66,6 @@ export default function TitleBar() {
       setAlertState('error')
     }
     resetAlert.current = setTimeout(() => setAlertState('idle'), 3000)
-  }
-
-  // Play a tone immediately inside the user gesture (so browsers allow autoplay).
-  const soundPrefixFor = key => {
-    switch (key) {
-      case 'alarm-loud':   return 'alarm-loud'
-      case 'doorbell':     return 'doorbell-ding-dong'
-      case 'beep':         return 'beep-short'
-      case 'chime':        return 'notification-chime'
-      default:             return key ?? 'chime'
-    }
-  }
-
-  const playDirectSound = () => {
-    unlockAudio()
-    playAlertSound(soundPrefixFor(promptSound))
   }
 
   useEffect(() => () => clearTimeout(resetAlert.current), [])
@@ -144,16 +128,6 @@ export default function TitleBar() {
           onClick={sendTestAlert}
         >
           {alertLabel}
-        </Button>
-
-        {/* Direct sound play, no network trip — plays the current alert tone immediately */}
-        <Button
-          variant="transparent"
-          size="compact-sm"
-          color="var(--mantine-primary-color-contrast)"
-          onClick={playDirectSound}
-        >
-          Play sound 🔊
         </Button>
 
         <Avatar

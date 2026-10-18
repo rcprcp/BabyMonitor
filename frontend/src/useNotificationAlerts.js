@@ -4,19 +4,17 @@
 // push, and polling is the safety net that always works (a backgrounded tab, a
 // dropped connection, or a browser without EventSource). Whichever notices a new
 // notification first alerts; the second sees it is already past the watermark.
+// Alerting is unconditional: there is no per-device opt-out.
 
 import { useEffect, useRef } from 'react'
 import { api, getToken } from './api'
 import { useAuth } from './auth'
 import {
-  alertsEnabled,
   announceNotifications,
   playAlertSound,
-  readWatermark,
   selectAlerts,
   showAlert,
   withAlertLock,
-  writeWatermark,
 } from './alerting'
 
 // With the stream healthy (or the tab hidden) we can poll lazily; otherwise a
@@ -42,6 +40,10 @@ export default function useNotificationAlerts() {
   const source = useRef(null)
   const inFlight = useRef(false)
   const streamHealthy = useRef(false)
+  // Highest notification id this session has already alerted for. In-memory
+  // only: it de-duplicates SSE against polling while the app runs, and resets
+  // on reload so a recent event is alerted again rather than silently skipped.
+  const watermark = useRef(0)
   // Captures the latest prefix so alertFor always uses it without becoming a hook.
   const prefixRef = useRef('')
 
@@ -53,7 +55,6 @@ export default function useNotificationAlerts() {
   // Alert a single notification — captures prompt via ref so it is cheap and
   // does not need to be re-created each effect run.
   const alertFor = (notification) => {
-    if (!alertsEnabled()) return
     withAlertLock(notification.id, () => {
       showAlert(notification)
       if (notification.eventType === 'Audio') {
@@ -71,14 +72,11 @@ export default function useNotificationAlerts() {
     }
     let cancelled = false
 
-    const watermark = { current: readWatermark() }
-
     const process = (rows) => {
       const before = watermark.current
       const { maxId, alert } = selectAlerts(rows, watermark.current)
       if (maxId !== watermark.current) {
         watermark.current = maxId
-        writeWatermark(maxId)
       }
       if (maxId !== before) {
         announceNotifications()
