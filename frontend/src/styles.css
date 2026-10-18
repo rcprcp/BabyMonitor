@@ -32,18 +32,6 @@
   white-space: nowrap;
 }
 
-/* The Test alert button sits on the coloured bar, so it borrows the bar's
-   contrast colour (text, border and hover) instead of the palette. */
-.bm-titlebar .bm-test-alert {
-  color: var(--mantine-primary-color-contrast);
-  border: 1px solid currentColor;
-  background: transparent;
-}
-
-.bm-titlebar .bm-test-alert:hover {
-  background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
 /* Black letterbox for the stream, whatever shape the camera sends. */
 .stream-frame {
   background: #000;
