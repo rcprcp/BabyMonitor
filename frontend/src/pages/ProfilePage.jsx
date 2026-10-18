@@ -258,7 +258,7 @@ export default function ProfilePage() {
                 </Button>
               </Group>
               <Text c="dimmed" size="sm">
-                Select the tone played when an audio alert (crying, noise) arrives. Saved on your account so it follows you across browsers.
+                Select the tone played when an alert arrives. Saved on your account so it follows you across browsers.
               </Text>
               <Popover position="bottom" withArrow p={0}>
                 <Popover.Target>

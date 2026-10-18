@@ -1,5 +1,6 @@
-// Alert delivery: showing a Mantine toast and playing a chime for Audio events.
-// No opt-in toggle, no watermarks — every event is unconditionally alerted.
+// Alert delivery: showing a Mantine toast and playing a chime for every event
+// that is not a System notice. No opt-in toggle, no watermarks — every event is
+// unconditionally alerted.
 
 import { notifications } from '@mantine/notifications'
 

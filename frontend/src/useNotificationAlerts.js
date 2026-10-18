@@ -4,7 +4,8 @@
 // push, and polling is the safety net that always works (a backgrounded tab, a
 // dropped connection, or a browser without EventSource). Whichever notices a new
 // notification first alerts; the second sees it is already past the watermark.
-// Alerting is unconditional: there is no per-device opt-out.
+// Alerting is unconditional: there is no per-device opt-out, and every event
+// except a System notice is audible.
 
 import { useEffect, useRef } from 'react'
 import { api, getToken } from './api'
@@ -57,12 +58,14 @@ export default function useNotificationAlerts() {
   const alertFor = (notification) => {
     withAlertLock(notification.id, () => {
       showAlert(notification)
-      if (notification.eventType === 'Audio') {
+      // Every real alert is audible, whatever kind it is: the production
+      // pipeline only ever produces Video (motion) events, so scoping the
+      // chime to Audio left every genuine alert silent. System alerts stay
+      // quiet: the supervisor already logged the restart, so a chime would
+      // only startle a sleeping parent for an automatic recovery.
+      if (notification.eventType !== 'System') {
         playAlertSound(prefixRef.current)
       }
-      // System alerts are informational; the supervisor already logged the
-      // restart and recorded it, so we skip the chime to avoid startling a
-      // sleeping parent for an automatic recovery.
     })
   }
 
