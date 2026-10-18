@@ -169,8 +169,8 @@ export default function ProfilePage() {
             <Avatar
               size={64}
               radius="xl"
-              bg="var(--mantine-primary-color-filled)"
-              c="var(--mantine-primary-color-contrast)"
+              color={themeColor}
+              variant="filled"
               fw={600}
             >
               {initialOf(displayName)}

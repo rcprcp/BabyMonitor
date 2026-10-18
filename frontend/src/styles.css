@@ -11,10 +11,13 @@
 
 /* The account's initial, in the bar's contrasting color, with the palette color
    as the letter: the two are Mantine's own contrast pair, just swapped, so the
-   initial can never end up light on light. */
+   initial can never end up light on light. The Avatar paints its circle with
+   the `--avatar-bg` / `--avatar-color` variables (the inner placeholder span
+   reads them), so those are what must be overridden -- setting `background`
+   directly on the root leaves the span's own gray default in place. */
 .bm-titlebar .bm-avatar {
-  background: var(--mantine-primary-color-contrast);
-  color: var(--mantine-primary-color-8);
+  --avatar-bg: var(--mantine-primary-color-contrast);
+  --avatar-color: var(--mantine-primary-color-filled);
   font-weight: 600;
 }
 
