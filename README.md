@@ -128,7 +128,6 @@ webhooks.
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
 | DELETE      | `/api/cameras/{n}/parameters/{key}`    | remove a parameter row         |
-| PUT         | `/api/cameras/{n}/enabled`             | `{ "enabled" }`: switch a camera on/off (starts/kills Motion) |
 | GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |
 | POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
 | POST        | `/api/cameras/{n}/motion/stop`         | stop the camera's Motion       |
