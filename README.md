@@ -126,6 +126,7 @@ webhooks.
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
+| POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
 | PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
 | DELETE      | `/api/cameras/{n}/parameters/{key}`    | remove a parameter row         |
 | GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |

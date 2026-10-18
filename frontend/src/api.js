@@ -138,6 +138,10 @@ export const api = {
       `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
       { value },
     ),
+  // Adds a new parameter row; the store is passive, so Motion is untouched
+  // until Apply.
+  createCameraParameter: (cameraNumber, key, value) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters`, { key, value }),
   // Removes the parameter row from the database outright.
   deleteCameraParameter: (cameraNumber, key) =>
     request(

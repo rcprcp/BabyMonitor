@@ -15,8 +15,8 @@ import {
 } from '@mantine/core'
 import { api } from '../api'
 
-// The app carries no icon library, so the one glyph this page needs is a small
-// inline SVG. Drawn like Tabler's trash icon so it sits naturally beside the
+// The app carries no icon library, so the few glyphs this page needs are small
+// inline SVGs. Drawn like Tabler's icons so they sit naturally beside the
 // Mantine controls.
 function TrashIcon({ size = 16 }) {
   return (
@@ -40,9 +40,27 @@ function TrashIcon({ size = 16 }) {
   )
 }
 
+function PlusIcon({ size = 16 }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
 // One camera's parameters, from babymonitor.cameras. The same page backs both
 // menu entries, "Camera1" and "Camera2": the camera number arrives as a prop.
-// The parameter names are Motion option names; editing one only stores it.
+// The parameter names are Motion option names. Adding, editing and deleting a
+// row only touch the table: Apply is what rebuilds config and reaches Motion.
 //
 // Start/Apply marks the camera as running, rebuilds its config and starts
 // Motion (or reloads it if it is already up). Stop marks it not running and
@@ -61,6 +79,13 @@ export default function CameraPage({ cameraNumber }) {
   const [savedKey, setSavedKey] = useState(null)
   const [stopping, setStopping] = useState(false)
   const [applying, setApplying] = useState(false)
+
+  // The "add a row" form. Its values live here rather than in the parameters
+  // list, so cancelling leaves nothing behind.
+  const [adding, setAdding] = useState(false)
+  const [newKey, setNewKey] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const [savingNew, setSavingNew] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -99,6 +124,49 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
+  const startAdd = () => {
+    setError(null)
+    setNewKey('')
+    setNewValue('')
+    setAdding(true)
+  }
+
+  const cancelAdd = () => {
+    setAdding(false)
+    setNewKey('')
+    setNewValue('')
+  }
+
+  const addParameter = async () => {
+    const key = newKey.trim()
+    if (!key) {
+      setError('A parameter name is required')
+      return
+    }
+    if (!newValue.trim()) {
+      setError('A value is required')
+      return
+    }
+    setError(null)
+    setSavingNew(true)
+    try {
+      const created = await api.createCameraParameter(cameraNumber, key, newValue)
+      // The API returns the rows in name order, so slot the new one in rather
+      // than appending and leaving the table unsorted.
+      setParameters((current) =>
+        [...current, created].sort((a, b) => a.key.localeCompare(b.key)),
+      )
+      setDrafts((current) => ({ ...current, [created.key]: created.value }))
+      setAdding(false)
+      setNewKey('')
+      setNewValue('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSavingNew(false)
+    }
+  }
+
   // Deleting is destructive and cannot be undone, so ask first. The row is gone
   // from the database, from the camera's generated config and from this page.
   const deleteValue = async (key) => {
@@ -115,6 +183,10 @@ export default function CameraPage({ cameraNumber }) {
         delete next[key]
         return next
       })
+      // Drop a "Saved" badge left over from the row that just went away.
+      if (savedKey === key) {
+        setSavedKey(null)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -189,6 +261,14 @@ export default function CameraPage({ cameraNumber }) {
               Motion stopped
             </Badge>
           )}
+          <Button
+            variant="default"
+            leftSection={<PlusIcon />}
+            onClick={startAdd}
+            disabled={loading || adding}
+          >
+            Add Row
+          </Button>
           <Button onClick={apply} loading={applying} disabled={loading}>
             Start/Apply
           </Button>
@@ -215,11 +295,11 @@ export default function CameraPage({ cameraNumber }) {
         </Center>
       )}
 
-      {!loading && parameters.length === 0 && (
+      {!loading && !adding && parameters.length === 0 && (
         <Text c="dimmed">This camera has no parameters.</Text>
       )}
 
-      {!loading && parameters.length > 0 && (
+      {!loading && (adding || parameters.length > 0) && (
         <Table.ScrollContainer minWidth={560}>
           <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
@@ -229,6 +309,49 @@ export default function CameraPage({ cameraNumber }) {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
+              {adding && (
+                <Table.Tr>
+                  <Table.Td>
+                    <TextInput
+                      autoFocus
+                      name="new-parameter-name"
+                      placeholder="option_name"
+                      aria-label="New parameter name"
+                      styles={{ input: { fontFamily: 'monospace' } }}
+                      value={newKey}
+                      onChange={(event) => setNewKey(event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          addParameter()
+                        }
+                      }}
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Group align="center" gap="sm" wrap="nowrap">
+                      <TextInput
+                        name="new-parameter-value"
+                        placeholder="value"
+                        aria-label="New parameter value"
+                        style={{ flex: 1 }}
+                        value={newValue}
+                        onChange={(event) => setNewValue(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            addParameter()
+                          }
+                        }}
+                      />
+                      <Button onClick={addParameter} loading={savingNew}>
+                        Add
+                      </Button>
+                      <Button variant="subtle" color="gray" onClick={cancelAdd}>
+                        Cancel
+                      </Button>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              )}
               {parameters.map((parameter) => (
                 <Table.Tr key={parameter.key}>
                   <Table.Td>

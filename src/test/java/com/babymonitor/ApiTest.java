@@ -833,6 +833,106 @@ class ApiTest {
     }
 
     @Test
+    void cameraParameterCanBeAddedAndRemoved() {
+        String token = login("Bob", "Bob");
+        // A new row inherits the camera's own enabled flag, and other tests move
+        // that flag around, so read it rather than assuming a value.
+        boolean cameraEnabled =
+                (Boolean) parameterNamed(cameraParameters(token, 1), "camera_name").get("enabled");
+        String key = "zz_agent_add_probe";
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"key\":\"" + key + "\",\"value\":\"1\"}")
+                    .when()
+                    .post("/api/cameras/1/parameters")
+                    .then()
+                    .statusCode(201)
+                    .body("key", equalTo(key))
+                    .body("value", equalTo("1"))
+                    .body("cameraNumber", equalTo(1))
+                    .body("enabled", equalTo(cameraEnabled));
+
+            assertTrue(
+                    cameraParameters(token, 1).stream().anyMatch(row -> key.equals(row.get("key"))),
+                    "the new row is listed");
+
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .delete("/api/cameras/1/parameters/" + key)
+                    .then()
+                    .statusCode(204);
+
+            assertFalse(
+                    cameraParameters(token, 1).stream().anyMatch(row -> key.equals(row.get("key"))),
+                    "the removed row is gone");
+        } finally {
+            deleteCameraParameterRow(1, key);
+        }
+    }
+
+    @Test
+    void cameraParameterCreateRejectsABlankName() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"   \",\"value\":\"1\"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("A parameter name is required"));
+    }
+
+    @Test
+    void cameraParameterCreateRejectsABlankValue() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"zz_agent_add_probe\",\"value\":\"  \"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("A value is required"));
+    }
+
+    @Test
+    void cameraParameterCreateRejectsADuplicate() {
+        String token = login("Bob", "Bob");
+        String original = (String) parameterNamed(cameraParameters(token, 1), "width").get("value");
+
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"width\",\"value\":\"640\"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(409);
+
+        // The refused create must leave the existing row's value alone.
+        assertEquals(original, parameterNamed(cameraParameters(token, 1), "width").get("value"));
+    }
+
+    @Test
+    void cameraParameterCreateRequiresToken() {
+        // A name no camera defines, so a missing guard could not create anything.
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"key\":\"zz_agent_unauth\",\"value\":\"1\"}")
+                .when()
+                .post("/api/cameras/1/parameters")
+                .then()
+                .statusCode(401);
+        assertFalse(cameraParameterRowExists(1, "zz_agent_unauth"), "nothing was created");
+    }
+
+    @Test
     void cameraParameterDeleteRemovesTheRow() {
         String token = login("Bob", "Bob");
         String key = "zz_agent_delete_probe";
