@@ -9,6 +9,7 @@ import com.babymonitor.motion.MotionService;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -33,6 +34,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *   <li>{@code GET /api/cameras}                     -- every camera's parameters</li>
  *   <li>{@code GET /api/cameras/{n}}                  -- one camera's parameters</li>
  *   <li>{@code PUT /api/cameras/{n}/parameters/{key}} -- replace a parameter's value</li>
+ *   <li>{@code DELETE /api/cameras/{n}/parameters/{key}} -- remove a parameter</li>
  *   <li>{@code GET /api/cameras/{n}/motion}           -- Motion's state for the camera</li>
  *   <li>{@code POST /api/cameras/{n}/motion/apply}    -- start (or reload) Motion</li>
  *   <li>{@code POST /api/cameras/{n}/motion/stop}     -- stop the camera's Motion</li>
@@ -121,6 +123,32 @@ public class CamerasResource {
         }
         parameter.value = request.value();
         return Response.ok(toDto(parameter)).build();
+    }
+
+    @DELETE
+    @Path("/{cameraNumber}/parameters/{key}")
+    @Operation(
+            summary = "Delete a camera parameter",
+            description = "Removes the row from the database outright, unlike a value edit: "
+                    + "the parameter is gone from the camera, its generated config and the "
+                    + "Camera page.")
+    @APIResponse(responseCode = "204", description = "Deleted")
+    @APIResponse(
+            responseCode = "404",
+            description = "The camera does not define that parameter",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public Response deleteParameter(
+            @PathParam("cameraNumber") int cameraNumber, @PathParam("key") String key) {
+        Camera parameter = Camera.findOne(cameraNumber, key);
+        if (parameter == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ErrorResponse("No such parameter: " + key + " on camera " + cameraNumber))
+                    .build();
+        }
+        parameter.delete();
+        return Response.noContent().build();
     }
 
     @GET

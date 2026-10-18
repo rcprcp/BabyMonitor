@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -13,6 +14,31 @@ import {
   Title,
 } from '@mantine/core'
 import { api } from '../api'
+
+// The app carries no icon library, so the one glyph this page needs is a small
+// inline SVG. Drawn like Tabler's trash icon so it sits naturally beside the
+// Mantine controls.
+function TrashIcon({ size = 16 }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+      <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  )
+}
 
 // One camera's parameters, from babymonitor.cameras. The same page backs both
 // menu entries, "Camera1" and "Camera2": the camera number arrives as a prop.
@@ -31,6 +57,7 @@ export default function CameraPage({ cameraNumber }) {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState(null)
+  const [deletingKey, setDeletingKey] = useState(null)
   const [savedKey, setSavedKey] = useState(null)
   const [stopping, setStopping] = useState(false)
   const [applying, setApplying] = useState(false)
@@ -69,6 +96,29 @@ export default function CameraPage({ cameraNumber }) {
       setError(err.message)
     } finally {
       setSavingKey(null)
+    }
+  }
+
+  // Deleting is destructive and cannot be undone, so ask first. The row is gone
+  // from the database, from the camera's generated config and from this page.
+  const deleteValue = async (key) => {
+    setError(null)
+    if (!window.confirm(`Delete the "${key}" parameter? This cannot be undone.`)) {
+      return
+    }
+    setDeletingKey(key)
+    try {
+      await api.deleteCameraParameter(cameraNumber, key)
+      setParameters((current) => current.filter((p) => p.key !== key))
+      setDrafts((current) => {
+        const next = { ...current }
+        delete next[key]
+        return next
+      })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDeletingKey(null)
     }
   }
 
@@ -212,6 +262,17 @@ export default function CameraPage({ cameraNumber }) {
                           Saved
                         </Badge>
                       )}
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        aria-label={`Delete ${parameter.key}`}
+                        title={`Delete ${parameter.key}`}
+                        loading={deletingKey === parameter.key}
+                        disabled={deletingKey !== null && deletingKey !== parameter.key}
+                        onClick={() => deleteValue(parameter.key)}
+                      >
+                        <TrashIcon />
+                      </ActionIcon>
                     </Group>
                   </Table.Td>
                 </Table.Tr>

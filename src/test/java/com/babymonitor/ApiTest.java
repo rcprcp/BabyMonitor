@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.babymonitor.entity.Camera;
 import com.babymonitor.entity.Notification;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -154,6 +155,33 @@ class ApiTest {
                 .filter(row -> key.equals(row.get("key")))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no parameter named: " + key));
+    }
+
+    /**
+     * Inserts a throwaway camera parameter. Delete tests use one instead of a
+     * seeded row, so a failed request cannot leave the camera missing a
+     * parameter it needs.
+     */
+    private static void insertCameraParameter(int cameraNumber, String key, String value) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            Camera probe = new Camera();
+            probe.cameraNumber = cameraNumber;
+            probe.paramKey = key;
+            probe.value = value;
+            probe.enabled = false;
+            probe.persist();
+        });
+    }
+
+    /** Whether the camera parameter is still stored at all. */
+    private static boolean cameraParameterRowExists(int cameraNumber, String key) {
+        return QuarkusTransaction.requiringNew().call(() -> Camera.findOne(cameraNumber, key) != null);
+    }
+
+    /** Removes a camera parameter row whatever its state, for test clean-up. */
+    private static void deleteCameraParameterRow(int cameraNumber, String key) {
+        QuarkusTransaction.requiringNew()
+                .run(() -> Camera.delete("cameraNumber = ?1 and paramKey = ?2", cameraNumber, key));
     }
 
     @Test
@@ -802,6 +830,47 @@ class ApiTest {
                 .then()
                 .statusCode(400)
                 .body("error", equalTo("A value is required"));
+    }
+
+    @Test
+    void cameraParameterDeleteRemovesTheRow() {
+        String token = login("Bob", "Bob");
+        String key = "zz_agent_delete_probe";
+        insertCameraParameter(1, key, "throwaway");
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .delete("/api/cameras/1/parameters/" + key)
+                    .then()
+                    .statusCode(204);
+
+            List<String> keys = cameraParameters(token, 1).stream()
+                    .map(row -> (String) row.get("key"))
+                    .toList();
+            assertFalse(keys.contains(key), "the deleted parameter is no longer listed");
+            assertFalse(cameraParameterRowExists(1, key), "and its row is gone from the database");
+        } finally {
+            deleteCameraParameterRow(1, key);
+        }
+    }
+
+    @Test
+    void cameraParameterDeleteIsNotFoundForAnUnknownParameter() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .delete("/api/cameras/1/parameters/no_such_parameter")
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("No such parameter: no_such_parameter on camera 1"));
+    }
+
+    @Test
+    void cameraParameterDeleteRequiresToken() {
+        // A name no camera defines, so a missing guard could not delete anything.
+        given().when().delete("/api/cameras/1/parameters/no_such_parameter").then().statusCode(401);
     }
 
     @Test

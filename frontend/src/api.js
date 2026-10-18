@@ -138,6 +138,12 @@ export const api = {
       `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
       { value },
     ),
+  // Removes the parameter row from the database outright.
+  deleteCameraParameter: (cameraNumber, key) =>
+    request(
+      'DELETE',
+      `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters/${encodeURIComponent(key)}`,
+    ),
   getCameraMotion: (cameraNumber) =>
     request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion`),
   // Start/Apply marks the camera as running, rebuilds its config and starts (or
