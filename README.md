@@ -11,6 +11,10 @@ baby-monitor live stream, a notification feed and settings.
 
 ```
 src/main/java/com/babymonitor/
+  audio/                        AudioConfig, CaptureCommand, PcmFramer,
+                                AudioProcessManager, AudioService,
+                                AudioClassifier, YamNetClassifier,
+                                YamNetLabels, CryDetector
   auth/                         PasswordHasher, Session, SessionStore, AuthFilter
   dto/                          request/response records
   entity/                       Camera, Notification, User, Setting, … (Panache)
@@ -26,6 +30,7 @@ src/main/java/com/babymonitor/
   web/                          SpaFallbackFilter
 src/main/resources/db/migration/  Flyway migrations (schema, seed data)
 src/main/resources/motion/      motion.template, motion-notify.sh
+src/main/resources/yamnet/      yamnet.tflite, yamnet_class_map.csv
 frontend/                       React/Vite SPA (built into the jar)
 ```
 
@@ -352,6 +357,75 @@ name, so a request cannot read outside that directory, and the response honours
 a byte `Range` so a player can seek. Both sit behind the same bearer gate as the
 rest of `/api`; that is why the Notifications page fetches a clip with its token
 and plays it in an in-app player rather than opening the URL in a new tab.
+
+## Audio and cry detection
+
+Motion's own sound detection is not used. Audio is a second, independent
+pipeline: `AudioService` owns a capture process per camera, scores its windows
+with [YAMNet](https://www.kaggle.com/models/google/yamnet) and turns a
+sustained cry into an `Audio` notification — the same row the
+`/api/webhooks/audioNotification` webhook writes, so the feed, the live event
+stream, the dismissals and the chime all work unchanged.
+
+### Capture
+
+The capture binary is a child process, never a linked library: `sox` by
+default, with `ffmpeg` and `arecord` supported because the flag shape is chosen
+from the binary's own name (`CaptureCommand`). Running SoX as an external tool
+is also what keeps its GPL away from this Apache-2.0 application. The child's
+stdout *is* the PCM feed, so unlike Motion its diagnostics go to
+`<base>/<n>/audio.err` and its pid to `<base>/<n>/audio.pid`.
+
+Each camera needs its own ALSA device, because a camera's microphone is a
+property of the camera: the `FHD Camera` on the development box, for instance,
+has no microphone at all, so audio has to come from the machine's internal
+`hw:1,7`. A device line is asked for 16 kHz mono signed 16-bit PCM;
+`PcmFramer` slices that into overlapping windows of 15600 samples (0.975 s)
+every 7680 (0.48 s), which is exactly YAMNet's input length and hop.
+
+### Classification
+
+YAMNet runs **in this JVM** through [DJL](https://djl.ai/)'s TFLite engine — no
+Python sidecar and no ONNX conversion. The model
+(`src/main/resources/yamnet/yamnet.tflite`, Apache-2.0) and its class map are
+bundled as classpath resources and loaded on the first camera that needs them,
+so an install that captures no audio never pays for them. The model is shared;
+each camera gets its own predictor and `NDManager`, because a DJL predictor is
+not thread-safe and each capture has its own reader thread.
+
+YAMNet scores all 521 classes, and the whole ranked list is kept: which of them
+mean "cry" is configuration (`babymonitor.audio.alert-class-indices`, `19` and
+`20` by default), not code.
+
+### When an alert fires
+
+A single window is a poor trigger — YAMNet's score for a real cry ramps over
+several windows, and a lone window over the line is as likely to be a cough. So
+`CryDetector` wants `windows-to-alert` (2) consecutive windows whose best
+alert-class score clears `min-confidence` (0.35), and then keeps that camera
+quiet for `cooldown-seconds` (60) before it may fire again. A run already long
+enough keeps counting through the cooldown, so a baby who does not pause is not
+asked to prove himself again the moment it expires.
+
+Tuning notes from validating the model against ESC-50 clips: `19 Crying,
+sobbing` is the most reliable single class (`20 Baby cry, infant cry` tracks it
+at roughly half the confidence), a genuine cry peaked at 0.50 while ambient
+noise, a cat, a dog and a vacuum cleaner all stayed at 0.00, and laughter —
+`13`, which must never be in the alert list — can outscore crying on a
+mixed clip.
+
+### Status
+
+`AudioStatusDto` reports, per camera, whether the capture is running, its pid
+and device, how many windows it has seen, the last window's RMS and the best
+class YAMNet gave it, and how many alerts it has raised. Nothing is exposed
+over HTTP yet: audio is started from `AudioService` and the capture is not yet
+driven by a camera's Start/Stop button.
+
+The tests never open a microphone or load the model: `AudioTestResource` points
+`binary` at `fake-capture.sh` and selects `StubClassifier`, and only
+`YamNetClassifierTest` injects the real model, to check that the bundled class
+map still lines up with the model's output.
 
 ## SPA
 

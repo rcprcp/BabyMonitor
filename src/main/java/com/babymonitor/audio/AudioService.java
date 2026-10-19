@@ -1,12 +1,17 @@
 package com.babymonitor.audio;
 
 import com.babymonitor.dto.AudioStatusDto;
+import com.babymonitor.entity.EventType;
+import com.babymonitor.service.NotificationService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -14,17 +19,21 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
 
 /**
- * Phase one of the audio pipeline: capture one ALSA device per camera and slice
- * it into YAMNet-sized analysis windows, logging what it would hand to the
- * classifier.
+ * Captures one ALSA device per camera, scores it with YAMNet and raises an
+ * {@code Audio} notification when a cry is heard.
  *
- * <p>Nothing is classified and nothing is written to the database yet. The
- * silence gate only decides what to log -- quiet windows go to debug, an
- * audible window (or the return to quiet) is logged at info once per change, so
- * a running capture does not flood the log. When the classifier and the
- * {@code camera_audio} table arrive, this is where they plug in; the process
- * lifecycle is intentionally the same shape as {@link com.babymonitor.motion.MotionService}
- * so the camera's Start/Stop can drive it later.</p>
+ * <p>A camera's capture is a child process whose stdout is raw PCM; the reader
+ * thread turns that into analysis windows, drops the quiet ones at the silence
+ * gate, and hands the rest to the classifier. A run of confident cry windows --
+ * newer than a single window, see {@link CryDetector} -- becomes one
+ * {@link EventType#Audio} row through {@link NotificationService}, so the feed,
+ * the event stream, the dismissals and the chime all behave as they already do
+ * for a device's audio webhook.</p>
+ *
+ * <p>The process lifecycle is deliberately the same shape as
+ * {@link com.babymonitor.motion.MotionService}, so a camera's Start/Stop can
+ * drive it later: start begins a capture, stop ends it and joins the reader.
+ * Nothing is shared between cameras except the loaded model.</p>
  */
 @ApplicationScoped
 public class AudioService {
@@ -37,6 +46,12 @@ public class AudioService {
     @Inject
     AudioProcessManager processes;
 
+    @Inject
+    AudioClassifier classifier;
+
+    @Inject
+    NotificationService notifications;
+
     /** What has been seen since a camera's capture started. */
     private final Map<Integer, Counters> counters = new ConcurrentHashMap<>();
 
@@ -46,7 +61,7 @@ public class AudioService {
     /** The stdout reader per camera, so a restart can join the old one. */
     private final Map<Integer, Thread> readers = new ConcurrentHashMap<>();
 
-    /** The current state of a camera's capture process. */
+    /** The current state of a camera's capture process and classifier. */
     public AudioStatusDto status(int cameraNumber) {
         Long pid = processes.pidOf(cameraNumber);
         boolean running = pid != null;
@@ -58,12 +73,19 @@ public class AudioService {
                 running ? devices.get(cameraNumber) : null,
                 seen == null ? 0L : seen.frames.get(),
                 seen == null ? 0.0 : seen.lastRms,
-                seen != null && seen.lastLoud);
+                seen != null && seen.lastLoud,
+                seen == null ? null : seen.lastClass,
+                seen == null ? 0f : seen.lastConfidence,
+                seen == null ? 0L : seen.alerts.get());
     }
 
     /**
-     * Starts capturing a camera's ALSA device and reads its PCM in the
-     * background. Starting an already-running camera is a no-op.
+     * Starts capturing a camera's ALSA device, reads its PCM in the background
+     * and classifies it. Starting an already-running camera is a no-op.
+     *
+     * <p>The model is loaded, and a classifier session opened, before the
+     * capture process is spawned; a missing or broken model therefore leaves
+     * nothing running rather than a process with nothing reading it.</p>
      *
      * @param device the ALSA device, e.g. {@code hw:2,0}
      * @throws UncheckedIOException when the capture process cannot be started
@@ -73,17 +95,20 @@ public class AudioService {
             LOG.warnf("Audio capture for camera %d is already running", cameraNumber);
             return status(cameraNumber);
         }
+        AudioClassifier.Session session = config.classifierEnabled() ? classifier.openSession() : null;
+        CryDetector detector = session == null ? null : newDetector();
         Process process;
         try {
             process = processes.start(cameraNumber, device);
         } catch (IOException e) {
+            closeQuietly(session);
             throw new UncheckedIOException(
                     "Could not start the audio capture for camera " + cameraNumber, e);
         }
         devices.put(cameraNumber, device);
         counters.put(cameraNumber, new Counters());
         Thread reader = new Thread(
-                () -> readLoop(cameraNumber, process.getInputStream()),
+                () -> readLoop(cameraNumber, process.getInputStream(), session, detector),
                 "audio-capture-" + cameraNumber);
         reader.setDaemon(true);
         readers.put(cameraNumber, reader);
@@ -102,13 +127,18 @@ public class AudioService {
                 Thread.currentThread().interrupt();
             }
         }
+        // The reader owns its classifier session and closes it in its own
+        // finally, once the stopped process closes stdout. Nothing is closed
+        // here: a thread that would not join must not have its predictor
+        // pulled out from under it.
         counters.remove(cameraNumber);
         devices.remove(cameraNumber);
         return status(cameraNumber);
     }
 
     /** Reads the capture's stdout into windows until the process closes it. */
-    private void readLoop(int cameraNumber, InputStream in) {
+    private void readLoop(
+            int cameraNumber, InputStream in, AudioClassifier.Session session, CryDetector detector) {
         PcmFramer framer = new PcmFramer(config.frameSamples(), config.hopSamples());
         Counters seen = counters.computeIfAbsent(cameraNumber, number -> new Counters());
         byte[] buffer = new byte[8192];
@@ -116,18 +146,31 @@ public class AudioService {
             int read;
             while ((read = in.read(buffer)) != -1) {
                 for (AudioFrame frame : framer.accept(Arrays.copyOf(buffer, read))) {
-                    onFrame(cameraNumber, frame, seen);
+                    try {
+                        onFrame(cameraNumber, frame, seen, session, detector);
+                    } catch (RuntimeException e) {
+                        // One bad window -- a classifier hiccup, a database that
+                        // refused the alert -- must not end the capture.
+                        LOG.warnf("Camera %d audio window failed: %s", cameraNumber, e.getMessage());
+                    }
                 }
             }
         } catch (IOException e) {
             // Stopping the capture closes the pipe; that is a normal exit, and a
             // genuine read error is worth no more than a debug line.
             LOG.debugf("Audio capture for camera %d ended: %s", cameraNumber, e.getMessage());
+        } finally {
+            closeQuietly(session);
         }
     }
 
-    /** Applies the silence gate and logs the window (phase one does nothing else). */
-    private void onFrame(int cameraNumber, AudioFrame frame, Counters seen) {
+    /** Applies the silence gate, then classifies and possibly alerts. */
+    private void onFrame(
+            int cameraNumber,
+            AudioFrame frame,
+            Counters seen,
+            AudioClassifier.Session session,
+            CryDetector detector) {
         boolean loud = frame.loud(config.silenceRms());
         seen.frames.incrementAndGet();
         seen.lastRms = frame.rms();
@@ -135,16 +178,56 @@ public class AudioService {
             seen.lastLoud = loud;
             LOG.infof("Camera %d audio %s (rms=%.4f)",
                     cameraNumber, loud ? "is audible" : "went quiet", frame.rms());
-        } else {
-            LOG.debugf("Camera %d audio window %d: rms=%.4f (%s); would classify",
-                    cameraNumber, seen.frames.get(), frame.rms(), loud ? "audible" : "quiet");
+        }
+        if (session == null || detector == null || !loud) {
+            return;
+        }
+        List<AudioClassification> ranked = session.classify(frame.samples());
+        if (!ranked.isEmpty()) {
+            AudioClassification best = ranked.get(0);
+            seen.lastClass = best.name();
+            seen.lastConfidence = best.confidence();
+        }
+        Instant now = Instant.now();
+        detector.accept(ranked, now).ifPresent(detection -> raise(cameraNumber, detection, now, seen));
+    }
+
+    /** Records one audio alert the moment the detector decides it is real. */
+    private void raise(int cameraNumber, AudioClassification detection, Instant now, Counters seen) {
+        String description = String.format(
+                "%s (%.0f%%) heard on camera %d",
+                detection.name(), detection.confidence() * 100, cameraNumber);
+        notifications.add(EventType.Audio, description, null, now);
+        seen.alerts.incrementAndGet();
+        LOG.infof("Camera %d audio alert: %s", cameraNumber, description);
+    }
+
+    private CryDetector newDetector() {
+        return new CryDetector(
+                config.alertClassIndices(),
+                config.minConfidence(),
+                config.windowsToAlert(),
+                Duration.ofSeconds(config.cooldownSeconds()));
+    }
+
+    private static void closeQuietly(AudioClassifier.Session session) {
+        if (session == null) {
+            return;
+        }
+        try {
+            session.close();
+        } catch (RuntimeException e) {
+            LOG.debugf("Could not close a classifier session: %s", e.getMessage());
         }
     }
 
     /** Mutable per-camera tallies, written by the reader and read by status(). */
     private static final class Counters {
         private final AtomicLong frames = new AtomicLong();
+        private final AtomicLong alerts = new AtomicLong();
         private volatile double lastRms;
         private volatile boolean lastLoud;
+        private volatile String lastClass;
+        private volatile float lastConfidence;
     }
 }
