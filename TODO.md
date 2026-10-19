@@ -137,9 +137,13 @@ These are the ones where the app looks fine while being wrong.
       soothe a baby from the phone is a headline feature.
 - [ ] **Quiet hours and schedules.** Alerts fire 24/7 with no way to silence
       them for a nap or a night shift, and no way to arm only at night.
-- [ ] **Cry / sound detection.** Motion handles video motion; the app does not
-      detect audio events itself. Motion supports sound detection — wire it up
-      so a cry is an event, not just a clip.
+- [~] **Cry / sound detection.** Detection itself works without Motion's own
+      sound detection: `AudioService` captures an ALSA device, `YamNetClassifier`
+      scores it and `CryDetector` raises `Audio` notifications (see
+      *Audio and cry detection* in the README). Still missing: the ALSA device
+      is not stored per camera, nothing starts or stops the capture with a
+      camera's Start/Stop, and there is no API or UI for it — `AudioService` has
+      to be driven directly.
 - [ ] **Snapshots and a timeline.** There is no thumbnail gallery, no scrub
       across a night, and no "jump to the moment" from a notification.
 - [ ] **Roles and caregiver accounts.** All accounts are equal; there is no

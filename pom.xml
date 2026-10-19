@@ -32,6 +32,13 @@
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
         <exec-plugin.version>3.5.1</exec-plugin.version>
         <jbcrypt.version>0.4</jbcrypt.version>
+        <djl.version>0.27.0</djl.version>
+        <!-- DJL froze tflite-engine at 0.27.0, and its "native-auto" downloader
+             no longer resolves that version's runtime. The native library is
+             therefore pinned explicitly, and only these two platforms are
+             published; add a profile here if the app is ever built for another. -->
+        <djl.tflite.native.version>2.6.2</djl.tflite.native.version>
+        <djl.platform>linux-x86_64</djl.platform>
     </properties>
 
     <dependencyManagement>
@@ -117,6 +124,29 @@
             <groupId>org.mindrot</groupId>
             <artifactId>jbcrypt</artifactId>
             <version>${jbcrypt.version}</version>
+        </dependency>
+
+        <!-- YAMNet audio classification, in-JVM through DJL's TFLite engine.
+             The model is loaded once and handed out as a predictor per camera,
+             so inference never leaves the JVM and no Python sidecar is needed.
+             The native runtime is required on the classpath: DJL's downloader
+             cannot fetch it for the frozen 0.27.0 engine line. -->
+        <dependency>
+            <groupId>ai.djl</groupId>
+            <artifactId>api</artifactId>
+            <version>${djl.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.djl.tflite</groupId>
+            <artifactId>tflite-engine</artifactId>
+            <version>${djl.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.djl.tflite</groupId>
+            <artifactId>tflite-native-cpu</artifactId>
+            <version>${djl.tflite.native.version}</version>
+            <classifier>${djl.platform}</classifier>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Tests -->
