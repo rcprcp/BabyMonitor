@@ -10,17 +10,21 @@ baby-monitor live stream, a notification feed and settings.
 ## Layout
 
 ```
-db/init.sql                     schema `babymonitor`, tables, seed rows
 src/main/java/com/babymonitor/
   auth/                         PasswordHasher, Session, SessionStore, AuthFilter
+  dto/                          request/response records
+  entity/                       Camera, Notification, User, Setting, … (Panache)
   motion/                       MotionConfig, MotionConfigBuilder,
-                                MotionProcessManager, MotionService
-  resource/                     AuthResource, SettingsResource,
+                                MotionProcessManager, MotionService,
+                                MotionSupervisor
+  resource/                     AuthResource, UserResource, SettingsResource,
                                 NotificationsResource, WebhookResource,
-                                CamerasResource, RecordingsResource
+                                CamerasResource, RecordingsResource,
+                                EnvironmentResource
   service/                      NotificationService, NotificationBroadcaster,
                                 AfterCommit, RecordingsService
   web/                          SpaFallbackFilter
+src/main/resources/db/migration/  Flyway migrations (schema, seed data)
 src/main/resources/motion/      motion.template, motion-notify.sh
 frontend/                       React/Vite SPA (built into the jar)
 ```
@@ -31,58 +35,70 @@ Uses the running PostgreSQL instance, schema `babymonitor` inside database `bob`
 The defaults match the local setup; override with `DB_URL` / `DB_USERNAME` /
 `DB_PASSWORD`.
 
-```bash
-PGPASSWORD=bob psql -h 127.0.0.1 -U bob -d bob -f db/init.sql
-```
+Flyway owns the schema: the migrations in `src/main/resources/db/migration/` run
+automatically at startup (`quarkus.flyway.migrate-at-start`), so there is
+nothing to run by hand — point the app at an empty database and it builds
+itself. A fresh database runs them in order; an existing one is baselined at V1
+(the state the retired `db/init.sql` produced) and brought forward by the later
+migrations.
 
-`db/init.sql` is re-runnable (idempotent). It creates:
-
-- `babymonitor.settings` (`tag`/`value`) — seeded with
-  `systemName` = `Cindy & Stephen's Baby Monitor` (the title shown by the SPA)
-  and `stream_url` = `http://localhost`, the host base of the box running
-  Motion. The Live stream page plays `<stream_url>:<camera's stream_port>` (see
-  *Motion* below); a run of this script drops the older `streaming_url` row
-- `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`) —
-  seeded with `Cindy`, `Marij`, `Stephen`, `Bob`, each with password equal to
-  the name (bcrypt hash, `$2a$` prefix — the jbcrypt library rejects `$2b$`).
-  `theme` holds the account's UI preference (`light`, `dark` or `auto`,
-  defaulting to `auto`) and `theme_color` its accent color, a Mantine palette
-  name (defaulting to `blue`)
-- `babymonitor.notifications` (`id`, `event_time`, `event_type`, `description`,
-  `video_link`) — the feed behind the Notifications page. `event_type` is the
-  PostgreSQL enum `babymonitor.event_type` with the values `Video` and `Audio`.
-  The script seeds twenty test notifications (eleven audio, nine video with a
-  clip link) spread over the previous four days, one row at a time and only
-  while its description is missing, so reloading the database brings any that
-  were removed back without ever duplicating them. Delete that statement in
-  `db/init.sql` for a feed of real events only.
-- `babymonitor.notification_dismissals` (`notification_id`, `user_id`,
-  `dismissed_at`) — one row per notification an account has dismissed. The pair
-  is the primary key, so dismissing twice is a no-op, and the feed lists the
-  notifications that have no row for the account asking. Notifications
-  themselves are never deleted, so dismissing hides an event for one account
-  only and leaves it on record for everybody else
-- `babymonitor.environment` (`id`, `event_time`, `temperature`, `humidity`,
-  `brightness`) — the ambient time series behind the Environment page.
-  `temperature` is Celsius and `humidity` a percentage, both `NUMERIC(5,2)`;
-  `brightness` is lux. The script seeds one sample per hour for the previous
-  seven days, following a daily rhythm (coolest before dawn, brightest around
-  noon), only while the table is empty so re-running does not stack another week
-  on top. A camera or sensor writes real rows; delete the seed statement for
-  real readings only
-- `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
-  parameters, keyed by `(camera_number, key)`. There is no separate camera row,
-  so `enabled` (the camera's on/off flag) is repeated on every parameter of that
-  camera and switching it updates them all. The keys *are* Motion option names:
-  the app writes them, almost verbatim, into the camera's generated
-  `motion.config.<n>` (see *Motion* below). Both cameras are USB cameras, so
-  they are addressed by `video_device` (`/dev/video0`, `/dev/video4`), not a
-  network URL. The script seeds twelve parameters for each of the two cameras
-  the menu links to, inserted only while a `(camera, parameter)` pair is
-  missing, so edits made on the Camera pages survive a re-run; it also drops the
-  pre-Motion parameter names (`stream_url`, `resolution`, `frame_rate`, …) from
-  any older database. Both cameras ship switched off, so startup is clean and a
-  camera only comes up when the user switches it on from its own page.
+- `V1__initial_schema.sql` — schema only:
+  - `babymonitor.settings` (`tag`/`value`) — application settings, including
+    `systemName` (the title shown by the SPA) and `stream_url`, the host base of
+    the box running Motion. The Live stream page plays
+    `<stream_url>:<camera's stream_port>` (see *Motion* below)
+  - `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`,
+    `prompt_sound`) — login accounts. `theme` holds the account's UI preference
+    (`light`, `dark` or `auto`, defaulting to `auto`), `theme_color` its accent
+    color, a Mantine palette name (defaulting to `blue`), and `prompt_sound` the
+    alert-tone prefix it plays (defaulting to `chime`)
+  - `babymonitor.notifications` (`id`, `event_time`, `event_type`,
+    `description`, `video_link`) — the feed behind the Notifications page.
+    `event_type` is the PostgreSQL enum `babymonitor.event_type` with the values
+    `Video`, `Audio` and `System` (the last is written by the Motion supervisor;
+    see *Motion* below)
+  - `babymonitor.notification_dismissals` (`notification_id`, `user_id`,
+    `dismissed_at`) — one row per notification an account has dismissed. The
+    pair is the primary key, so dismissing twice is a no-op, and the feed lists
+    the notifications that have no row for the account asking. Notifications
+    themselves are never deleted, so dismissing hides an event for one account
+    only and leaves it on record for everybody else
+  - `babymonitor.environment` (`id`, `event_time`, `temperature`, `humidity`,
+    `brightness`) — the ambient time series behind the Environment page.
+    `temperature` is Celsius and `humidity` a percentage, both `NUMERIC(5,2)`;
+    `brightness` is lux
+  - `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
+    parameters, keyed by `(camera_number, key)`. There is no separate camera
+    row, so `enabled` (the camera's on/off flag) is repeated on every parameter
+    of that camera: Start/Apply writes it to all of them and Stop clears them.
+    The keys *are* Motion option names: the app writes them, almost verbatim,
+    into the camera's generated `motion.config.<n>` (see *Motion* below)
+- `V2__seed_data.sql` — development sample data; a production database would not
+  run it. Every statement is guarded, so applying it on top of existing data
+  neither duplicates a row nor clobbers an edit:
+  - the `systemName` = `Cindy & Stephen's Baby Monitor` and `stream_url` =
+    `http://localhost` settings
+  - the four sample accounts `Cindy`, `Marij`, `Stephen`, `Bob`, each with
+    password equal to the name (bcrypt hash, `$2a$` prefix — the jbcrypt
+    library rejects `$2b$`)
+  - one environment sample per hour for the previous seven days, following a
+    daily rhythm (coolest before dawn, brightest around noon), seeded only while
+    the table is empty so it never stacks another week on top. A camera or
+    sensor writes real rows; delete that statement for real readings only
+  - twelve parameters for each of the two demo cameras, inserted only while a
+    `(camera, parameter)` pair is missing so edits made on the Camera pages
+    survive. Both cameras are USB cameras, addressed by `video_device`
+    (`/dev/video0`, `/dev/video4`) rather than a network URL, and both ship with
+    `enabled` false, so startup is clean and a camera only comes up when the
+    user starts it from its own page
+  - twenty test notifications (eleven audio, nine video with a clip link)
+    spread over the previous four days, one row at a time and only while its
+    description is missing, so reloading brings back any that were removed
+    without ever duplicating them. Delete that statement for a feed of real
+    events only
+- `V3__add_system_event_type.sql` — adds `System` to the `event_type` enum
+- `V4__add_active_camera.sql` — adds `users.active_camera`, the camera the
+  account last viewed, so the Live stream page can restore it
 
 ## Build & run
 
@@ -120,6 +136,8 @@ webhooks.
 | GET         | `/api/users/me`                        | the signed-in user's record    |
 | PUT         | `/api/users/me/theme`                  | `{ "theme" }`: light/dark/auto |
 | PUT         | `/api/users/me/theme-color`            | `{ "themeColor" }`: palette    |
+| PUT         | `/api/users/me/prompt-sound`           | `{ "promptSound" }`: alert tone |
+| PUT         | `/api/users/me/active-camera`          | `{ "activeCamera" }`: last camera |
 | GET         | `/api/notifications`                   | newest first, minus my dismissals |
 | GET         | `/api/notifications/stream`            | server-sent events: live push of new notifications (`?token=`, `?lastId=`) |
 | DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
@@ -227,12 +245,16 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
 curl -N "http://localhost:8080/api/notifications/stream?token=$TOKEN&lastId=0"
 ```
 
-The SPA (Personal settings → **Alerts**) turns on the in-app notification toasts
-and a chime for this device; the stream is consumed from any page while signed
-in, with short polling as a fallback when the stream is unavailable. The chime is
-a small two-tone file (`/sounds/notification-chime.mp3`) that is primed on user
-gesture (turning alerts on or using the title-bar Test alert button) to satisfy
-autoplay policies.
+The SPA consumes the stream from any page while signed in, with short polling
+as a fallback when the stream is unavailable. Alerting needs no opt-in: every
+new event raises an in-app toast and plays the account's chosen tone. `System`
+notices are the one exception — they stay silent, because the supervisor has
+already recovered the camera and a chime would only startle a sleeping parent.
+Personal settings → **Notification sound** picks the tone (`chime`, a small
+two-tone file at `/sounds/notification-chime.mp3`, by default; it is saved on
+the account so it follows the user across browsers). A browser that has not yet
+seen a user interaction may block the sound; a blocked play is ignored, so the
+toast still appears.
 
 ## Motion
 
@@ -277,18 +299,21 @@ two processes in `ps -ef`.
 
 | Action | Effect |
 | --- | --- |
-| Save a camera parameter | stored only; Motion is untouched until Apply |
-| **Start/Apply** | rebuild the config, then start Motion or `SIGHUP` it |
-| **Camera on** | start Motion (build the config first if needed) |
-| **Camera off** | kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
+| Add, save or delete a parameter | stored only; Motion is untouched until Apply |
+| **Start/Apply** | set `enabled`, rebuild the config, then start Motion or `SIGHUP` it |
+| **Stop** | clear `enabled`, then kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
+
+Once a camera is marked running, the `MotionSupervisor` keeps it alive: a
+background check restarts a camera whose process has died (with backoff) and
+records a silent `System` notification so the feed shows the recovery.
 
 ### Startup is cold
 
 Nothing runs when the app starts. With `babymonitor.motion.reset-on-start` on
 (the default), boot kills any `motion` left over from a previous run and marks
 every camera not enabled — see `MotionService.resetOnStartup`. Both cameras
-therefore ship switched off in `db/init.sql`, and a camera only comes up when
-the user switches it on from its own page.
+therefore ship switched off in the seed, and a camera only comes up when the
+user starts it from its own page.
 
 The kill matters because a started child outlives the JVM that spawned it: a
 dev-mode recompile would otherwise leave an orphaned `motion` that nothing
@@ -335,11 +360,12 @@ React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/settings`, `/profile` (Personal settings). The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
 plays Motion's stream for the chosen one, built from the `stream_url` setting
-and that camera's `stream_port` row. It defaults to Camera 1 when
-that is enabled, otherwise to Camera 2 when that one is enabled, and shows no
-stream when both are disabled — which is how a cold start looks, since both
-cameras come up switched off. Switching a camera on or off is done on its own
-Camera page, whose switch owns the `enabled` flag. A blue title bar with a hamburger menu (upper left)
+and that camera's `stream_port` row. It restores the account's last-viewed
+camera from the profile (`users.active_camera`, saved whenever the drop-down
+changes) and otherwise defaults to the first enabled camera — Camera 1 when it
+is running, else Camera 2. It shows no stream when the chosen camera is stopped,
+which is how a cold start looks, since both cameras come up switched off;
+starting one is done from its own Camera page. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
@@ -348,9 +374,9 @@ like `/settings` works on refresh.
 The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
 lists the raw rows under it. Temperature and humidity share the left axis;
 brightness gets its own right axis. The Camera pages show one camera's
-parameters and let each value be edited, plus a switch for the camera's
-`enabled` flag and an **Apply** button that rebuilds and (re)starts its Motion
-process.
+parameters: each value can be edited in place, a row can be added or deleted,
+and **Start/Apply** rebuilds the config and (re)starts its Motion process while
+**Stop** takes it down.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer
