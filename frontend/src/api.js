@@ -156,6 +156,8 @@ export const api = {
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/apply`),
   stopCameraMotion: (cameraNumber) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/stop`),
+  getCameraAudio: (cameraNumber) =>
+    request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio`),
 
   // A camera's recordings, and one clip's bytes for in-app playback.
   listRecordings: (cameraNumber) =>

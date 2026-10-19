@@ -79,6 +79,7 @@ export default function CameraPage({ cameraNumber }) {
   const [savedKey, setSavedKey] = useState(null)
   const [stopping, setStopping] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [audio, setAudio] = useState(null)
 
   // The "add a row" form. Its values live here rather than in the parameters
   // list, so cancelling leaves nothing behind.
@@ -95,6 +96,12 @@ export default function CameraPage({ cameraNumber }) {
         api.getCamera(cameraNumber),
         api.getCameraMotion(cameraNumber),
       ])
+      try {
+        const audioStatus = await api.getCameraAudio(cameraNumber)
+        setAudio(audioStatus)
+      } catch (e) {
+        setAudio(null)
+      }
       setParameters(list)
       setDrafts(Object.fromEntries(list.map((p) => [p.key, p.value])))
       setMotion(status)
@@ -248,6 +255,11 @@ export default function CameraPage({ cameraNumber }) {
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
+          {audio && (
+            <Badge color={audio.running ? 'green' : 'gray'} variant="light">
+              Audio {audio.running ? `running (pid ${audio.pid})` : 'stopped'}
+            </Badge>
+          )}
           {running ? (
             <Badge color="green" variant="light">
               Motion running (pid {motion.pid})

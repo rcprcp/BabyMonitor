@@ -1,6 +1,7 @@
 package com.babymonitor.resource;
 
 import com.babymonitor.audio.AudioSupervisor;
+import com.babymonitor.audio.AudioService;
 import com.babymonitor.dto.CameraParameterDto;
 import com.babymonitor.dto.CreateCameraParameterRequest;
 import com.babymonitor.dto.ErrorResponse;
@@ -42,6 +43,9 @@ public class CamerasResource {
 
     @Inject
     AudioSupervisor audio;
+
+    @Inject
+    AudioService audioService;
 
     @GET
     @Operation(summary = "List every camera parameter", description = "Ordered by camera number, then parameter name.")
@@ -222,6 +226,20 @@ public class CamerasResource {
         }
         return Response.ok(status).build();
     }
+
+    @GET
+    @Path("/{cameraNumber}/audio")
+    @Operation(summary = "Report a camera's audio capture",
+            description = "Whether the capture process is running, its pid, device, and classification stats.")
+    @APIResponse(responseCode = "404", description = "No such camera",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    public Response audioStatus(@PathParam("cameraNumber") int cameraNumber) {
+        if (Camera.listByCamera(cameraNumber).isEmpty()) {
+            return notFound(cameraNumber);
+        }
+        return Response.ok(audioService.status(cameraNumber)).build();
+    }
+
     private static Response notFound(int cameraNumber) {
         return Response.status(Response.Status.NOT_FOUND)
                 .entity(new ErrorResponse("No such camera: " + cameraNumber))
