@@ -62,6 +62,9 @@ function mergeNotifications(current, incoming, dismissed) {
   )
 }
 
+// How long a newly arrived card keeps its "New" badge and accent.
+const NEW_HIGHLIGHT_MS = 10000
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
@@ -71,6 +74,11 @@ export default function NotificationsPage() {
   const dismissedIds = useRef(new Set())
   // Coalesces the event refresh and the fallback poll into one request.
   const refreshing = useRef(false)
+  // Rows that arrived while the page was open, highlighted for a few seconds.
+  const [newIds, setNewIds] = useState(() => new Set())
+  const notificationsRef = useRef([])
+  const hasLoaded = useRef(false)
+  const highlightTimers = useRef(new Map())
 
   // The in-app player. The object URL of the clip currently loaded is kept in a
   // ref as well so leaving the page revokes it.
@@ -80,21 +88,72 @@ export default function NotificationsPage() {
   const [loadingLink, setLoadingLink] = useState(null)
   const objectUrl = useRef(null)
 
+  // Keep a ref of the rendered list so a fetch can tell which rows are new
+  // without treating the whole initial feed as new.
+  useEffect(() => {
+    notificationsRef.current = notifications
+  }, [notifications])
+
+  const highlight = useCallback((ids) => {
+    if (ids.length === 0) {
+      return
+    }
+    setNewIds((current) => {
+      const next = new Set(current)
+      ids.forEach((id) => next.add(id))
+      return next
+    })
+    ids.forEach((id) => {
+      const existing = highlightTimers.current.get(id)
+      if (existing) {
+        clearTimeout(existing)
+      }
+      const timer = setTimeout(() => {
+        highlightTimers.current.delete(id)
+        setNewIds((current) => {
+          if (!current.has(id)) {
+            return current
+          }
+          const next = new Set(current)
+          next.delete(id)
+          return next
+        })
+      }, NEW_HIGHLIGHT_MS)
+      highlightTimers.current.set(id, timer)
+    })
+  }, [])
+
+  const applyRows = useCallback(
+    (rows, { highlightNew = true } = {}) => {
+      const known = new Set(notificationsRef.current.map((notification) => notification.id))
+      const added = (rows ?? [])
+        .filter((notification) => !known.has(notification.id))
+        .map((notification) => notification.id)
+      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
+      if (highlightNew && hasLoaded.current && added.length > 0) {
+        highlight(added)
+      }
+    },
+    [highlight],
+  )
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const rows = await api.listNotifications()
-      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
+      applyRows(rows, { highlightNew: false })
+      hasLoaded.current = true
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyRows])
 
   // A new notification arrived (event or poll): merge it in place, without the
-  // loading spinner flashing over the page.
+  // loading spinner flashing over the page. Rows that were not already in the
+  // list get the "New" highlight for a few seconds.
   const refresh = useCallback(async () => {
     if (refreshing.current) {
       return
@@ -102,13 +161,14 @@ export default function NotificationsPage() {
     refreshing.current = true
     try {
       const rows = await api.listNotifications()
-      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
+      applyRows(rows)
+      hasLoaded.current = true
     } catch {
       // Leave the list as-is; the next event, poll or Refresh retries.
     } finally {
       refreshing.current = false
     }
-  }, [])
+  }, [applyRows])
 
   useEffect(() => {
     load()
@@ -122,13 +182,11 @@ export default function NotificationsPage() {
         refresh()
         return
       }
-      setNotifications((current) =>
-        mergeNotifications(current, incoming, dismissedIds.current),
-      )
+      applyRows(incoming)
     }
     window.addEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived)
     return () => window.removeEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived)
-  }, [refresh])
+  }, [applyRows, refresh])
 
   // The global alert hook also polls, but a dropped event must not leave this
   // page stale; a light poll while it is visible is the safety net.
@@ -140,6 +198,15 @@ export default function NotificationsPage() {
     }, 10000)
     return () => clearInterval(id)
   }, [refresh])
+
+  // Clear the "New" highlight timers if the page goes away.
+  useEffect(
+    () => () => {
+      highlightTimers.current.forEach((timer) => clearTimeout(timer))
+      highlightTimers.current.clear()
+    },
+    [],
+  )
 
   // Revoke the last object URL when the page goes away.
   useEffect(
@@ -215,7 +282,16 @@ export default function NotificationsPage() {
 
       <Stack gap="sm">
         {notifications.map((notification) => (
-          <Card key={notification.id} withBorder padding="md">
+          <Card
+            key={notification.id}
+            withBorder
+            padding="md"
+            style={
+              newIds.has(notification.id)
+                ? { borderLeft: '4px solid var(--mantine-color-blue-5)' }
+                : undefined
+            }
+          >
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
                 <Group gap="xs">
@@ -225,6 +301,11 @@ export default function NotificationsPage() {
                   >
                     {notification.eventType}
                   </Badge>
+                  {newIds.has(notification.id) && (
+                    <Badge color="blue" variant="filled" size="xs">
+                      New
+                    </Badge>
+                  )}
                   <Text size="xs" c="dimmed">
                     {new Date(notification.eventTime).toLocaleString()}
                   </Text>

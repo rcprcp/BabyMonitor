@@ -567,11 +567,12 @@ meter and a volume slider that play the selected camera's audio.
 
 The Notifications page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly
-as a fallback, and Refresh forces a full reload. A video event links the
-clip through the app's recordings route; because that route needs the bearer
-token, a plain link could not fetch it, so the page pulls the clip with the
-token and plays it in an in-app player. A link the app does not serve (an older
-or an external URL) still opens in a new tab.
+as a fallback, and Refresh forces a full reload. Rows that arrive while the page
+is open carry a **New** badge and a blue left accent for ten seconds. A video
+event links the clip through the app's recordings route; because that route
+needs the bearer token, a plain link could not fetch it, so the page pulls the
+clip with the token and plays it in an in-app player. A link the app does not
+serve (an older or an external URL) still opens in a new tab.
 
 The UI is built with [Mantine](https://mantine.dev/) 8 (`@mantine/core`,
 `@mantine/hooks` and `@mantine/charts` on top of `recharts`, wired up in
