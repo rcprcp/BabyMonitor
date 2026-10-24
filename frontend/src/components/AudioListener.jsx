@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, Group, Slider, Text } from '@mantine/core'
+import LevelMeter from './LevelMeter'
 import { api } from '../api'
 
 const VOLUME_KEY = 'babymonitor.listen.volume'
-const POLL_MS = 3000
+const POLL_MS = 600
 const RETRY_MS = 2000
 
 function storedVolume() {
@@ -22,10 +23,13 @@ export default function AudioListener({ cameraNumber }) {
   const [listening, setListening] = useState(false)
   const [volume, setVolume] = useState(storedVolume)
   const [captureRunning, setCaptureRunning] = useState(false)
+  const [lastRms, setLastRms] = useState(0)
+  const [analyser, setAnalyser] = useState(null)
   const [status, setStatus] = useState('idle') // idle|connecting|playing|reconnecting|off
 
   const contextRef = useRef(null)
   const gainRef = useRef(null)
+  const analyserRef = useRef(null)
   const volumeRef = useRef(volume)
   volumeRef.current = volume
 
@@ -35,9 +39,16 @@ export default function AudioListener({ cameraNumber }) {
       const context = new AudioContextClass()
       const gain = context.createGain()
       gain.gain.value = volumeRef.current
+      // Tap the signal before the volume control: the meter should show what
+      // the microphone hears, not how loud the user chose to listen.
+      const meter = context.createAnalyser()
+      meter.fftSize = 2048
+      meter.connect(gain)
       gain.connect(context.destination)
       contextRef.current = context
       gainRef.current = gain
+      analyserRef.current = meter
+      setAnalyser(meter)
     }
     if (contextRef.current.state === 'suspended') {
       contextRef.current.resume().catch(() => {})
@@ -54,10 +65,12 @@ export default function AudioListener({ cameraNumber }) {
         const audio = await api.getCameraAudio(cameraNumber)
         if (!cancelled) {
           setCaptureRunning(Boolean(audio?.running))
+          setLastRms(Number(audio?.lastRms) || 0)
         }
       } catch {
         if (!cancelled) {
           setCaptureRunning(false)
+          setLastRms(0)
         }
       }
     }
@@ -114,7 +127,9 @@ export default function AudioListener({ cameraNumber }) {
       }
       const source = context.createBufferSource()
       source.buffer = buffer
-      source.connect(gain)
+      // Into the analyser (which feeds the gain), so the meter sees the raw
+      // capture level regardless of the listener's volume.
+      source.connect(analyserRef.current || gain)
       const now = context.currentTime
       // Keep a small jitter buffer and recover from an underrun rather than
       // scheduling in the past.
@@ -191,6 +206,8 @@ export default function AudioListener({ cameraNumber }) {
         contextRef.current.close().catch(() => {})
         contextRef.current = null
         gainRef.current = null
+        analyserRef.current = null
+        setAnalyser(null)
       }
     } else {
       ensureAudio() // the click is the gesture browsers require
@@ -222,6 +239,7 @@ export default function AudioListener({ cameraNumber }) {
       <Badge color={status === 'playing' ? 'green' : captureRunning ? 'yellow' : 'gray'} variant="light">
         {label}
       </Badge>
+      <LevelMeter rms={lastRms} analyser={analyser} active={captureRunning} />
       <Text size="sm" c="dimmed">
         Volume
       </Text>
