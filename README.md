@@ -468,9 +468,10 @@ A small level meter sits beside the Listen control. While not listening it is
 driven by the capture's own `lastRms` (polled about twice a second), so the
 nursery's noise is visible before you choose to listen; while listening it
 switches to an `AnalyserNode` on the Web Audio graph for a smooth level. It is
-dB-scaled (`-60 dB` to `0 dB`), colour-zoned and peak-holding, and it taps the
+dB-scaled (`-42 dB` to `0 dB`), colour-zoned and peak-holding, and it taps the
 signal before the volume control so the reading reflects the microphone, not
-the listener's volume.
+the listener's volume. A silence floor, a small deadband and a smoothed input
+keep the bar resting at zero in a quiet room instead of twitching.
 
 ### Status
 

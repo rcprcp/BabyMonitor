@@ -1,9 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { Box, Text } from '@mantine/core'
 
-// Below this the meter is empty; above it, full scale. A dB scale reads much
-// more like a real level meter than raw RMS, which is tiny for normal speech.
-const FLOOR_DB = -60
+// The dB range the bar spans. Anything at or below the floor is silence; the
+// old -60 dB floor let ordinary room noise sit a third of the way up and
+// twitch, so the floor now sits just above the capture's own silence gate.
+const FLOOR_DB = -42
+// Below this fraction of the bar the meter snaps to empty, so a quiet room
+// settles at zero instead of flickering around a few percent.
+const DEADBAND = 0.04
+// How fast the bar falls, in full-scale units per second. Slow enough that the
+// server's ~2 Hz updates look like a meter rather than steps.
+const RELEASE_PER_SECOND = 0.8
 const WIDTH = 120
 const HEIGHT = 10
 
@@ -12,7 +19,10 @@ function levelOf(rms) {
     return 0
   }
   const db = 20 * Math.log10(rms)
-  return Math.max(0, Math.min(1, (db - FLOOR_DB) / -FLOOR_DB))
+  if (db <= FLOOR_DB) {
+    return 0
+  }
+  return Math.min(1, (db - FLOOR_DB) / -FLOOR_DB)
 }
 
 function rmsOf(analyser) {
@@ -47,17 +57,24 @@ export default function LevelMeter({ rms = 0, analyser = null, active = false })
     let shown = 0
     let peak = 0
     let peakAt = 0
+    let smoothed = 0
     let last = performance.now()
 
     const tick = (now) => {
       const dt = Math.min(0.1, Math.max(0, (now - last) / 1000))
       last = now
       const live = analyserRef.current ? rmsOf(analyserRef.current) : rmsRef.current
-      const target = activeRef.current ? levelOf(live) : 0
+      // Smooth the raw RMS before mapping it: the idle value updates only about
+      // twice a second and room noise wobbles, which made the bar twitch.
+      smoothed += (live - smoothed) * Math.min(1, dt * 6)
+      let target = activeRef.current ? levelOf(smoothed) : 0
+      if (target < DEADBAND) {
+        target = 0
+      }
 
-      // Fast attack, slow release (~1.5/s), so the server's ~2 Hz value still
-      // looks like a meter rather than a set of steps.
-      shown = target >= shown ? target : Math.max(target, shown - dt * 1.5)
+      // Fast attack, slow release, so the server's ~2 Hz value still looks like
+      // a meter rather than a set of steps.
+      shown = target >= shown ? target : Math.max(target, shown - dt * RELEASE_PER_SECOND)
       if (shown >= peak) {
         peak = shown
         peakAt = now
@@ -77,7 +94,7 @@ export default function LevelMeter({ rms = 0, analyser = null, active = false })
       }
       if (labelRef.current) {
         labelRef.current.textContent =
-          activeRef.current && live > 0 ? `${Math.round(20 * Math.log10(live))} dB` : '—'
+          activeRef.current && target > 0 ? `${Math.round(20 * Math.log10(smoothed))} dB` : '—'
       }
       frame = requestAnimationFrame(tick)
     }
