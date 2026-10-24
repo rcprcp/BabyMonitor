@@ -33,11 +33,12 @@ These are the ones where the app looks fine while being wrong.
       (`EnvironmentPage.jsx`, `EnvironmentResource`) but nothing ever fires when
       the nursery is too hot, too cold, or too humid. For a baby monitor this is
       a safety feature, not a chart. Add configurable thresholds + notifications.
-- [ ] **Fix the failing test.** `ApiTest.cameraReturnsItsParametersInNameOrder`
-      asserts seeded values (`width=1280`) that the UI is designed to change, so
-      it fails against any database a user has used. Either stop asserting live
-      user-editable state or reset the row in the test. `mvn package` currently
-      does not pass.
+- [x] **Fix the failing test.** `ApiTest.cameraReturnsItsParametersInNameOrder`
+      used to assert seeded values (`width=1280`) that the UI is designed to
+      change, so it failed against any database a user had used. It now checks
+      the invariants (camera number, name ordering, the Motion option names are
+      present, the rows share one enabled flag) instead of live, user-editable
+      values, so `mvn package` passes against an edited database.
 - [ ] **Alert on Video/motion events too.** Alerts are sound-only for
       `eventType === 'Audio'` (`frontend/src/useNotificationAlerts.js`). A
       motion/clip event — arguably the more important one — is silent.
@@ -220,4 +221,4 @@ Small, self-contained, worth doing first:
 - Wire up the existing but unused `DebugWrapper` error boundary (P5).
 - Namespace the alerts-enabled flag per account (P5).
 - Delete the unused `api.me()` (P6).
-- Fix or re-scope the failing test so `mvn package` passes (P0).
+- Fix or re-scope the failing test so `mvn package` passes (P0) — done.

@@ -760,19 +760,35 @@ class ApiTest {
         List<Map<String, Object>> parameters = cameraParameters(token, 1);
 
         assertFalse(parameters.isEmpty(), "camera 1 is seeded with parameters");
+
+        // Every row carries the camera number and the camera's own enabled flag.
+        // Read the flag rather than assuming the seeded FALSE: the Camera pages
+        // start and stop cameras (and other tests do too), so it is live state.
+        Object enabled = parameters.get(0).get("enabled");
+        assertNotNull(enabled, "every parameter carries an enabled flag");
         for (Map<String, Object> parameter : parameters) {
             assertEquals(1, ((Number) parameter.get("cameraNumber")).intValue());
-            assertEquals(Boolean.FALSE, parameter.get("enabled"), "cameras ship switched off");
+            assertEquals(
+                    enabled,
+                    parameter.get("enabled"),
+                    "every row shares the camera's enabled flag");
         }
 
         List<String> keys = parameters.stream().map(row -> (String) row.get("key")).toList();
         List<String> sorted = new ArrayList<>(keys);
         Collections.sort(sorted);
         assertEquals(sorted, keys, "parameters are ordered by name");
+
         // The parameter names are Motion option names (USB cameras, not network).
-        assertEquals("1280", parameterNamed(parameters, "width").get("value"));
-        assertEquals("720", parameterNamed(parameters, "height").get("value"));
-        assertNotNull(parameterNamed(parameters, "video_device").get("value"));
+        // Their values are user-editable from the Camera pages, so only require
+        // that the required options are present and carry a value -- pinning the
+        // seeded 1280x720 makes the suite fail against any database a user has
+        // edited (the rows are only seeded while missing).
+        for (String key : List.of("width", "height", "video_device")) {
+            assertFalse(
+                    ((String) parameterNamed(parameters, key).get("value")).isBlank(),
+                    key + " carries a value");
+        }
     }
 
     @Test
