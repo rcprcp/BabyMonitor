@@ -119,7 +119,7 @@ class AudioServiceTest {
             Notification row = findNotification(cameraNumber);
             assertNotNull(row, "the alert should have been stored");
             assertEquals(EventType.Audio, row.eventType);
-            assertTrue(row.description.contains("Crying, sobbing"), row.description);
+            assertTrue(row.description.contains("(19) Crying, sobbing (90%)"), row.description);
         } finally {
             audio.stop(cameraNumber);
             deleteAudioAlerts(cameraNumber);

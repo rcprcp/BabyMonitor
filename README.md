@@ -468,6 +468,10 @@ quiet for `cooldown-seconds` (60) before it may fire again. A run already long
 enough keeps counting through the cooldown, so a baby who does not pause is not
 asked to prove himself again the moment it expires.
 
+An alert's description carries the class index and the confidence, e.g.
+`(19) Crying, sobbing (90%) heard on camera 1`, so the feed and the toast show
+which sound fired and how sure the model was.
+
 Tuning notes from validating the model against ESC-50 clips: `19 Crying,
 sobbing` is the most reliable single class (`20 Baby cry, infant cry` tracks it
 at roughly half the confidence), a genuine cry peaked at 0.50 while ambient
@@ -548,11 +552,11 @@ lists the raw rows under it. Temperature and humidity share the left axis;
 brightness gets its own right axis. The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
-**Stop** takes it down. Starting/stopping a camera also starts/stops its audio;
-the Audio section has its own Start/Stop button and a chip showing whether the
-capture is processing, down and being retried, or stopped. The Live stream page
-has a Listen control, a level meter and a volume slider that play the selected
-camera's audio.
+**Stop** takes it down. Starting/stopping a camera also starts/stops its audio.
+The audio status chip sits under the Motion chip and the Start/Stop audio button
+under Start/Apply; the chip shows whether the capture is processing, down and
+being retried, or stopped. The Live stream page has a Listen control, a level
+meter and a volume slider that play the selected camera's audio.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer
