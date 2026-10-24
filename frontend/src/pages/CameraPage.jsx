@@ -15,6 +15,10 @@ import {
 } from '@mantine/core'
 import { api } from '../api'
 
+// Mantine's default Button height (size "sm"). The status badges are wrapped in
+// rows of this height so a badge's midpoint lines up with the button beside it.
+const CONTROL_ROW_HEIGHT = 36
+
 // The app carries no icon library, so the few glyphs this page needs are small
 // inline SVGs. Drawn like Tabler's icons so they sit naturally beside the
 // Mantine controls.
@@ -307,36 +311,40 @@ export default function CameraPage({ cameraNumber }) {
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
           <Stack gap="xs" align="flex-end">
-            {motion?.error && (running || desired) ? (
-              <Badge color="red" variant="light" title={motion.error}>
-                Camera unavailable
-              </Badge>
-            ) : running ? (
-              <Badge color="green" variant="light">
-                Motion running (pid {motion.pid})
-              </Badge>
-            ) : desired ? (
-              <Badge color="yellow" variant="light">
-                Motion down - restarting
-              </Badge>
-            ) : (
-              <Badge color="gray" variant="light">
-                Motion stopped
-              </Badge>
-            )}
-            {audio?.running ? (
-              <Badge color="green" variant="light">
-                Audio processing (pid {audio.pid})
-              </Badge>
-            ) : audio?.enabled ? (
-              <Badge color="yellow" variant="light">
-                Audio down - restarting
-              </Badge>
-            ) : (
-              <Badge color="gray" variant="light">
-                Audio stopped
-              </Badge>
-            )}
+            <Group h={CONTROL_ROW_HEIGHT} align="center" justify="flex-end">
+              {motion?.error && (running || desired) ? (
+                <Badge color="red" variant="light" title={motion.error}>
+                  Camera unavailable
+                </Badge>
+              ) : running ? (
+                <Badge color="green" variant="light">
+                  Motion running (pid {motion.pid})
+                </Badge>
+              ) : desired ? (
+                <Badge color="yellow" variant="light">
+                  Motion down - restarting
+                </Badge>
+              ) : (
+                <Badge color="gray" variant="light">
+                  Motion stopped
+                </Badge>
+              )}
+            </Group>
+            <Group h={CONTROL_ROW_HEIGHT} align="center" justify="flex-end">
+              {audio?.running ? (
+                <Badge color="green" variant="light">
+                  Audio processing (pid {audio.pid})
+                </Badge>
+              ) : audio?.enabled ? (
+                <Badge color="yellow" variant="light">
+                  Audio down - restarting
+                </Badge>
+              ) : (
+                <Badge color="gray" variant="light">
+                  Audio stopped
+                </Badge>
+              )}
+            </Group>
           </Stack>
           <Button
             variant="default"
