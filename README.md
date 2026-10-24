@@ -425,8 +425,10 @@ Python sidecar and no ONNX conversion. The model
 (`src/main/resources/yamnet/yamnet.tflite`, Apache-2.0) and its class map are
 bundled as classpath resources and loaded on the first camera that needs them,
 so an install that captures no audio never pays for them. The model is shared;
-each camera gets its own predictor and `NDManager`, because a DJL predictor is
-not thread-safe and each capture has its own reader thread.
+each camera gets its own predictor and `NDManager`, and inference is serialised
+by a lock because the TFLite interpreter behind the model is a single native
+object that is not thread-safe — two cameras classifying at once used to
+segfault the JVM.
 
 YAMNet scores all 521 classes, and the whole ranked list is kept: which of them
 mean "cry" is configuration (`babymonitor.audio.alert-class-indices`, `19` and

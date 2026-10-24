@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
 
 /**
@@ -32,11 +33,12 @@ import org.jboss.logging.Logger;
  * the model file rather than reading it into a byte array, so the resource is
  * unpacked to a temporary file once.</p>
  *
- * <p>DJL predictors are not thread-safe and the capture loop runs a reader
- * thread per camera, so the model is shared but a {@link Session} -- its own
- * predictor and NDManager -- is handed out per capture. Nothing here is
- * synchronized on the inference path, so cameras do not queue behind each
- * other.</p>
+ * <p>DJL predictors are not thread-safe, and behind them the engine keeps one
+ * TFLite interpreter per model that is not thread-safe either. A {@link Session}
+ * -- its own predictor and NDManager -- is handed out per capture, and a single
+ * lock serialises the native inference so two camera threads can never be inside
+ * the shared interpreter at once. At ~2 windows/s per camera the queue is
+ * invisible.</p>
  *
  * <p>YAMNet scores all 521 classes at once and the whole ranked list is
  * returned; deciding which of them mean "cry" is {@link CryDetector}'s job, so
@@ -52,6 +54,18 @@ public class YamNetClassifier implements AudioClassifier {
 
     private final Object loadLock = new Object();
 
+    /**
+     * The TFLite interpreter inside a {@link ZooModel} is shared by every
+     * predictor and is <em>not</em> thread-safe. One lock serialises inference
+     * across cameras: at roughly two windows per second per camera the wait is
+     * invisible, and it is what keeps two capture threads out of the same native
+     * interpreter (which segfaults).
+     */
+    private final ReentrantLock inferenceLock = new ReentrantLock();
+
+    /** Set once the container starts shutting the model down. */
+    private volatile boolean closed;
+
     /** The shared, immutable once loaded model; {@code null} until first use. */
     private volatile ZooModel<NDList, NDList> model;
 
@@ -60,17 +74,33 @@ public class YamNetClassifier implements AudioClassifier {
 
     @Override
     public Session openSession() {
-        ZooModel<NDList, NDList> loaded = load();
-        NDManager manager = loaded.getNDManager().newSubManager();
-        return new YamNetSession(loaded.newPredictor(), manager, labels, config.frameSamples());
+        inferenceLock.lock();
+        try {
+            if (closed) {
+                throw new IllegalStateException("YAMNet is shutting down");
+            }
+            ZooModel<NDList, NDList> loaded = load();
+            NDManager manager = loaded.getNDManager().newSubManager();
+            return new YamNetSession(this, loaded.newPredictor(), manager, labels, config.frameSamples());
+        } finally {
+            inferenceLock.unlock();
+        }
     }
 
     /** Releases the model when the application shuts down. */
     @PreDestroy
     void close() {
-        ZooModel<NDList, NDList> loaded = model;
-        if (loaded != null) {
-            loaded.close();
+        closed = true;
+        // Wait for any in-flight prediction before freeing the native
+        // interpreter: closing it under a running inference is a use-after-free.
+        inferenceLock.lock();
+        try {
+            ZooModel<NDList, NDList> loaded = model;
+            if (loaded != null) {
+                loaded.close();
+            }
+        } finally {
+            inferenceLock.unlock();
         }
     }
 
@@ -131,13 +161,19 @@ public class YamNetClassifier implements AudioClassifier {
     /** One camera's predictor; belongs to the thread reading that camera's PCM. */
     private static final class YamNetSession implements Session {
 
+        private final YamNetClassifier owner;
         private final Predictor<NDList, NDList> predictor;
         private final NDManager manager;
         private final List<String> labels;
         private final int frameSamples;
 
         YamNetSession(
-                Predictor<NDList, NDList> predictor, NDManager manager, List<String> labels, int frameSamples) {
+                YamNetClassifier owner,
+                Predictor<NDList, NDList> predictor,
+                NDManager manager,
+                List<String> labels,
+                int frameSamples) {
+            this.owner = owner;
             this.predictor = predictor;
             this.manager = manager;
             this.labels = labels;
@@ -150,7 +186,19 @@ public class YamNetClassifier implements AudioClassifier {
                 throw new IllegalArgumentException(
                         "YAMNet needs " + frameSamples + " samples but got " + samples.length);
             }
-            float[] scores = infer(samples);
+            float[] scores;
+            // The interpreter behind every predictor is one shared, non-thread-safe
+            // native object, so only one camera may be inside it at a time. The
+            // lock also waits out a shutdown that is closing the model.
+            owner.inferenceLock.lock();
+            try {
+                if (owner.closed) {
+                    throw new IllegalStateException("YAMNet is shutting down");
+                }
+                scores = infer(samples);
+            } finally {
+                owner.inferenceLock.unlock();
+            }
             List<AudioClassification> ranked = new ArrayList<>(scores.length);
             for (int index = 0; index < scores.length; index++) {
                 ranked.add(new AudioClassification(index, name(index), scores[index]));
