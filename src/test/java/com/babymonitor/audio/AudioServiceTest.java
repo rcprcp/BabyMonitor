@@ -94,6 +94,13 @@ class AudioServiceTest {
     void aRunOfCryWindowsRaisesOneAudioNotification() throws InterruptedException {
         classifier.always(CRYING, "Crying, sobbing", 0.9f);
         int cameraNumber = 9;
+        // This is the one test that writes an Audio notification, and it goes to
+        // the real notification table -- the same one the running app reads, so
+        // a leftover row would show up as a live "cry heard on camera 9" alert.
+        // Clear any row an earlier run leaked before starting, then delete this
+        // run's row in the finally; that also stops a stale row from satisfying
+        // the lookup below and hiding a regression.
+        deleteAudioAlerts(cameraNumber);
         try {
             audio.start(cameraNumber, "hw:9,0");
 
@@ -108,13 +115,15 @@ class AudioServiceTest {
             Thread.sleep(300);
             assertEquals(1, audio.status(cameraNumber).alertsRaised(),
                     "the cooldown should hold a repeat back");
+
+            Notification row = findNotification(cameraNumber);
+            assertNotNull(row, "the alert should have been stored");
+            assertEquals(EventType.Audio, row.eventType);
+            assertTrue(row.description.contains("Crying, sobbing"), row.description);
         } finally {
             audio.stop(cameraNumber);
+            deleteAudioAlerts(cameraNumber);
         }
-        Notification row = findNotification(cameraNumber);
-        assertNotNull(row, "the alert should have been stored");
-        assertEquals(EventType.Audio, row.eventType);
-        assertTrue(row.description.contains("Crying, sobbing"), row.description);
     }
 
     @Test
@@ -155,6 +164,17 @@ class AudioServiceTest {
         return QuarkusTransaction.requiringNew().call(() -> Notification.find(
                         "description like ?1", "%heard on camera " + cameraNumber + "%")
                 .firstResult());
+    }
+
+    /**
+     * Removes the {@code Audio} alerts a test camera raised. The dummy cameras
+     * these tests use do not exist in the app, so anything under one is this
+     * suite's own leftover and safe to delete.
+     */
+    private static void deleteAudioAlerts(int cameraNumber) {
+        QuarkusTransaction.requiringNew()
+                .run(() -> Notification.delete(
+                        "description like ?1", "%heard on camera " + cameraNumber + "%"));
     }
 
     /** Polls the status until the condition holds, or fails after ten seconds. */
