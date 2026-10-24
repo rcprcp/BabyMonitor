@@ -178,6 +178,7 @@ webhooks.
 | GET         | `/api/cameras/{n}/audio`               | audio capture state and last classification |
 | POST        | `/api/cameras/{n}/audio/start`         | start the camera's audio capture |
 | POST        | `/api/cameras/{n}/audio/stop`          | stop the camera's audio capture |
+| GET         | `/api/cameras/{n}/audio/stream`        | endless PCM (s16le mono) for live listening |
 | GET         | `/api/cameras/{n}/recordings`          | the camera's clips, newest first |
 | GET         | `/api/cameras/{n}/recordings/{file}`   | one clip; honours a byte `Range` |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
@@ -448,6 +449,21 @@ noise, a cat, a dog and a vacuum cleaner all stayed at 0.00, and laughter —
 `13`, which must never be in the alert list — can outscore crying on a
 mixed clip.
 
+### Listening
+
+The Live stream page can play the selected camera's audio. The capture's raw PCM
+is fanned out to listeners by `AudioBroadcaster` and served as an endless chunked
+response from `GET /api/cameras/{n}/audio/stream` (signed 16-bit little-endian
+mono; the sample rate and channel count are repeated in the
+`X-Audio-Sample-Rate` and `X-Audio-Channels` headers). The bearer token travels
+in the usual `Authorization` header because the page fetches the stream rather
+than pointing an `<audio>` element at it, so no token appears in a URL. The
+browser decodes the PCM and schedules it through the Web Audio API
+(`AudioListener.jsx`), with a volume slider; a Listen button is required because
+browsers only let a page make sound after a user gesture. A listener that falls
+behind drops its oldest buffered chunks rather than blocking the capture, so
+YAMNet still sees every window.
+
 ### Status
 
 `GET /api/cameras/{n}/audio` reports, per camera, the desired `enabled` state,
@@ -486,7 +502,8 @@ parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
 **Stop** takes it down. Starting/stopping a camera also starts/stops its audio;
 the Audio section has its own Start/Stop button and a chip showing whether the
-capture is processing, down and being retried, or stopped.
+capture is processing, down and being retried, or stopped. The Live stream page
+has a Listen control and volume slider that play the selected camera's audio.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer

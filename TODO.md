@@ -121,11 +121,11 @@ These are the ones where the app looks fine while being wrong.
 
 ## P4 — The features a world-class baby monitor needs
 
-- [ ] **Audio.** This is the biggest functional gap. The HLS player is
-      hardcoded `muted` with no way to unmute (`StreamPlayer.jsx`), and MJPEG
-      carries no audio at all — so you can watch your baby but not *hear* them.
-      Add audio monitoring with a volume control, and consider a sound-level
-      indicator.
+- [x] **Audio.** The HLS player was hardcoded `muted` and MJPEG carried no
+      audio, so you could watch your baby but not *hear* them. The Live stream
+      page now has a Listen control and volume slider: the selected camera's
+      captured PCM is streamed to the browser and played through the Web Audio
+      API. A sound-level indicator is still a nice-to-have.
 - [ ] **Push notifications.** Alerts only exist inside an open, authenticated
       tab; a backgrounded phone gets nothing (`useNotificationAlerts.js`). Add
       Web Push (VAPID) with a service worker, plus OS notifications and

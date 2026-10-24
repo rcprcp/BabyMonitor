@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Center, Group, Loader, Select, Stack, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
+import AudioListener from '../components/AudioListener'
 import { api } from '../api'
 
 // The landing page. It plays Motion's published stream for the selected camera:
@@ -166,6 +167,8 @@ export default function StreamPage() {
           <StreamPlayer url={url} reloadKey={reloadKey} />
         )}
       </Box>
+
+      {selectedCamera && <AudioListener cameraNumber={selectedCamera.cameraNumber} />}
     </Stack>
   )
 }
