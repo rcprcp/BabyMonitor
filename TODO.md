@@ -190,9 +190,12 @@ These are the ones where the app looks fine while being wrong.
       (`frontend/package.json` has only dev/build/preview).
 - [ ] **Lint and format the frontend.** `eslint-disable` comments exist but
       ESLint is not installed; no Prettier config either.
-- [ ] **Make the backend tests hermetic.** They run against the live seeded DB,
-      log in as `Bob/Bob` and mutate camera rows, so they depend on machine
-      state — the root cause of the P0 test failure above.
+- [x] **Make the backend tests hermetic.** They used to run against the live
+      seeded DB, log in as `Bob/Bob` and mutate camera rows, so they depended on
+      machine state — the root cause of the P0 test failure above. `%test` now
+      leaves the datasource URL unset, so Dev Services starts a disposable
+      PostgreSQL container, Flyway migrates and seeds it, and it is destroyed
+      after the run. The suite no longer touches the developer's database.
 - [ ] **Turn integration tests on.** `skipITs` defaults to true (`pom.xml`), so
       failsafe never runs anything.
 - [ ] **De-duplicate the palette list.** It is maintained by hand in both
