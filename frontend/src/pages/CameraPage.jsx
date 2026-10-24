@@ -306,7 +306,11 @@ export default function CameraPage({ cameraNumber }) {
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
-          {running ? (
+          {motion?.error && (running || desired) ? (
+            <Badge color="red" variant="light" title={motion.error}>
+              Camera unavailable
+            </Badge>
+          ) : running ? (
             <Badge color="green" variant="light">
               Motion running (pid {motion.pid})
             </Badge>
@@ -365,6 +369,12 @@ export default function CameraPage({ cameraNumber }) {
           {audio?.running ? 'Stop audio' : 'Start audio'}
         </Button>
       </Group>
+
+      {motion?.error && (running || desired) && (
+        <Alert color="red" variant="light">
+          {motion.error}
+        </Alert>
+      )}
 
       {error && (
         <Alert color="red" variant="light">

@@ -1,6 +1,7 @@
 package com.babymonitor;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -1113,6 +1114,47 @@ class ApiTest {
                 .get("/api/cameras/999/motion")
                 .then()
                 .statusCode(404);
+    }
+
+    @Test
+    void motionStatusReportsAMissingVideoDevice() {
+        String token = login("Bob", "Bob");
+        String original =
+                (String) parameterNamed(cameraParameters(token, 1), "video_device").get("value");
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"value\":\"/dev/babymonitor-no-such-camera\"}")
+                    .when()
+                    .put("/api/cameras/1/parameters/video_device")
+                    .then()
+                    .statusCode(200);
+
+            applyMotion(token, 1);
+
+            // Motion keeps running and retries the device, so the process state
+            // alone would look healthy; the device check is what surfaces this.
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .get("/api/cameras/1/motion")
+                    .then()
+                    .statusCode(200)
+                    .body("running", equalTo(true))
+                    .body("deviceAvailable", equalTo(false))
+                    .body("error", containsString("/dev/babymonitor-no-such-camera"));
+        } finally {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .body("{\"value\":\"" + original + "\"}")
+                    .when()
+                    .put("/api/cameras/1/parameters/video_device")
+                    .then()
+                    .statusCode(200);
+            stopMotion(token, 1);
+        }
     }
 
     @Test
