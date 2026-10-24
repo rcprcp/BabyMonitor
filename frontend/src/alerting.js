@@ -36,24 +36,36 @@ export function getSoundUrl(name) {
  * @param rows      notifications, newest event first
  * @param watermark highest id already alerted for (tracks cross-tab dedup)
  * @param now       current time in ms, injectable for tests
- * @returns {{maxId: number, alert: object|null}} the new watermark, and the
- *          notification to alert for (the most recent one, when it is fresh)
+ * @returns {{maxId: number, alert: object|null, fresh: object[]}} the new
+ *          watermark, the notification to alert for (the most recent one, when
+ *          it is fresh), and every row past the watermark, newest first
  */
 export function selectAlerts(rows, watermark, now = Date.now()) {
   const fresh = (rows ?? []).filter((n) => typeof n?.id === 'number' && n.id > watermark)
   if (fresh.length === 0) {
-    return { maxId: watermark, alert: null }
+    return { maxId: watermark, alert: null, fresh: [] }
   }
   const maxId = fresh.reduce((highest, n) => Math.max(highest, n.id), watermark)
   // The feed is newest-first, so fresh[0] is the most recent event.
   const newest = fresh[0]
   const age = now - new Date(newest.eventTime).getTime()
-  return { maxId, alert: age <= MAX_ALERT_AGE_MS ? newest : null }
+  return { maxId, alert: age <= MAX_ALERT_AGE_MS ? newest : null, fresh }
 }
 
-/** Tells any interested listener that new notifications have arrived. */
-export function announceNotifications() {
-  window.dispatchEvent(new Event(NOTIFICATIONS_ARRIVED_EVENT))
+/**
+ * Tells any interested listener that new notifications have arrived. The rows
+ * ride on the event so the Notifications page can prepend them immediately
+ * instead of making a second round-trip (and so a back-dated event still lands
+ * at the top of the live list).
+ *
+ * @param {object[]} notifications the fresh rows, newest first
+ */
+export function announceNotifications(notifications = []) {
+  window.dispatchEvent(
+    new CustomEvent(NOTIFICATIONS_ARRIVED_EVENT, {
+      detail: { notifications },
+    }),
+  )
 }
 
 // --- In-app alert ----------------------------------------------------------

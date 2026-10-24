@@ -43,10 +43,34 @@ function badgeColor(eventType) {
   return 'orange'
 }
 
+// Merge a fetched or pushed batch into the current feed: de-duplicate by id,
+// drop anything dismissed in this session, and keep newest event first (id
+// breaks ties). A new live row therefore appears at the top immediately.
+function mergeNotifications(current, incoming, dismissed) {
+  const byId = new Map()
+  for (const notification of [...incoming, ...current]) {
+    if (!notification || dismissed.has(notification.id)) {
+      continue
+    }
+    if (!byId.has(notification.id)) {
+      byId.set(notification.id, notification)
+    }
+  }
+  return [...byId.values()].sort(
+    (a, b) =>
+      new Date(b.eventTime).getTime() - new Date(a.eventTime).getTime() || b.id - a.id,
+  )
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // Ids this tab has dismissed, so a late event/poll cannot bring one back.
+  const dismissedIds = useRef(new Set())
+  // Coalesces the event refresh and the fallback poll into one request.
+  const refreshing = useRef(false)
 
   // The in-app player. The object URL of the clip currently loaded is kept in a
   // ref as well so leaving the page revokes it.
@@ -60,7 +84,8 @@ export default function NotificationsPage() {
     setLoading(true)
     setError(null)
     try {
-      setNotifications(await api.listNotifications())
+      const rows = await api.listNotifications()
+      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -68,13 +93,20 @@ export default function NotificationsPage() {
     }
   }, [])
 
-  // A new notification arrived (stream or poll): refresh the list in place,
-  // without the loading spinner flashing over the page.
+  // A new notification arrived (event or poll): merge it in place, without the
+  // loading spinner flashing over the page.
   const refresh = useCallback(async () => {
+    if (refreshing.current) {
+      return
+    }
+    refreshing.current = true
     try {
-      setNotifications(await api.listNotifications())
+      const rows = await api.listNotifications()
+      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
     } catch {
-      // Leave the list as-is; the next explicit Refresh will surface any error.
+      // Leave the list as-is; the next event, poll or Refresh retries.
+    } finally {
+      refreshing.current = false
     }
   }, [])
 
@@ -83,8 +115,30 @@ export default function NotificationsPage() {
   }, [load])
 
   useEffect(() => {
-    window.addEventListener(NOTIFICATIONS_ARRIVED_EVENT, refresh)
-    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED_EVENT, refresh)
+    const onArrived = (event) => {
+      const incoming = event?.detail?.notifications
+      if (!Array.isArray(incoming) || incoming.length === 0) {
+        // A bare signal (or an older emitter): fall back to a full refresh.
+        refresh()
+        return
+      }
+      setNotifications((current) =>
+        mergeNotifications(current, incoming, dismissedIds.current),
+      )
+    }
+    window.addEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived)
+    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED_EVENT, onArrived)
+  }, [refresh])
+
+  // The global alert hook also polls, but a dropped event must not leave this
+  // page stale; a light poll while it is visible is the safety net.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!document.hidden) {
+        refresh()
+      }
+    }, 10000)
+    return () => clearInterval(id)
   }, [refresh])
 
   // Revoke the last object URL when the page goes away.
@@ -127,8 +181,13 @@ export default function NotificationsPage() {
   }
 
   const dismiss = async (id) => {
-    await api.dismissNotification(id)
-    setNotifications((current) => current.filter((n) => n.id !== id))
+    try {
+      await api.dismissNotification(id)
+      dismissedIds.current.add(id)
+      setNotifications((current) => current.filter((n) => n.id !== id))
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (

@@ -271,6 +271,13 @@ A reconnecting client passes the last event id it saw, via the standard
 is deliberately not used for this: a webhook may back-date an event, while the
 id is always monotonic.
 
+The Notifications page does not wait for a refetch: the fresh rows ride on the
+browser event (`CustomEvent.detail.notifications`) and are merged into the top of
+the list immediately, de-duplicated by id. A light 10-second poll while the page
+is visible is the safety net if an event is missed. The alert hook reconnects the
+stream with bounded backoff (1 s → 30 s) and catches up with `lastId`, instead
+of silently falling back to polling.
+
 Because `EventSource` cannot set an `Authorization` header, this one endpoint
 also accepts the session token as a `token` query parameter. That is the only
 path where a URL-borne token is accepted; every other request must use the
@@ -558,7 +565,9 @@ under Start/Apply; the chip shows whether the capture is processing, down and
 being retried, or stopped. The Live stream page has a Listen control, a level
 meter and a volume slider that play the selected camera's audio.
 
-The Notifications page lists the feed the webhooks write. A video event links the
+The Notifications page lists the feed the webhooks write. It updates live as
+events arrive, prepending new rows at the top; a visible page also polls lightly
+as a fallback, and Refresh forces a full reload. A video event links the
 clip through the app's recordings route; because that route needs the bearer
 token, a plain link could not fetch it, so the page pulls the clip with the
 token and plays it in an in-app player. A link the app does not serve (an older
