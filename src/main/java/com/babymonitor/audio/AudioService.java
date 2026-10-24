@@ -1,9 +1,13 @@
 package com.babymonitor.audio;
 
 import com.babymonitor.dto.AudioStatusDto;
+import com.babymonitor.entity.CameraAudio;
 import com.babymonitor.entity.EventType;
 import com.babymonitor.service.NotificationService;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,11 +67,21 @@ public class AudioService {
 
     /** The current state of a camera's capture process and classifier. */
     public AudioStatusDto status(int cameraNumber) {
+        return status(cameraNumber, false);
+    }
+
+    /**
+     * The current state, carrying the caller's view of the camera's desired audio
+     * state. The service does not read the {@code camera_audio} row itself, so
+     * the HTTP layer and the supervisor each pass the value they already hold.
+     */
+    public AudioStatusDto status(int cameraNumber, boolean enabled) {
         Long pid = processes.pidOf(cameraNumber);
         boolean running = pid != null;
         Counters seen = counters.get(cameraNumber);
         return new AudioStatusDto(
                 cameraNumber,
+                enabled,
                 running,
                 running ? pid : null,
                 running ? devices.get(cameraNumber) : null,
@@ -93,7 +107,7 @@ public class AudioService {
     public AudioStatusDto start(int cameraNumber, String device) {
         if (processes.isRunning(cameraNumber)) {
             LOG.warnf("Audio capture for camera %d is already running", cameraNumber);
-            return status(cameraNumber);
+            return status(cameraNumber, true);
         }
         AudioClassifier.Session session = config.classifierEnabled() ? classifier.openSession() : null;
         CryDetector detector = session == null ? null : newDetector();
@@ -113,7 +127,7 @@ public class AudioService {
         reader.setDaemon(true);
         readers.put(cameraNumber, reader);
         reader.start();
-        return status(cameraNumber);
+        return status(cameraNumber, true);
     }
 
     /** Stops a camera's capture and waits for its reader to finish. */
@@ -133,7 +147,24 @@ public class AudioService {
         // pulled out from under it.
         counters.remove(cameraNumber);
         devices.remove(cameraNumber);
-        return status(cameraNumber);
+        return status(cameraNumber, false);
+    }
+
+    /**
+     * Gives the app a cold start for audio: any capture left over from a previous
+     * run is killed and every camera's desired audio state is cleared, so audio
+     * comes up only when a camera (or its Audio button) starts it.
+     */
+    void resetOnStartup(@Observes StartupEvent event) {
+        if (!config.resetOnStart()) {
+            return;
+        }
+        processes.stopAll();
+        try {
+            QuarkusTransaction.requiringNew().run(() -> CameraAudio.update("set enabled = false"));
+        } catch (RuntimeException e) {
+            LOG.warnf("Could not clear the cameras' desired audio state: %s", e.getMessage());
+        }
     }
 
     /** Reads the capture's stdout into windows until the process closes it. */

@@ -8,6 +8,10 @@ package com.babymonitor.dto;
  * notification row or an API.</p>
  *
  * @param cameraNumber   the camera
+ * @param enabled        the camera's desired audio state (its {@code camera_audio}
+ *                       row), set by Start and cleared by Stop. When it is true
+ *                       and {@code running} is false the supervisor is expected
+ *                       to bring the capture back
  * @param running        whether a capture process is running for this camera
  * @param pid            its process id, or {@code null} when it is stopped
  * @param device         the ALSA device being captured, or {@code null} when stopped
@@ -21,6 +25,7 @@ package com.babymonitor.dto;
  */
 public record AudioStatusDto(
         int cameraNumber,
+        boolean enabled,
         boolean running,
         Long pid,
         String device,

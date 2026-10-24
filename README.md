@@ -175,6 +175,9 @@ webhooks.
 | GET         | `/api/cameras/{n}/motion`              | Motion's state for the camera  |
 | POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
 | POST        | `/api/cameras/{n}/motion/stop`         | stop the camera's Motion       |
+| GET         | `/api/cameras/{n}/audio`               | audio capture state and last classification |
+| POST        | `/api/cameras/{n}/audio/start`         | start the camera's audio capture |
+| POST        | `/api/cameras/{n}/audio/stop`          | stop the camera's audio capture |
 | GET         | `/api/cameras/{n}/recordings`          | the camera's clips, newest first |
 | GET         | `/api/cameras/{n}/recordings/{file}`   | one clip; honours a byte `Range` |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
@@ -396,12 +399,23 @@ is also what keeps its GPL away from this Apache-2.0 application. The child's
 stdout *is* the PCM feed, so unlike Motion its diagnostics go to
 `<base>/<n>/audio.err` and its pid to `<base>/<n>/audio.pid`.
 
-Each camera needs its own ALSA device, because a camera's microphone is a
-property of the camera: the `FHD Camera` on the development box, for instance,
-has no microphone at all, so audio has to come from the machine's internal
-`hw:1,7`. A device line is asked for 16 kHz mono signed 16-bit PCM;
-`PcmFramer` slices that into overlapping windows of 15600 samples (0.975 s)
-every 7680 (0.48 s), which is exactly YAMNet's input length and hop.
+Audio follows the camera. Starting a camera from its page turns its audio on and
+brings the capture up; Stop takes both down. The Camera page also has an Audio
+Start/Stop button for the capture on its own, plus a chip that shows whether it
+is processing (green), down and being retried (yellow) or stopped (grey). A
+camera captures from its own `camera_audio.device` when one is set, otherwise the
+configured `babymonitor.audio.device` (`default`, the ALSA default input). The
+device line is asked for 16 kHz mono signed 16-bit PCM; `PcmFramer` slices that
+into overlapping windows of 15600 samples (0.975 s) every 7680 (0.48 s), which
+is exactly YAMNet's input length and hop.
+
+`AudioSupervisor` is the audio twin of `MotionSupervisor`: every
+`babymonitor.audio.check-interval` (15 s) it checks that every camera whose audio
+is on still has a live capture. If the process died it starts a new one, backs
+off exponentially on repeated failures (15 s to 5 min) and records a `System`
+notification, throttled to one per camera per 15 minutes. A cold start kills
+leftover captures and clears every camera's desired audio state, so audio only
+comes up when a camera (or its Audio button) starts it.
 
 ### Classification
 
@@ -436,11 +450,11 @@ mixed clip.
 
 ### Status
 
-`AudioStatusDto` reports, per camera, whether the capture is running, its pid
-and device, how many windows it has seen, the last window's RMS and the best
-class YAMNet gave it, and how many alerts it has raised. Nothing is exposed
-over HTTP yet: audio is started from `AudioService` and the capture is not yet
-driven by a camera's Start/Stop button.
+`GET /api/cameras/{n}/audio` reports, per camera, the desired `enabled` state,
+whether the capture is running, its pid and device, how many windows it has
+seen, the last window's RMS and the best class YAMNet gave it, and how many
+alerts it has raised. The Camera page polls it for its chip and drives
+`POST /api/cameras/{n}/audio/start` and `/stop`.
 
 The tests never open a microphone or load the model: `AudioTestResource` points
 `binary` at `fake-capture.sh` and selects `StubClassifier`, and only
@@ -470,7 +484,9 @@ lists the raw rows under it. Temperature and humidity share the left axis;
 brightness gets its own right axis. The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
-**Stop** takes it down.
+**Stop** takes it down. Starting/stopping a camera also starts/stops its audio;
+the Audio section has its own Start/Stop button and a chip showing whether the
+capture is processing, down and being retried, or stopped.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer

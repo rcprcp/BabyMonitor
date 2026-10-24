@@ -39,4 +39,13 @@ public class CameraAudio extends PanacheEntityBase {
     public static CameraAudio findByCamera(int cameraNumber) {
         return find("cameraNumber = ?1", cameraNumber).firstResult();
     }
+
+    /**
+     * The ALSA device this camera captures from: its own {@code device} when one
+     * is set, otherwise the configured default. Blank is treated as unset, so an
+     * empty row value does not reach the capture tool as an empty device.
+     */
+    public String deviceOrDefault(String fallback) {
+        return device == null || device.isBlank() ? fallback : device;
+    }
 }

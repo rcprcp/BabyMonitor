@@ -80,6 +80,7 @@ export default function CameraPage({ cameraNumber }) {
   const [stopping, setStopping] = useState(false)
   const [applying, setApplying] = useState(false)
   const [audio, setAudio] = useState(null)
+  const [audioBusy, setAudioBusy] = useState(false)
 
   // The "add a row" form. Its values live here rather than in the parameters
   // list, so cancelling leaves nothing behind.
@@ -115,6 +116,27 @@ export default function CameraPage({ cameraNumber }) {
   useEffect(() => {
     load()
   }, [load])
+
+  // The audio chip has to reflect the process, not just the last click: the
+  // backend's AudioSupervisor may restart a dead capture between actions, so
+  // poll while the page is open.
+  useEffect(() => {
+    let cancelled = false
+    const id = setInterval(async () => {
+      try {
+        const status = await api.getCameraAudio(cameraNumber)
+        if (!cancelled) {
+          setAudio(status)
+        }
+      } catch {
+        // A transient fetch failure leaves the last known status in place.
+      }
+    }, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [cameraNumber])
 
   const saveValue = async (key) => {
     setError(null)
@@ -201,6 +223,15 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
+  // Audio follows the camera, but the Audio button owns it directly.
+  const refreshAudio = async () => {
+    try {
+      setAudio(await api.getCameraAudio(cameraNumber))
+    } catch {
+      // Leave the last known status in place on a transient failure.
+    }
+  }
+
   const apply = async () => {
     setError(null)
     setApplying(true)
@@ -210,6 +241,8 @@ export default function CameraPage({ cameraNumber }) {
       // Apply marks the camera as running on the server; mirror it locally so
       // the "restarting" hint below is accurate without a reload.
       setParameters((current) => current.map((p) => ({ ...p, enabled: true })))
+      // Audio follows the camera, so pick up its new state too.
+      await refreshAudio()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -226,10 +259,28 @@ export default function CameraPage({ cameraNumber }) {
       const status = await api.stopCameraMotion(cameraNumber)
       setMotion(status)
       setParameters((current) => current.map((p) => ({ ...p, enabled: false })))
+      // Audio follows the camera, so pick up its new state too.
+      await refreshAudio()
     } catch (err) {
       setError(err.message)
     } finally {
       setStopping(false)
+    }
+  }
+
+  const toggleAudio = async () => {
+    setError(null)
+    setAudioBusy(true)
+    try {
+      const status = audio?.running
+        ? await api.stopCameraAudio(cameraNumber)
+        : await api.startCameraAudio(cameraNumber)
+      setAudio(status)
+    } catch (err) {
+      setError(err.message)
+      await refreshAudio()
+    } finally {
+      setAudioBusy(false)
     }
   }
 
@@ -255,11 +306,6 @@ export default function CameraPage({ cameraNumber }) {
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
-          {audio && (
-            <Badge color={audio.running ? 'green' : 'gray'} variant="light">
-              Audio {audio.running ? `running (pid ${audio.pid})` : 'stopped'}
-            </Badge>
-          )}
           {running ? (
             <Badge color="green" variant="light">
               Motion running (pid {motion.pid})
@@ -293,6 +339,31 @@ export default function CameraPage({ cameraNumber }) {
             Stop
           </Button>
         </Group>
+      </Group>
+
+      <Group gap="sm" align="center">
+        <Text fw={600}>Audio</Text>
+        {audio?.running ? (
+          <Badge color="green" variant="light">
+            Audio processing (pid {audio.pid})
+          </Badge>
+        ) : audio?.enabled ? (
+          <Badge color="yellow" variant="light">
+            Audio down - restarting
+          </Badge>
+        ) : (
+          <Badge color="gray" variant="light">
+            Audio stopped
+          </Badge>
+        )}
+        <Button
+          variant="default"
+          onClick={toggleAudio}
+          loading={audioBusy}
+          disabled={loading}
+        >
+          {audio?.running ? 'Stop audio' : 'Start audio'}
+        </Button>
       </Group>
 
       {error && (

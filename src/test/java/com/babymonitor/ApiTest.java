@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
  */
 @QuarkusTest
 @QuarkusTestResource(MotionTestResource.class)
+@QuarkusTestResource(AudioTestResource.class)
 class ApiTest {
 
     private static final String AUDIO_WEBHOOK = "/api/webhooks/audioNotification";
@@ -1010,6 +1011,92 @@ class ApiTest {
         }
     }
 
+    // --- Camera audio ------------------------------------------------------
+
+    @Test
+    void cameraAudioStartAndStop() {
+        String token = login("Bob", "Bob");
+        // Begin from a known state: earlier tests may have left audio running.
+        stopCameraAudio(token, 1);
+        try {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .when()
+                    .post("/api/cameras/1/audio/start")
+                    .then()
+                    .statusCode(200)
+                    .body("enabled", equalTo(true))
+                    .body("running", equalTo(true));
+
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .get("/api/cameras/1/audio")
+                    .then()
+                    .statusCode(200)
+                    .body("cameraNumber", equalTo(1))
+                    .body("enabled", equalTo(true))
+                    .body("running", equalTo(true));
+        } finally {
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .when()
+                    .post("/api/cameras/1/audio/stop")
+                    .then()
+                    .statusCode(200)
+                    .body("enabled", equalTo(false))
+                    .body("running", equalTo(false));
+        }
+    }
+
+    @Test
+    void cameraAudioRequiresToken() {
+        given().contentType(ContentType.JSON).when().post("/api/cameras/1/audio/start").then().statusCode(401);
+        given().contentType(ContentType.JSON).when().post("/api/cameras/1/audio/stop").then().statusCode(401);
+    }
+
+    @Test
+    void cameraAudioForAnUnknownCameraIsNotFound() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/999/audio/start")
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("No such camera: 999"));
+    }
+
+    @Test
+    void startingACameraAlsoStartsItsAudio() {
+        String token = login("Bob", "Bob");
+        try {
+            applyMotion(token, 1);
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .get("/api/cameras/1/audio")
+                    .then()
+                    .statusCode(200)
+                    .body("enabled", equalTo(true))
+                    .body("running", equalTo(true));
+        } finally {
+            stopMotion(token, 1);
+        }
+        // Stopping the camera stops its audio too.
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/cameras/1/audio")
+                .then()
+                .statusCode(200)
+                .body("enabled", equalTo(false))
+                .body("running", equalTo(false));
+    }
+
     // --- Motion process ----------------------------------------------------
 
     @Test
@@ -1165,6 +1252,17 @@ class ApiTest {
                 .contentType(ContentType.JSON)
                 .when()
                 .post("/api/cameras/" + cameraNumber + "/motion/stop")
+                .then()
+                .statusCode(200);
+    }
+
+    /** Stops a camera's audio so a test can start from a known state. */
+    private static void stopCameraAudio(String token, int cameraNumber) {
+        given()
+                .header("Authorization", bearer(token))
+                .contentType(ContentType.JSON)
+                .when()
+                .post("/api/cameras/" + cameraNumber + "/audio/stop")
                 .then()
                 .statusCode(200);
     }

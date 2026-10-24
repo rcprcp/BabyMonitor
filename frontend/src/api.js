@@ -158,6 +158,12 @@ export const api = {
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/stop`),
   getCameraAudio: (cameraNumber) =>
     request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio`),
+  // Audio follow the camera when it starts/stops; these drive it directly from
+  // the Camera page's Audio button.
+  startCameraAudio: (cameraNumber) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio/start`),
+  stopCameraAudio: (cameraNumber) =>
+    request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio/stop`),
 
   // A camera's recordings, and one clip's bytes for in-app playback.
   listRecordings: (cameraNumber) =>
