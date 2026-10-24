@@ -177,6 +177,6 @@ class AudioAlertConfigApiTest {
     }
 
     private static Set<Integer> defaults() {
-        return IntStream.rangeClosed(0, 23).boxed().collect(Collectors.toSet());
+        return IntStream.rangeClosed(0, 61).boxed().collect(Collectors.toSet());
     }
 }

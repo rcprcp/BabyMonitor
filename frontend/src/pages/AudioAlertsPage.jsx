@@ -127,7 +127,8 @@ export default function AudioAlertsPage() {
 
       <Text c="dimmed" size="sm">
         YAMNet scores every sound below, but only the checked ones may raise an Audio
-        notification. The default is everything off except <strong>Speech &amp; Human Sounds</strong>.
+        notification. The default is everything off except classes <strong>0–61</strong>
+        (Speech &amp; Human Sounds plus the human-sound start of Singing &amp; Music Genres).
       </Text>
 
       <TextInput

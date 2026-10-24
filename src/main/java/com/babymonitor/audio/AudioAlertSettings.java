@@ -35,6 +35,14 @@ public class AudioAlertSettings {
     /** The last index in the bundled 521-class map (indices 0-520). */
     public static final int MAX_CLASS_INDEX = 520;
 
+    /**
+     * The last class in the shipped default alert set. Classes 0-23 are the
+     * Speech & Human Sounds group; 24-61 continue the human sounds into the
+     * Singing & Music Genres group (singing, breathing, cough, heartbeat,
+     * cheering, ...).
+     */
+    public static final int DEFAULT_LAST_INDEX = 61;
+
     /** The AudioSet categories, in class-index order. */
     public static final List<AudioAlertGroupDto> GROUPS = List.of(
             new AudioAlertGroupDto(1, "Speech & Human Sounds", 0, 23),
@@ -119,14 +127,17 @@ public class AudioAlertSettings {
         refresh();
     }
 
-    /** Restores the shipped default: the Speech & Human Sounds group on. */
+    /** Restores the shipped default: classes 0-61 on. */
     public void resetToDefault() {
         setEnabledIndices(defaultIndices());
     }
 
-    /** The shipped default: every class in the first group (0-23). */
+    /**
+     * The shipped default: classes 0-61, i.e. Speech & Human Sounds plus the
+     * human-sound start of Singing & Music Genres.
+     */
     public Set<Integer> defaultIndices() {
-        return IntStream.rangeClosed(GROUPS.get(0).firstIndex(), GROUPS.get(0).lastIndex())
+        return IntStream.rangeClosed(0, DEFAULT_LAST_INDEX)
                 .boxed()
                 .collect(Collectors.toUnmodifiableSet());
     }
