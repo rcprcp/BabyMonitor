@@ -233,8 +233,12 @@ export default function AudioListener({ cameraNumber }) {
 
   return (
     <Group gap="sm" align="center" onClick={resume} wrap="wrap">
-      <Button variant={listening ? 'filled' : 'default'} onClick={toggle}>
-        {listening ? 'Stop listening' : 'Listen'}
+      <Button
+        variant={listening ? 'filled' : 'default'}
+        onClick={toggle}
+        disabled={!listening && !captureRunning}
+      >
+        {listening ? 'Stop listening' : 'Start listening'}
       </Button>
       <Badge color={status === 'playing' ? 'green' : captureRunning ? 'yellow' : 'gray'} variant="light">
         {label}
