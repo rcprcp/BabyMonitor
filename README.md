@@ -126,6 +126,26 @@ The Vite dev server answers any hostname (`server.allowedHosts: true` in
 address or a reverse proxy). It still listens on localhost only — add `--host`
 (or `host: true`) to serve it to the rest of the network.
 
+## Tests
+
+```bash
+mvn test                    # backend suite + SPA build (npm)
+mvn -DskipFrontend test     # backend suite only (no npm)
+```
+
+The backend suite is hermetic: it never uses the database the app runs against.
+Under `%test` the datasource URL is deliberately unset, so Quarkus Dev Services
+starts a disposable PostgreSQL container, Flyway migrates and seeds it exactly
+as a fresh install, the tests run, and the container is destroyed. A test can
+edit a camera row, dismiss a notification or write an alert without touching the
+developer's data or leaking into the next run. Docker (or Podman) must be
+available, and the image can be pinned with
+`%test.quarkus.datasource.devservices.image-name` in `application.properties`.
+
+The audio and Motion suites never spawn the real binaries or open a microphone:
+`AudioTestResource` and `MotionTestResource` repoint them at classpath stubs
+(see the *Audio* and *Motion* sections).
+
 ## API
 
 All `/api` calls need `Authorization: Bearer <token>` except login and the
