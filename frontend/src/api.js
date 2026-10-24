@@ -164,6 +164,19 @@ export const api = {
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio/start`),
   stopCameraAudio: (cameraNumber) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/audio/stop`),
+  // The live audio stream is endless binary PCM; fetch keeps the bearer header
+  // (an <audio> element cannot send one) and the caller reads the response body.
+  openCameraAudioStream: (cameraNumber, signal) => {
+    const headers = {}
+    const token = getToken()
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+    return fetch(`/api/cameras/${encodeURIComponent(cameraNumber)}/audio/stream`, {
+      headers,
+      signal,
+    })
+  },
 
   // A camera's recordings, and one clip's bytes for in-app playback.
   listRecordings: (cameraNumber) =>

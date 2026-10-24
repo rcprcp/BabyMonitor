@@ -56,6 +56,9 @@ public class AudioService {
     @Inject
     NotificationService notifications;
 
+    @Inject
+    AudioBroadcaster broadcaster;
+
     /** What has been seen since a camera's capture started. */
     private final Map<Integer, Counters> counters = new ConcurrentHashMap<>();
 
@@ -132,6 +135,9 @@ public class AudioService {
 
     /** Stops a camera's capture and waits for its reader to finish. */
     public AudioStatusDto stop(int cameraNumber) {
+        // End any live-listen stream first, so a listener's HTTP response does
+        // not hang open waiting for audio that will never come.
+        broadcaster.finish(cameraNumber);
         Thread reader = readers.remove(cameraNumber);
         processes.stop(cameraNumber);
         if (reader != null) {
@@ -176,7 +182,11 @@ public class AudioService {
         try {
             int read;
             while ((read = in.read(buffer)) != -1) {
-                for (AudioFrame frame : framer.accept(Arrays.copyOf(buffer, read))) {
+                byte[] chunk = Arrays.copyOf(buffer, read);
+                // Tee the raw PCM to live listeners before framing it for YAMNet,
+                // so hearing the camera and classifying it share one capture.
+                broadcaster.publish(cameraNumber, chunk);
+                for (AudioFrame frame : framer.accept(chunk)) {
                     try {
                         onFrame(cameraNumber, frame, seen, session, detector);
                     } catch (RuntimeException e) {
