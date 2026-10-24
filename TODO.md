@@ -125,7 +125,8 @@ These are the ones where the app looks fine while being wrong.
       audio, so you could watch your baby but not *hear* them. The Live stream
       page now has a Listen control and volume slider: the selected camera's
       captured PCM is streamed to the browser and played through the Web Audio
-      API. A sound-level indicator is still a nice-to-have.
+      API, with a hybrid level meter (server RMS when idle, analyser while
+      listening).
 - [ ] **Push notifications.** Alerts only exist inside an open, authenticated
       tab; a backgrounded phone gets nothing (`useNotificationAlerts.js`). Add
       Web Push (VAPID) with a service worker, plus OS notifications and

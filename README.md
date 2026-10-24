@@ -464,6 +464,14 @@ browsers only let a page make sound after a user gesture. A listener that falls
 behind drops its oldest buffered chunks rather than blocking the capture, so
 YAMNet still sees every window.
 
+A small level meter sits beside the Listen control. While not listening it is
+driven by the capture's own `lastRms` (polled about twice a second), so the
+nursery's noise is visible before you choose to listen; while listening it
+switches to an `AnalyserNode` on the Web Audio graph for a smooth level. It is
+dB-scaled (`-60 dB` to `0 dB`), colour-zoned and peak-holding, and it taps the
+signal before the volume control so the reading reflects the microphone, not
+the listener's volume.
+
 ### Status
 
 `GET /api/cameras/{n}/audio` reports, per camera, the desired `enabled` state,
@@ -503,7 +511,8 @@ and **Start/Apply** rebuilds the config and (re)starts its Motion process while
 **Stop** takes it down. Starting/stopping a camera also starts/stops its audio;
 the Audio section has its own Start/Stop button and a chip showing whether the
 capture is processing, down and being retried, or stopped. The Live stream page
-has a Listen control and volume slider that play the selected camera's audio.
+has a Listen control, a level meter and a volume slider that play the selected
+camera's audio.
 
 The Notifications page lists the feed the webhooks write. A video event links the
 clip through the app's recordings route; because that route needs the bearer
