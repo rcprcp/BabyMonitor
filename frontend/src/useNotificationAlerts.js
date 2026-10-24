@@ -39,6 +39,8 @@ export default function useNotificationAlerts() {
   const { isAuthenticated, user, promptSound } = useAuth()
   const timer = useRef(null)
   const source = useRef(null)
+  const reconnectTimer = useRef(null)
+  const reconnectDelay = useRef(1000)
   const inFlight = useRef(false)
   const streamHealthy = useRef(false)
   // Highest notification id this session has already alerted for. In-memory
@@ -76,13 +78,14 @@ export default function useNotificationAlerts() {
     let cancelled = false
 
     const process = (rows) => {
-      const before = watermark.current
-      const { maxId, alert } = selectAlerts(rows, watermark.current)
+      const { maxId, alert, fresh } = selectAlerts(rows, watermark.current)
       if (maxId !== watermark.current) {
         watermark.current = maxId
       }
-      if (maxId !== before) {
-        announceNotifications()
+      if (fresh.length > 0) {
+        // The rows ride along so the Notifications page can prepend them
+        // immediately, and a missed event is still caught by the poll below.
+        announceNotifications(fresh)
       }
       if (alert) {
         alertFor(alert)
@@ -126,6 +129,7 @@ export default function useNotificationAlerts() {
       source.current = stream
       stream.onopen = () => {
         streamHealthy.current = true
+        reconnectDelay.current = 1000
       }
       stream.addEventListener('notification', (event) => {
         try {
@@ -138,11 +142,26 @@ export default function useNotificationAlerts() {
         streamHealthy.current = false
         stream.close()
         source.current = null
+        // Reconnect with bounded backoff rather than silently falling back to
+        // the slow poll until the tab is next shown. The next stream's lastId
+        // is the watermark, so it catches up on anything missed.
+        if (cancelled || reconnectTimer.current) return
+        const delay = reconnectDelay.current
+        reconnectDelay.current = Math.min(delay * 2, 30000)
+        reconnectTimer.current = setTimeout(() => {
+          reconnectTimer.current = null
+          openStream()
+        }, delay)
       }
     }
 
     const refresh = () => {
       clearTimeout(timer.current)
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current)
+        reconnectTimer.current = null
+      }
+      reconnectDelay.current = 1000
       openStream()
       poll().then(schedule)
     }
@@ -155,6 +174,8 @@ export default function useNotificationAlerts() {
     return () => {
       cancelled = true
       clearTimeout(timer.current)
+      clearTimeout(reconnectTimer.current)
+      reconnectTimer.current = null
       if (source.current) {
         source.current.close()
         source.current = null

@@ -158,10 +158,11 @@ These are the ones where the app looks fine while being wrong.
 
 ## P5 — Frontend experience
 
-- [ ] **Fix the SSE reconnect gap.** `stream.onerror` closes the stream and
-      clears the ref but never schedules a reconnect
-      (`useNotificationAlerts.js`), so push silently degrades to polling until a
-      visibility/online event.
+- [x] **Fix the SSE reconnect gap.** `stream.onerror` used to close the stream
+      and clear the ref without scheduling a reconnect
+      (`useNotificationAlerts.js`), so push silently degraded to polling until a
+      visibility/online event. It now reconnects with bounded backoff (1 s → 30 s)
+      and catches up with `lastId`.
 - [ ] **Alert sound preference is global, not per-account.** `ENABLED_KEY` in
       `frontend/src/alerting.js` is one localStorage key while the watermark is
       namespaced by user — the comment claims per-account behaviour it does not
