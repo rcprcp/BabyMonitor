@@ -259,8 +259,8 @@ public class AudioService {
     /** Records one audio alert the moment the detector decides it is real. */
     private void raise(int cameraNumber, AudioClassification detection, Instant now, Counters seen) {
         String description = String.format(
-                "%s (%.0f%%) heard on camera %d",
-                detection.name(), detection.confidence() * 100, cameraNumber);
+                "(%d) %s (%.0f%%) heard on camera %d",
+                detection.index(), detection.name(), detection.confidence() * 100, cameraNumber);
         notifications.add(EventType.Audio, description, null, now);
         seen.alerts.incrementAndGet();
         LOG.infof("Camera %d audio alert: %s", cameraNumber, description);

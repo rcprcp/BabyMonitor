@@ -302,27 +302,42 @@ export default function CameraPage({ cameraNumber }) {
             </Text>
           )}
         </Group>
-        <Group gap="sm" align="center">
+        <Group gap="sm" align="flex-start">
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
-          {motion?.error && (running || desired) ? (
-            <Badge color="red" variant="light" title={motion.error}>
-              Camera unavailable
-            </Badge>
-          ) : running ? (
-            <Badge color="green" variant="light">
-              Motion running (pid {motion.pid})
-            </Badge>
-          ) : desired ? (
-            <Badge color="yellow" variant="light">
-              Motion down - restarting
-            </Badge>
-          ) : (
-            <Badge color="gray" variant="light">
-              Motion stopped
-            </Badge>
-          )}
+          <Stack gap="xs" align="flex-end">
+            {motion?.error && (running || desired) ? (
+              <Badge color="red" variant="light" title={motion.error}>
+                Camera unavailable
+              </Badge>
+            ) : running ? (
+              <Badge color="green" variant="light">
+                Motion running (pid {motion.pid})
+              </Badge>
+            ) : desired ? (
+              <Badge color="yellow" variant="light">
+                Motion down - restarting
+              </Badge>
+            ) : (
+              <Badge color="gray" variant="light">
+                Motion stopped
+              </Badge>
+            )}
+            {audio?.running ? (
+              <Badge color="green" variant="light">
+                Audio processing (pid {audio.pid})
+              </Badge>
+            ) : audio?.enabled ? (
+              <Badge color="yellow" variant="light">
+                Audio down - restarting
+              </Badge>
+            ) : (
+              <Badge color="gray" variant="light">
+                Audio stopped
+              </Badge>
+            )}
+          </Stack>
           <Button
             variant="default"
             leftSection={<PlusIcon />}
@@ -331,9 +346,19 @@ export default function CameraPage({ cameraNumber }) {
           >
             Add Row
           </Button>
-          <Button onClick={apply} loading={applying} disabled={loading}>
-            Start/Apply
-          </Button>
+          <Stack gap="xs" align="flex-end">
+            <Button onClick={apply} loading={applying} disabled={loading}>
+              Start/Apply
+            </Button>
+            <Button
+              variant="default"
+              onClick={toggleAudio}
+              loading={audioBusy}
+              disabled={loading}
+            >
+              {audio?.running ? 'Stop audio' : 'Start audio'}
+            </Button>
+          </Stack>
           <Button
             onClick={stop}
             loading={stopping}
@@ -343,31 +368,6 @@ export default function CameraPage({ cameraNumber }) {
             Stop
           </Button>
         </Group>
-      </Group>
-
-      <Group gap="sm" align="center">
-        <Text fw={600}>Audio</Text>
-        {audio?.running ? (
-          <Badge color="green" variant="light">
-            Audio processing (pid {audio.pid})
-          </Badge>
-        ) : audio?.enabled ? (
-          <Badge color="yellow" variant="light">
-            Audio down - restarting
-          </Badge>
-        ) : (
-          <Badge color="gray" variant="light">
-            Audio stopped
-          </Badge>
-        )}
-        <Button
-          variant="default"
-          onClick={toggleAudio}
-          loading={audioBusy}
-          disabled={loading}
-        >
-          {audio?.running ? 'Stop audio' : 'Start audio'}
-        </Button>
       </Group>
 
       {motion?.error && (running || desired) && (
