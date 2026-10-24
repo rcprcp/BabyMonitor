@@ -6,6 +6,7 @@ import com.babymonitor.entity.EventType;
 import com.babymonitor.service.NotificationService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -171,6 +172,25 @@ public class AudioService {
         } catch (RuntimeException e) {
             LOG.warnf("Could not clear the cameras' desired audio state: %s", e.getMessage());
         }
+    }
+
+    /**
+     * Stops the captures and joins their readers before the classifier's model is
+     * closed. Without this a reader could still be inside native inference when
+     * {@link YamNetClassifier} frees the interpreter.
+     */
+    @PreDestroy
+    void shutdown() {
+        for (Integer cameraNumber : List.copyOf(readers.keySet())) {
+            try {
+                stop(cameraNumber);
+            } catch (RuntimeException e) {
+                LOG.warnf(
+                        "Could not stop audio for camera %d at shutdown: %s",
+                        cameraNumber, e.getMessage());
+            }
+        }
+        processes.stopAll();
     }
 
     /** Reads the capture's stdout into windows until the process closes it. */

@@ -7,7 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -86,6 +91,29 @@ class YamNetClassifierTest {
                 AudioClassifier.Session second = classifier.openSession()) {
             assertEquals(521, first.classify(silence()).size());
             assertEquals(521, second.classify(silence()).size());
+        }
+    }
+
+    @Test
+    void concurrentSessionsDoNotRaceTheSharedInterpreter() throws Exception {
+        // The model has one TFLite interpreter behind every predictor, and it is
+        // not thread-safe. Before the classifier serialised access, two cameras
+        // classifying at once could segfault the JVM in libtensorflowlite_jni.
+        try (AudioClassifier.Session first = classifier.openSession();
+                AudioClassifier.Session second = classifier.openSession()) {
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            try {
+                List<Future<Integer>> results = new ArrayList<>();
+                for (int i = 0; i < 25; i++) {
+                    results.add(pool.submit(() -> first.classify(silence()).size()));
+                    results.add(pool.submit(() -> second.classify(silence()).size()));
+                }
+                for (Future<Integer> result : results) {
+                    assertEquals(521, result.get(30, TimeUnit.SECONDS));
+                }
+            } finally {
+                pool.shutdownNow();
+            }
         }
     }
 
