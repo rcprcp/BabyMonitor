@@ -108,6 +108,8 @@ migrations.
   state and ALSA device
 - `V6__add_audio_alert_classes.sql` — adds `audio_alert_classes`, one alert
   switch per YAMNet class, seeded with the Speech & Human Sounds group on
+- `V7__extend_default_audio_alerts.sql` — extends the default alert set from
+  classes 0-23 to 0-61 (the human-sound start of Singing & Music Genres)
 
 ## Build & run
 
@@ -452,8 +454,9 @@ segfault the JVM.
 YAMNet scores all 521 classes, and the whole ranked list is kept. Which of them
 may raise an alert is not hard-coded: the Audio Notification Config page stores
 a switch per class in `babymonitor.audio_alert_classes`, grouped into the six
-AudioSet categories. A fresh install starts with the Speech & Human Sounds group
-(indices 0-23) on and everything else off.
+AudioSet categories. A fresh install starts with classes 0-61 on (Speech & Human
+Sounds plus the human-sound start of Singing & Music Genres) and everything else
+off.
 
 ### When an alert fires
 
@@ -469,9 +472,9 @@ Tuning notes from validating the model against ESC-50 clips: `19 Crying,
 sobbing` is the most reliable single class (`20 Baby cry, infant cry` tracks it
 at roughly half the confidence), a genuine cry peaked at 0.50 while ambient
 noise, a cat, a dog and a vacuum cleaner all stayed at 0.00, and laughter —
-`13` — can outscore crying on a mixed clip. The shipped default enables the
-whole Speech & Human Sounds group, so for cry-only alerts uncheck `13 Laughter`,
-`14 Baby laughter` and the speech classes on the Audio Notification Config page.
+`13` — can outscore crying on a mixed clip. The shipped default enables classes
+0-61, so for cry-only alerts keep just `11 Screaming`, `19 Crying`, `20 Baby cry`
+and `21 Whimper` checked on the Audio Notification Config page.
 
 ### Configuring alerts
 
@@ -479,9 +482,10 @@ The **Audio Notification Config** page (menu: *Audio notifications*) lists every
 class in its six categories, with a checkbox per class and **Enable all** /
 **Disable all** buttons per category. A change takes effect on the next analysis
 window without restarting a capture, because `CryDetector` reads the live enabled
-set. **Reset to default** restores the shipped state: the Speech & Human Sounds
-group (indices 0-23) on, everything else off. The switches live in
-`babymonitor.audio_alert_classes` (migration `V6`), so they survive restarts.
+set. **Reset to default** restores the shipped state: classes 0-61 on,
+everything else off. The switches live in
+`babymonitor.audio_alert_classes` (migrations `V6` and `V7`), so they survive
+restarts.
 
 ### Listening
 

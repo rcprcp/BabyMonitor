@@ -75,7 +75,7 @@ class AudioAlertSettingsTest {
     }
 
     private static Set<Integer> defaults() {
-        return IntStream.rangeClosed(0, 23).boxed().collect(Collectors.toSet());
+        return IntStream.rangeClosed(0, 61).boxed().collect(Collectors.toSet());
     }
 
     private static AudioAlertClassDto classAt(AudioAlertConfigDto config, int index) {
