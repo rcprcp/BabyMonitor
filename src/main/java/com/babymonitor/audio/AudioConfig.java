@@ -2,7 +2,6 @@ package com.babymonitor.audio;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
-import java.util.Set;
 
 /**
  * Configuration of the per-camera audio capture and classification pipeline.
@@ -82,15 +81,9 @@ public interface AudioConfig {
     @WithDefault("/yamnet/yamnet_class_map.csv")
     String labelsResource();
 
-    /**
-     * The class indices worth alerting on: {@code 19} (Crying, sobbing) and
-     * {@code 20} (Baby cry, infant cry) out of the box. Neighbours are left in
-     * the model's output but out of the alert list -- {@code 21} is Whimper,
-     * {@code 11} Screaming, {@code 13} Laughter -- so widening or narrowing it
-     * is a configuration change rather than a code change.
-     */
-    @WithDefault("19,20")
-    Set<Integer> alertClassIndices();
+    // The classes worth waking anyone for are no longer a config property: the
+    // Audio Notification Config page stores them in
+    // babymonitor.audio_alert_classes (see AudioAlertSettings).
 
     /** Lowest YAMNet confidence in an alert class that counts as a detection. */
     @WithDefault("0.35")

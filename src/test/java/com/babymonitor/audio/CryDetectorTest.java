@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -132,6 +133,33 @@ class CryDetectorTest {
 
         CryDetector detector = new CryDetector(Set.of(CRYING), 0.35, 1, Duration.ZERO);
         assertFalse(detector.accept(List.of(), T0).isPresent(), "no classes is not an alert");
+    }
+
+    @Test
+    void followsAChangedAlertSetWithoutBeingRecreated() {
+        Set<Integer> enabled = new HashSet<>(Set.of(CRYING));
+        CryDetector detector = new CryDetector(() -> enabled, 0.35, 1, Duration.ZERO);
+
+        // Baby cry is not enabled yet, so it is ignored.
+        assertTrue(detector.accept(window(BABY_CRY, "Baby cry, infant cry", 0.9f), T0).isEmpty());
+
+        // The config page enables it; the same detector sees it on the next window.
+        enabled.add(BABY_CRY);
+        Optional<AudioClassification> alert =
+                detector.accept(window(BABY_CRY, "Baby cry, infant cry", 0.9f), T0.plusSeconds(1));
+
+        assertTrue(alert.isPresent(), "the detector reads the live set on every window");
+        assertEquals(BABY_CRY, alert.get().index());
+    }
+
+    @Test
+    void anEmptyEnabledSetNeverAlerts() {
+        CryDetector detector = new CryDetector(() -> Set.of(), 0.35, 1, Duration.ZERO);
+
+        for (int i = 0; i < 5; i++) {
+            assertTrue(detector.accept(cry(0.99f), T0.plusSeconds(i)).isEmpty(),
+                    "everything switched off means no alerts");
+        }
     }
 
     private static List<AudioClassification> cry(float confidence) {

@@ -60,6 +60,9 @@ public class AudioService {
     @Inject
     AudioBroadcaster broadcaster;
 
+    @Inject
+    AudioAlertSettings alerts;
+
     /** What has been seen since a camera's capture started. */
     private final Map<Integer, Counters> counters = new ConcurrentHashMap<>();
 
@@ -265,7 +268,7 @@ public class AudioService {
 
     private CryDetector newDetector() {
         return new CryDetector(
-                config.alertClassIndices(),
+                alerts::enabledIndices,
                 config.minConfidence(),
                 config.windowsToAlert(),
                 Duration.ofSeconds(config.cooldownSeconds()));

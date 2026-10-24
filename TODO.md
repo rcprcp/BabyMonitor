@@ -146,6 +146,8 @@ These are the ones where the app looks fine while being wrong.
       an Audio Start/Stop button and status chip, a per-camera device lives in
       `camera_audio` (falling back to `babymonitor.audio.device`), and
       `AudioSupervisor` restarts a dead capture with backoff and a notification.
+      Which classes may alert is editable per class (and per category) on the
+      Audio Notification Config page, stored in `audio_alert_classes`.
 - [ ] **Snapshots and a timeline.** There is no thumbnail gallery, no scrub
       across a night, and no "jump to the moment" from a notification.
 - [ ] **Roles and caregiver accounts.** All accounts are equal; there is no

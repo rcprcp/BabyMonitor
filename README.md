@@ -104,6 +104,10 @@ migrations.
 - `V3__add_system_event_type.sql` — adds `System` to the `event_type` enum
 - `V4__add_active_camera.sql` — adds `users.active_camera`, the camera the
   account last viewed, so the Live stream page can restore it
+- `V5__add_camera_audio.sql` — adds `camera_audio`, the per-camera audio desired
+  state and ALSA device
+- `V6__add_audio_alert_classes.sql` — adds `audio_alert_classes`, one alert
+  switch per YAMNet class, seeded with the Speech & Human Sounds group on
 
 ## Build & run
 
@@ -179,6 +183,10 @@ webhooks.
 | POST        | `/api/cameras/{n}/audio/start`         | start the camera's audio capture |
 | POST        | `/api/cameras/{n}/audio/stop`          | stop the camera's audio capture |
 | GET         | `/api/cameras/{n}/audio/stream`        | endless PCM (s16le mono) for live listening |
+| GET         | `/api/audio/alert-classes`             | every YAMNet class, its group and switch |
+| PUT         | `/api/audio/alert-classes/{index}`     | `{ "enabled" }`: toggle one class |
+| PUT         | `/api/audio/alert-classes`             | `{ "indices" }`: replace the whole alert set |
+| POST        | `/api/audio/alert-classes/reset`       | restore the shipped default    |
 | GET         | `/api/cameras/{n}/recordings`          | the camera's clips, newest first |
 | GET         | `/api/cameras/{n}/recordings/{file}`   | one clip; honours a byte `Range` |
 | POST        | `/api/webhooks/audioNotification`      | device audio alert (see below) |
@@ -430,9 +438,11 @@ by a lock because the TFLite interpreter behind the model is a single native
 object that is not thread-safe — two cameras classifying at once used to
 segfault the JVM.
 
-YAMNet scores all 521 classes, and the whole ranked list is kept: which of them
-mean "cry" is configuration (`babymonitor.audio.alert-class-indices`, `19` and
-`20` by default), not code.
+YAMNet scores all 521 classes, and the whole ranked list is kept. Which of them
+may raise an alert is not hard-coded: the Audio Notification Config page stores
+a switch per class in `babymonitor.audio_alert_classes`, grouped into the six
+AudioSet categories. A fresh install starts with the Speech & Human Sounds group
+(indices 0-23) on and everything else off.
 
 ### When an alert fires
 
@@ -448,8 +458,19 @@ Tuning notes from validating the model against ESC-50 clips: `19 Crying,
 sobbing` is the most reliable single class (`20 Baby cry, infant cry` tracks it
 at roughly half the confidence), a genuine cry peaked at 0.50 while ambient
 noise, a cat, a dog and a vacuum cleaner all stayed at 0.00, and laughter —
-`13`, which must never be in the alert list — can outscore crying on a
-mixed clip.
+`13` — can outscore crying on a mixed clip. The shipped default enables the
+whole Speech & Human Sounds group, so for cry-only alerts uncheck `13 Laughter`,
+`14 Baby laughter` and the speech classes on the Audio Notification Config page.
+
+### Configuring alerts
+
+The **Audio Notification Config** page (menu: *Audio notifications*) lists every
+class in its six categories, with a checkbox per class and **Enable all** /
+**Disable all** buttons per category. A change takes effect on the next analysis
+window without restarting a capture, because `CryDetector` reads the live enabled
+set. **Reset to default** restores the shipped state: the Speech & Human Sounds
+group (indices 0-23) on, everything else off. The switches live in
+`babymonitor.audio_alert_classes` (migration `V6`), so they survive restarts.
 
 ### Listening
 
@@ -492,7 +513,8 @@ map still lines up with the model's output.
 
 React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/settings`, `/profile` (Personal settings). The app boots into the Live stream
+`/audio-alerts` (Audio Notification Config), `/settings`, `/profile` (Personal
+settings). The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
 plays Motion's stream for the chosen one, built from the `stream_url` setting
 and that camera's `stream_port` row. It restores the account's last-viewed

@@ -178,6 +178,14 @@ export const api = {
     })
   },
 
+  // Which YAMNet classes may raise an Audio notification.
+  getAudioAlertClasses: () => request('GET', '/api/audio/alert-classes'),
+  setAudioAlertClass: (index, enabled) =>
+    request('PUT', `/api/audio/alert-classes/${encodeURIComponent(index)}`, { enabled }),
+  setAudioAlertClasses: (indices) =>
+    request('PUT', '/api/audio/alert-classes', { indices }),
+  resetAudioAlertClasses: () => request('POST', '/api/audio/alert-classes/reset'),
+
   // A camera's recordings, and one clip's bytes for in-app playback.
   listRecordings: (cameraNumber) =>
     request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/recordings`),
