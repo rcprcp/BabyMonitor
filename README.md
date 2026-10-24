@@ -344,6 +344,17 @@ Once a camera is marked running, the `MotionSupervisor` keeps it alive: a
 background check restarts a camera whose process has died (with backoff) and
 records a silent `System` notification so the feed shows the recovery.
 
+### Missing video devices
+
+Motion keeps running and retries forever when its `video_device` cannot be
+opened, so a green "Motion running" chip can hide a camera that will never
+produce a frame. The status therefore also checks the configured device:
+`MotionStatusDto` carries `deviceAvailable` and a human-readable `error`, and the
+Camera page shows a red **Camera unavailable** badge plus the reason instead of
+"Motion running". Motion is deliberately left running, so plugging the camera
+back in recovers without another Apply; a camera that is simply stopped still
+shows "Motion stopped".
+
 ### Startup is cold
 
 Nothing runs when the app starts. With `babymonitor.motion.reset-on-start` on

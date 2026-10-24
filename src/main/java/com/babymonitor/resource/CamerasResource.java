@@ -161,10 +161,11 @@ public class CamerasResource {
     @APIResponse(responseCode = "404", description = "No such camera",
             content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
     public Response motionStatus(@PathParam("cameraNumber") int cameraNumber) {
-        if (Camera.listByCamera(cameraNumber).isEmpty()) {
+        List<Camera> parameters = Camera.listByCamera(cameraNumber);
+        if (parameters.isEmpty()) {
             return notFound(cameraNumber);
         }
-        return Response.ok(motion.status(cameraNumber)).build();
+        return Response.ok(motion.status(cameraNumber, MotionService.toParameters(parameters))).build();
     }
 
     @POST
@@ -219,7 +220,7 @@ public class CamerasResource {
         if (parameters.isEmpty()) {
             return notFound(cameraNumber);
         }
-        MotionStatusDto status = motion.stop(cameraNumber);
+        MotionStatusDto status = motion.stop(cameraNumber, MotionService.toParameters(parameters));
         audio.stop(cameraNumber);
         for (Camera parameter : parameters) {
             parameter.enabled = false;

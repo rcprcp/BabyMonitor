@@ -70,7 +70,46 @@ public class MotionService {
                 pid != null,
                 pid,
                 configFile.toString(),
-                Files.exists(configFile));
+                Files.exists(configFile),
+                true,
+                null);
+    }
+
+    /**
+     * The current state plus whether the camera's video device can actually be
+     * opened. Motion keeps running and retries a missing device, so {@code running}
+     * alone would look healthy while the stream stays black.
+     */
+    public MotionStatusDto status(int cameraNumber, Map<String, String> parameters) {
+        MotionStatusDto base = status(cameraNumber);
+        String error = deviceError(parameters.get("video_device"));
+        return new MotionStatusDto(
+                base.cameraNumber(),
+                base.running(),
+                base.pid(),
+                base.configFile(),
+                base.configExists(),
+                error == null,
+                error);
+    }
+
+    /**
+     * The reason the camera's video device is unusable, or {@code null} when it
+     * exists and is readable. Motion reports a missing device in its log and
+     * retries forever, so the app checks it directly.
+     */
+    public static String deviceError(String device) {
+        if (device == null || device.isBlank()) {
+            return "No video_device is configured for this camera.";
+        }
+        Path path = Path.of(device);
+        if (!Files.exists(path)) {
+            return "Video device " + device + " was not found.";
+        }
+        if (!Files.isReadable(path)) {
+            return "Video device " + device + " is not readable.";
+        }
+        return null;
     }
 
     /** Whether a Motion process is currently running for this camera. */
@@ -139,13 +178,19 @@ public class MotionService {
         } else {
             processes.start(cameraNumber, configFile, outputFile(cameraNumber));
         }
-        return status(cameraNumber);
+        return status(cameraNumber, parameters);
     }
 
     /** Stops a camera's Motion, if it is running. */
     public MotionStatusDto stop(int cameraNumber) {
         processes.stop(cameraNumber);
         return status(cameraNumber);
+    }
+
+    /** Stops a camera's Motion and reports the resulting state with its device check. */
+    public MotionStatusDto stop(int cameraNumber, Map<String, String> parameters) {
+        processes.stop(cameraNumber);
+        return status(cameraNumber, parameters);
     }
 
     private ReentrantLock lockFor(int cameraNumber) {
