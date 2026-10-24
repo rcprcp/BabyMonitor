@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Decides when a run of per-window YAMNet scores is worth an alert.
@@ -28,7 +29,7 @@ import java.util.Set;
  */
 public final class CryDetector {
 
-    private final Set<Integer> alertIndices;
+    private final Supplier<Set<Integer>> alertIndices;
     private final float minConfidence;
     private final int windowsToAlert;
     private final Duration cooldown;
@@ -48,8 +49,27 @@ public final class CryDetector {
      */
     public CryDetector(
             Set<Integer> alertIndices, double minConfidence, int windowsToAlert, Duration cooldown) {
+        this(() -> alertIndices, minConfidence, windowsToAlert, cooldown);
         if (alertIndices.isEmpty()) {
             throw new IllegalArgumentException("alertIndices must not be empty");
+        }
+    }
+
+    /**
+     * @param alertIndices   a live view of the enabled classes, read on every
+     *                       window so the config page can change it without
+     *                       restarting a capture
+     * @param minConfidence  lowest confidence that counts as a detection
+     * @param windowsToAlert consecutive windows needed before alerting
+     * @param cooldown       quiet time after an alert before another may fire
+     */
+    public CryDetector(
+            Supplier<Set<Integer>> alertIndices,
+            double minConfidence,
+            int windowsToAlert,
+            Duration cooldown) {
+        if (alertIndices == null) {
+            throw new IllegalArgumentException("alertIndices must not be null");
         }
         if (minConfidence < 0.0 || minConfidence > 1.0) {
             throw new IllegalArgumentException("minConfidence must be between 0 and 1");
@@ -57,7 +77,7 @@ public final class CryDetector {
         if (windowsToAlert < 1) {
             throw new IllegalArgumentException("windowsToAlert must be positive");
         }
-        this.alertIndices = Set.copyOf(alertIndices);
+        this.alertIndices = alertIndices;
         this.minConfidence = (float) minConfidence;
         this.windowsToAlert = windowsToAlert;
         this.cooldown = cooldown;
@@ -72,7 +92,13 @@ public final class CryDetector {
      *         enough or the cooldown is still running
      */
     public Optional<AudioClassification> accept(List<AudioClassification> ranked, Instant now) {
-        Optional<AudioClassification> best = strongestAlertClass(ranked);
+        Set<Integer> indices = alertIndices.get();
+        if (indices == null || indices.isEmpty()) {
+            // Every class was switched off on the config page.
+            streak = 0;
+            return Optional.empty();
+        }
+        Optional<AudioClassification> best = strongestAlertClass(ranked, indices);
         if (best.isEmpty() || best.get().confidence() < minConfidence) {
             streak = 0;
             return Optional.empty();
@@ -91,10 +117,11 @@ public final class CryDetector {
         return best;
     }
 
-    /** The highest-scoring class among the configured alert indices. */
-    private Optional<AudioClassification> strongestAlertClass(List<AudioClassification> ranked) {
+    /** The highest-scoring class among the currently enabled alert indices. */
+    private static Optional<AudioClassification> strongestAlertClass(
+            List<AudioClassification> ranked, Set<Integer> indices) {
         return ranked.stream()
-                .filter(classification -> alertIndices.contains(classification.index()))
+                .filter(classification -> indices.contains(classification.index()))
                 .max(Comparator.comparingDouble(AudioClassification::confidence));
     }
 
