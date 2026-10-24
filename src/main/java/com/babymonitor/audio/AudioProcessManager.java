@@ -103,8 +103,50 @@ public class AudioProcessManager {
         return true;
     }
 
+    /**
+     * Kills every capture process this base directory knows about. Used by the
+     * cold start: a capture child outlives the JVM that spawned it, so a leftover
+     * from a previous run has to be killed rather than left orphaned.
+     */
+    public void stopAll() {
+        Path base = Path.of(config.baseDir());
+        if (!Files.isDirectory(base)) {
+            return;
+        }
+        try (var dirs = Files.list(base)) {
+            dirs.filter(Files::isDirectory).forEach(this::stopByPidFile);
+        } catch (IOException e) {
+            LOG.warnf("Could not scan %s for leftover audio captures: %s", base, e.getMessage());
+        }
+    }
+
+    private void stopByPidFile(Path directory) {
+        Long pid = readPid(directory.resolve("audio.pid"));
+        if (pid != null) {
+            ProcessHandle.of(pid).ifPresent(handle -> {
+                if (handle.isAlive()) {
+                    handle.destroy();
+                    try {
+                        handle.onExit().get(STOP_GRACE.toMillis(), TimeUnit.MILLISECONDS);
+                    } catch (Exception e) {
+                        handle.destroyForcibly();
+                    }
+                    LOG.infof("Killed leftover audio capture (pid %d)", pid);
+                }
+            });
+        }
+        try {
+            Files.deleteIfExists(directory.resolve("audio.pid"));
+        } catch (IOException e) {
+            LOG.debugf("Could not delete the pid file under %s: %s", directory, e.getMessage());
+        }
+    }
+
     private Long readPidFile(int cameraNumber) {
-        Path pidFile = pidFile(cameraNumber);
+        return readPid(pidFile(cameraNumber));
+    }
+
+    private static Long readPid(Path pidFile) {
         try {
             if (!Files.exists(pidFile)) {
                 return null;

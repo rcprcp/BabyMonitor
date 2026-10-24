@@ -1,5 +1,6 @@
 package com.babymonitor.resource;
 
+import com.babymonitor.audio.AudioConfig;
 import com.babymonitor.audio.AudioSupervisor;
 import com.babymonitor.audio.AudioService;
 import com.babymonitor.dto.CameraParameterDto;
@@ -29,6 +30,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.logging.Logger;
 
 @Path("/api/cameras")
 @Produces(MediaType.APPLICATION_JSON)
@@ -38,6 +40,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @SecurityRequirement(name = "BearerAuth")
 public class CamerasResource {
 
+    private static final Logger LOG = Logger.getLogger(CamerasResource.class);
+
     @Inject
     MotionService motion;
 
@@ -46,6 +50,9 @@ public class CamerasResource {
 
     @Inject
     AudioService audioService;
+
+    @Inject
+    AudioConfig audioConfig;
 
     @GET
     @Operation(summary = "List every camera parameter", description = "Ordered by camera number, then parameter name.")
@@ -179,18 +186,15 @@ public class CamerasResource {
             for (Camera parameter : parameters) {
                 parameter.enabled = true;
             }
-            CameraAudio audioRow = CameraAudio.findByCamera(cameraNumber);
-            if (audioRow == null) {
-                audioRow = new CameraAudio();
-                audioRow.cameraNumber = cameraNumber;
-                audioRow.enabled = false;
-            }
-            if (audioRow.enabled && audioRow.device != null && !audioRow.device.isBlank()) {
-                try {
-                    audio.ensureRunning(cameraNumber, audioRow.device);
-                } catch (RuntimeException e) {
-                    // Log but don't fail motion apply
-                }
+            // Audio follows the camera: starting a camera turns its audio on and
+            // brings the capture up. A failure here must not fail the camera, so
+            // it is logged and left to AudioSupervisor to retry.
+            CameraAudio audioRow = audioRowFor(cameraNumber);
+            audioRow.enabled = true;
+            try {
+                audio.ensureRunning(cameraNumber, audioRow.deviceOrDefault(audioConfig.device()));
+            } catch (RuntimeException e) {
+                LOG.warnf("Could not start audio for camera %d: %s", cameraNumber, e.getMessage());
             }
             return Response.ok(status).build();
         } catch (IllegalArgumentException e) {
@@ -237,7 +241,61 @@ public class CamerasResource {
         if (Camera.listByCamera(cameraNumber).isEmpty()) {
             return notFound(cameraNumber);
         }
-        return Response.ok(audioService.status(cameraNumber)).build();
+        CameraAudio row = CameraAudio.findByCamera(cameraNumber);
+        return Response.ok(audioService.status(cameraNumber, row != null && row.enabled)).build();
+    }
+
+    @POST
+    @Path("/{cameraNumber}/audio/start")
+    @Operation(summary = "Start a camera's audio capture",
+            description = "Turns the camera's audio on and starts (or leaves running) its capture. "
+                    + "A failure does not turn it back off, so the supervisor keeps retrying.")
+    @APIResponse(responseCode = "404", description = "No such camera",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    public Response audioStart(@PathParam("cameraNumber") int cameraNumber) {
+        if (Camera.listByCamera(cameraNumber).isEmpty()) {
+            return notFound(cameraNumber);
+        }
+        CameraAudio row = audioRowFor(cameraNumber);
+        row.enabled = true;
+        try {
+            audio.ensureRunning(cameraNumber, row.deviceOrDefault(audioConfig.device()));
+        } catch (RuntimeException e) {
+            // Desired state stays on: AudioSupervisor retries with backoff, and
+            // the status below reports the capture as down until it succeeds.
+            LOG.warnf("Could not start audio for camera %d: %s", cameraNumber, e.getMessage());
+        }
+        return Response.ok(audioService.status(cameraNumber, true)).build();
+    }
+
+    @POST
+    @Path("/{cameraNumber}/audio/stop")
+    @Operation(summary = "Stop a camera's audio capture",
+            description = "Turns the camera's audio off and kills its capture process.")
+    @APIResponse(responseCode = "404", description = "No such camera",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ErrorResponse.class)))
+    public Response audioStop(@PathParam("cameraNumber") int cameraNumber) {
+        if (Camera.listByCamera(cameraNumber).isEmpty()) {
+            return notFound(cameraNumber);
+        }
+        CameraAudio row = audioRowFor(cameraNumber);
+        row.enabled = false;
+        return Response.ok(audioService.stop(cameraNumber)).build();
+    }
+
+    /**
+     * The camera's {@code camera_audio} row, created switched off on first use.
+     * The caller sets {@code enabled}, which is the camera's desired state.
+     */
+    private static CameraAudio audioRowFor(int cameraNumber) {
+        CameraAudio row = CameraAudio.findByCamera(cameraNumber);
+        if (row == null) {
+            row = new CameraAudio();
+            row.cameraNumber = cameraNumber;
+            row.enabled = false;
+            row.persist();
+        }
+        return row;
     }
 
     private static Response notFound(int cameraNumber) {
