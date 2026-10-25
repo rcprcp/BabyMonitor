@@ -72,6 +72,11 @@ migrations.
     `brightness`) — the ambient time series behind the Environment page.
     `temperature` is Celsius and `humidity` a percentage, both `NUMERIC(5,2)`;
     `brightness` is lux
+  - `babymonitor.camera_light` (single row) — the camera-derived brightness
+    sensor: the chosen camera, the fixed probe exposure, the six calibration
+    lumas, and the last luma/band/proxy lux. The band cut points are the
+    midpoints of the calibration lumas; the camera's device and stream port
+    still come from `babymonitor.cameras`
   - `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
     parameters, keyed by `(camera_number, key)`. There is no separate camera
     row, so `enabled` (the camera's on/off flag) is repeated on every parameter
@@ -115,6 +120,8 @@ migrations.
 - `V9__add_environment_event_type.sql` — adds `Environment` to the event enum
 - `V10__add_environment_last_checked.sql` — records the newest environment
   reading the supervisor has already checked
+- `V11__add_camera_light.sql` — adds `camera_light`, the single-row camera
+  brightness sensor with its calibration and last sample
 
 ## Build & run
 
@@ -181,6 +188,9 @@ webhooks.
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
 | GET         | `/api/environment/thresholds`          | humidity/temperature/brightness bounds |
 | PUT         | `/api/environment/thresholds`          | `{ six bounds }`: replace the bounds |
+| GET         | `/api/environment/light`               | camera light config, calibration and last sample |
+| PUT         | `/api/environment/light`               | `{ cameraNumber, exposureMs, enabled, six lumas }` |
+| POST        | `/api/environment/light/sample`        | one fixed-exposure probe; 409 when the camera is down |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
@@ -582,7 +592,23 @@ humidity 0-100% (default 30-75), temperature 32-100°F (default 66-76) and
 brightness 0-3000 lux (default 200-2000). Readings outside a bound are red in
 the table, and `EnvironmentSupervisor` records an `Environment` notification
 (toast + feed) when the newest reading is outside them. Temperature is shown in
-°F throughout the page. The Camera pages show one camera's
+°F throughout the page.
+
+The same page has a **Camera light** card for a camera-derived brightness band.
+Plug in: choose a running camera and a fixed exposure. Calibrate: capture a luma
+for each of the six bands (dark, very dim, dim, moderate, bright, very bright);
+the cut points are the midpoints between the captured lumas, so the bands follow
+that camera's response. Play: enable the sensor; `CameraLightSupervisor` probes
+once a minute, maps the mean luma to a band, and records an `Environment` alert
+when the band's proxy lux (1, 10, 50, 300, 1000 or 3000) is outside the
+brightness bounds. While the sensor is enabled and calibrated,
+`EnvironmentSupervisor` leaves brightness to it and still checks the reading's
+temperature and humidity. A probe switches the camera to manual exposure, reads
+one frame from its existing MJPEG stream, and restores auto-exposure; it needs
+the camera to be running, briefly changes the live exposure, and is specific to
+UVC cameras. Recalibrate after changing the camera or the exposure.
+
+The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
 **Stop** takes it down. Starting/stopping a camera also starts/stops its audio.

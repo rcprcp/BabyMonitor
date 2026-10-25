@@ -134,6 +134,11 @@ export const api = {
   updateEnvironmentThresholds: (thresholds) =>
     request('PUT', '/api/environment/thresholds', thresholds),
 
+  // Camera-derived brightness: configuration, calibration and a manual probe.
+  getCameraLight: () => request('GET', '/api/environment/light'),
+  updateCameraLight: (config) => request('PUT', '/api/environment/light', config),
+  sampleCameraLight: () => request('POST', '/api/environment/light/sample'),
+
   listCameras: () => request('GET', '/api/cameras'),
   getCamera: (cameraNumber) => request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}`),
   updateCameraParameter: (cameraNumber, key, value) =>

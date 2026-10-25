@@ -1,5 +1,6 @@
 package com.babymonitor.environment;
 
+import com.babymonitor.entity.CameraLight;
 import com.babymonitor.entity.EnvironmentReading;
 import com.babymonitor.entity.EnvironmentThresholds;
 import com.babymonitor.entity.EventType;
@@ -60,11 +61,17 @@ public class EnvironmentSupervisor {
             if (reading.id <= lastChecked) {
                 return;
             }
+            // When the camera light sensor is in charge of brightness, leave
+            // that breach to CameraLightSupervisor so the two do not double-alert.
+            CameraLight light = CameraLight.current();
+            CameraLightBands lightBands = light == null ? null : CameraLightBands.from(light);
+            boolean cameraLightActive =
+                    light != null && light.enabled && lightBands != null && lightBands.calibrated();
             // Record the sample before notifying: both writes share this
             // transaction, so a failure in either leaves the sample unchecked
             // for the next tick rather than silently skipped.
             bounds.lastCheckedId = reading.id;
-            String description = describe(reading, bounds);
+            String description = describe(reading, bounds, !cameraLightActive);
             if (description != null) {
                 notifications.add(EventType.Environment, description, null, Instant.now());
             }
@@ -73,6 +80,18 @@ public class EnvironmentSupervisor {
 
     /** The out-of-bounds sentence for a reading, or {@code null} when it is in range. */
     static String describe(EnvironmentReading reading, EnvironmentThresholds bounds) {
+        return describe(reading, bounds, true);
+    }
+
+    /**
+     * The out-of-bounds sentence for a reading, or {@code null} when it is in
+     * range.
+     *
+     * @param includeBrightness whether the reading's brightness is part of the
+     *                          check; false when the camera light sensor owns it
+     */
+    static String describe(
+            EnvironmentReading reading, EnvironmentThresholds bounds, boolean includeBrightness) {
         List<String> breaches = new ArrayList<>();
         double temperatureF = reading.temperature.doubleValue() * 9 / 5 + 32;
         if (outside(temperatureF, bounds.temperatureLow, bounds.temperatureHigh)) {
@@ -93,7 +112,8 @@ public class EnvironmentSupervisor {
                     number(bounds.humidityHigh)));
         }
         int brightness = reading.brightness;
-        if (brightness < bounds.brightnessLow || brightness > bounds.brightnessHigh) {
+        if (includeBrightness
+                && (brightness < bounds.brightnessLow || brightness > bounds.brightnessHigh)) {
             breaches.add(String.format(
                     Locale.ROOT,
                     "brightness %d lux (bounds %d–%d lux)",
