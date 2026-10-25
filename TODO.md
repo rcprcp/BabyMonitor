@@ -14,21 +14,24 @@ or leave a nursery unmonitored without anyone noticing.
 
 These are the ones where the app looks fine while being wrong.
 
-- [ ] **Supervise the `motion` processes.** `MotionProcessManager` only tracks a
-      process at `start`/`stop`; if `motion` crashes (camera unplugged, USB
-      reset, OOM) nothing restarts it and nothing tells anyone. It can also
-      misreport: `pidOf` falls back to the pid file and only checks that the pid
-      is alive, so a reused pid makes a dead camera appear alive. Add a periodic
-      liveness check, bounded restart with backoff, and a notification when a
-      camera goes down. This is the single biggest trust gap.
+- [x] **Supervise the `motion` processes.** `MotionSupervisor` now checks every
+      camera whose persisted state says running, restarts a dead process with
+      exponential backoff (15 s → 5 min) and records a throttled `System`
+      notification. The pid-reuse caveat is tracked separately below.
+- [ ] **Harden Motion pid identity.** `MotionProcessManager.pidOf` still falls
+      back to the pid file and only checks that the pid is alive, so a reused pid
+      can make a dead camera look alive. Verify the process's command line (or
+      config path) before treating it as ours.
 - [ ] **Detect a frozen stream.** MJPEG in an `<img>`
       (`frontend/src/components/StreamPlayer.jsx`) can stop updating without
-      firing `onError`, so the parent sees a still image that *looks* live. Show
-      a last-frame timestamp / stall indicator and reconnect automatically.
-      "Looks live but is frozen" is the worst possible failure here.
-- [ ] **Reconnect the stream instead of dying.** There is no retry on the HLS
-      path and no way back on the MJPEG path short of reloading the page
-      (`StreamPlayer.jsx`). Add bounded exponential backoff and a manual retry.
+      firing `onError`, so the parent sees a still image that *looks* live. The
+      `<img>` retries on an error, but a silent stall still looks live: show a
+      last-frame timestamp / stall indicator and reconnect on it. "Looks live but
+      is frozen" is the worst possible failure here.
+- [~] **Reconnect the stream instead of dying.** MJPEG now retries with bounded
+      backoff (0/1/2/3/5 s) before showing the error, but the HLS path still has
+      no retry and neither path has a manual Retry button
+      (`StreamPlayer.jsx`). Add the HLS retry and a Retry control.
 - [ ] **Environment threshold alerting.** Readings are charted
       (`EnvironmentPage.jsx`, `EnvironmentResource`) but nothing ever fires when
       the nursery is too hot, too cold, or too humid. For a baby monitor this is
@@ -39,9 +42,9 @@ These are the ones where the app looks fine while being wrong.
       the invariants (camera number, name ordering, the Motion option names are
       present, the rows share one enabled flag) instead of live, user-editable
       values, so `mvn package` passes against an edited database.
-- [ ] **Alert on Video/motion events too.** Alerts are sound-only for
-      `eventType === 'Audio'` (`frontend/src/useNotificationAlerts.js`). A
-      motion/clip event — arguably the more important one — is silent.
+- [x] **Alert on Video/motion events too.** Every non-`System` event now plays
+      the chime and shows a toast, so a motion/clip alert is no longer silent
+      (`useNotificationAlerts.js`, `alerting.js`).
 
 ## P1 — Security
 
@@ -79,22 +82,21 @@ These are the ones where the app looks fine while being wrong.
 ## P2 — Reliability and operations
 
 - [ ] **Add CI.** There is no `.github/workflows` (or any pipeline): the test
-      suite, the frontend build and the failing test above are all unchecked on
-      every push.
+      suite and the frontend build are unchecked on every push.
 - [ ] **Package it.** No `Dockerfile`, no compose, no systemd unit. Deployment
       is documented as `mvn package && java -jar`. Provide a container image and
       a service unit, including what owns the `motion` children on restart.
-- [ ] **Health and readiness endpoints.** No `quarkus-smallrye-health`, so there
-      is nothing for a supervisor or load balancer to probe — and nowhere to
-      surface "camera 1's motion is down".
+- [x] **Health and readiness endpoints.** `quarkus-smallrye-health` is in the
+      build and `/q/health` (liveness + readiness, with a database check) is
+      available. Camera-specific trouble is surfaced on the Camera page/Motion
+      status, not the readiness probe.
 - [ ] **Metrics and structured logging.** No metrics at all; logging is ad-hoc
       `org.jboss.logging` in two classes (`MotionService`,
       `MotionProcessManager`). Add Micrometer/Prometheus and JSON logs with
       request correlation.
-- [ ] **Introduce real migrations.** The schema is hand-maintained idempotent
-      DDL in `db/init.sql`, applied manually, with Hibernate generation off
-      (`application.properties`). This works until it doesn't. Add
-      Flyway/Liquibase and a documented upgrade path.
+- [x] **Introduce real migrations.** Flyway owns the schema: the migrations in
+      `src/main/resources/db/migration` (V1-V7) run at startup, with the baseline
+      path for pre-Flyway databases documented. `db/init.sql` is gone.
 - [ ] **Move the session store out of memory.** Tokens vanish on restart, so
       every redeploy logs everyone out (`SessionStore.java`). Move to the DB or
       Redis, add rotation, and support more than one instance.
@@ -163,10 +165,9 @@ These are the ones where the app looks fine while being wrong.
       (`useNotificationAlerts.js`), so push silently degraded to polling until a
       visibility/online event. It now reconnects with bounded backoff (1 s → 30 s)
       and catches up with `lastId`.
-- [ ] **Alert sound preference is global, not per-account.** `ENABLED_KEY` in
-      `frontend/src/alerting.js` is one localStorage key while the watermark is
-      namespaced by user — the comment claims per-account behaviour it does not
-      have.
+- [x] **Alert sound preference is global, not per-account.** The opt-out flag
+      (`ENABLED_KEY`) was removed; alerts are unconditional, so there is no
+      per-account flag left to namespace.
 - [ ] **Add a global error boundary.** `components/DebugWrapper.jsx` is a
       render-crash boundary that is imported nowhere, so one render error blanks
       the app.
@@ -177,14 +178,14 @@ These are the ones where the app looks fine while being wrong.
       real status.
 - [ ] **Give every error a retry.** Only the Notifications page has a Refresh
       button; everywhere else an error is a dead end.
-- [ ] **Harden the title bar for phones.** It packs burger, title, Test alert,
-      Play sound and avatar with `wrap="nowrap"` at a fixed 60px
-      (`App.jsx`, `TitleBar.jsx`).
+- [x] **Harden the title bar for phones.** The Test alert and Play sound buttons
+      were removed; the bar is burger/title/avatar and the title ellipsises
+      (`.bm-title`). Safe-area handling remains in the separate item below.
 - [ ] **Handle `theme-color` and safe areas.** Static `theme-color` that ignores
       the chosen palette, and no `viewport-fit=cover` / `env(safe-area-inset-*)`
       for notched phones.
-- [ ] **Catch dismissal failures.** `NotificationsPage` calls `dismiss` with no
-      try/catch, producing an unhandled rejection.
+- [x] **Catch dismissal failures.** `NotificationsPage` now catches `dismiss`
+      and Dismiss All errors and shows them in the page alert.
 - [ ] **Offline/reconnecting indicator.** The app already listens for `online`
       but shows the user nothing.
 
@@ -208,9 +209,8 @@ These are the ones where the app looks fine while being wrong.
 - [ ] **Write the missing docs.** No `CONTRIBUTING`, `CHANGELOG` or
       `SECURITY.md`; no deployment/TLS runbook, no troubleshooting guide
       (orphaned `motion`, frozen stream), no complete config reference.
-- [ ] **Track the open-items list.** `docs/` is git-ignored, so the existing
-      `docs/agent-sessions/todos.md` is invisible to contributors — this file
-      supersedes it and is tracked.
+- [x] **Track the open-items list.** This `TODO.md` is tracked; it supersedes
+      the git-ignored `docs/agent-sessions/todos.md`.
 - [ ] **Plan the Mantine 9 / React 19 upgrade.** Nothing blocks it; it is just
       pending.
 
@@ -220,12 +220,12 @@ These are the ones where the app looks fine while being wrong.
 
 Small, self-contained, worth doing first:
 
-- Reconnect the stream and show a stall indicator (P0).
-- Sound alerts for Video events too, not just Audio (P0).
+- MJPEG reconnect is done; the stall indicator and HLS/manual retry remain (P0).
+- Sound alerts for Video events too, not just Audio (P0) — done.
 - Default `stream_localhost`/`webcontrol_localhost` to `on` (P1).
 - Require the webhook secret by default (P1).
 - `AbortController` + status-before-JSON in `api.js` (P5).
 - Wire up the existing but unused `DebugWrapper` error boundary (P5).
-- Namespace the alerts-enabled flag per account (P5).
+- Namespace the alerts-enabled flag per account (P5) — moot; the flag was removed.
 - Delete the unused `api.me()` (P6).
 - Fix or re-scope the failing test so `mvn package` passes (P0) — done.
