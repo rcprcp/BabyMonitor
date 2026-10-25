@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.babymonitor.entity.CameraLight;
 import com.babymonitor.entity.EnvironmentReading;
 import com.babymonitor.entity.EnvironmentThresholds;
 import com.babymonitor.entity.EventType;
@@ -31,7 +30,6 @@ class EnvironmentSupervisorTest {
     @BeforeEach
     void prepare() {
         resetThresholds();
-        resetCameraLight();
         deleteEnvironmentAlerts();
         markExistingReadingsChecked();
     }
@@ -43,7 +41,6 @@ class EnvironmentSupervisorTest {
         }
         deleteEnvironmentAlerts();
         resetThresholds();
-        resetCameraLight();
         markExistingReadingsChecked();
     }
 
@@ -57,7 +54,6 @@ class EnvironmentSupervisorTest {
         assertNotNull(alert, "the reading should raise an Environment notification");
         assertTrue(alert.description.contains("temperature"), alert.description);
         assertTrue(alert.description.contains("humidity"), alert.description);
-        assertTrue(alert.description.contains("brightness"), alert.description);
     }
 
     @Test
@@ -70,20 +66,18 @@ class EnvironmentSupervisorTest {
     }
 
     @Test
-    void cameraLightOwnsBrightnessWhenEnabledAndCalibrated() {
-        enableCalibratedCameraLight();
+    void aBrightnessOnlyBreachDoesNotAlert() {
         readingId = insertReading(22.0, 50.0, 2500);
 
         supervisor.checkOnce();
 
         assertNull(
                 environmentAlert(),
-                "the camera light sensor owns brightness, so the reading's brightness is ignored");
+                "brightness is the camera light band's responsibility, not the reading's");
     }
 
     @Test
-    void cameraLightDoesNotHideTemperatureOrHumidityBreaches() {
-        enableCalibratedCameraLight();
+    void brightnessDoesNotJoinAnAlert() {
         readingId = insertReading(30.0, 50.0, 2500);
 
         supervisor.checkOnce();
@@ -137,34 +131,6 @@ class EnvironmentSupervisorTest {
             row.temperatureHigh = BigDecimal.valueOf(76);
             row.brightnessLow = 200;
             row.brightnessHigh = 2000;
-        });
-    }
-
-    private static void enableCalibratedCameraLight() {
-        QuarkusTransaction.requiringNew().run(() -> {
-            CameraLight row = CameraLight.current();
-            row.enabled = true;
-            row.darkLuma = 10.0;
-            row.veryDimLuma = 25.0;
-            row.dimLuma = 45.0;
-            row.moderateLuma = 90.0;
-            row.brightLuma = 160.0;
-            row.veryBrightLuma = 220.0;
-            row.lastAlertedBand = null;
-        });
-    }
-
-    private static void resetCameraLight() {
-        QuarkusTransaction.requiringNew().run(() -> {
-            CameraLight row = CameraLight.current();
-            row.enabled = false;
-            row.darkLuma = null;
-            row.veryDimLuma = null;
-            row.dimLuma = null;
-            row.moderateLuma = null;
-            row.brightLuma = null;
-            row.veryBrightLuma = null;
-            row.lastAlertedBand = null;
         });
     }
 }

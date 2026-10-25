@@ -53,8 +53,8 @@ public class CameraLight extends PanacheEntityBase {
     @Column(name = "last_luma")
     public Double lastLuma;
 
-    @Column(name = "last_band", length = 20)
-    public String lastBand;
+    @Column(name = "last_band")
+    public Integer lastBand;
 
     @Column(name = "last_lux")
     public Integer lastLux;
@@ -62,9 +62,9 @@ public class CameraLight extends PanacheEntityBase {
     @Column(name = "last_sample_at")
     public Instant lastSampleAt;
 
-    /** The band that last raised an alert, so the same band does not repeat. */
-    @Column(name = "last_alerted_band", length = 20)
-    public String lastAlertedBand;
+    /** The band number that last raised an alert, so the same band does not repeat. */
+    @Column(name = "last_alerted_band")
+    public Integer lastAlertedBand;
 
     public CameraLight() {
     }

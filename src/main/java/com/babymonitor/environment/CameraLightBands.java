@@ -2,15 +2,15 @@ package com.babymonitor.environment;
 
 import com.babymonitor.dto.CameraLightDto;
 import com.babymonitor.entity.CameraLight;
-import java.util.List;
 
 /**
- * The six brightness bands and the luma calibration that separates them.
+ * The luma calibration that maps a probe to one of the six
+ * {@link BrightnessBand}s.
  *
  * <p>Calibration captures one luma per band. The cut point between two bands is
  * the midpoint of their captured lumas, so the bands follow the camera's own
- * response instead of a fixed threshold table. The representative lux is only a
- * proxy for the environment brightness path; it is not a calibrated lux value.</p>
+ * response. The resulting band number is stored; the captured lumas only affect
+ * how future probes are mapped, never the meaning of an already stored band.</p>
  */
 public record CameraLightBands(
         double dark,
@@ -19,15 +19,6 @@ public record CameraLightBands(
         double moderate,
         double bright,
         double veryBright) {
-
-    public static final List<String> KEYS =
-            List.of("dark", "very-dim", "dim", "moderate", "bright", "very-bright");
-
-    public static final List<String> LABELS =
-            List.of("Dark", "Very dim", "Dim", "Moderate", "Bright", "Very bright");
-
-    /** Representative lux for each band, used as the environment brightness proxy. */
-    public static final List<Integer> PROXY_LUX = List.of(1, 10, 50, 300, 1000, 3000);
 
     public static CameraLightBands from(CameraLight row) {
         return from(
@@ -76,30 +67,22 @@ public record CameraLightBands(
                 && bright < veryBright;
     }
 
-    /** The band for a luma, or {@code null} when the sensor is not calibrated. */
-    public String bandFor(double luma) {
+    /**
+     * Maps a luma to a band using the captured calibration points, or
+     * {@code null} when the sensor is not calibrated.
+     */
+    public BrightnessBand bandFor(double luma) {
         if (!calibrated()) {
             return null;
         }
         double[] values = {dark, veryDim, dim, moderate, bright, veryBright};
-        for (int i = 0; i < KEYS.size() - 1; i++) {
+        BrightnessBand[] bands = BrightnessBand.values();
+        for (int i = 0; i < bands.length - 1; i++) {
             if (luma < (values[i] + values[i + 1]) / 2) {
-                return KEYS.get(i);
+                return bands[i];
             }
         }
-        return KEYS.get(KEYS.size() - 1);
-    }
-
-    /** The representative lux for a band key, or 0 for an unknown band. */
-    public static int proxyLux(String band) {
-        int index = KEYS.indexOf(band);
-        return index < 0 ? 0 : PROXY_LUX.get(index);
-    }
-
-    /** A human-readable label for a band key. */
-    public static String label(String band) {
-        int index = KEYS.indexOf(band);
-        return index < 0 ? band : LABELS.get(index);
+        return bands[bands.length - 1];
     }
 
     /**

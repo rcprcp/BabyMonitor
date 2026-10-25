@@ -1,6 +1,5 @@
 package com.babymonitor.environment;
 
-import com.babymonitor.entity.CameraLight;
 import com.babymonitor.entity.EnvironmentReading;
 import com.babymonitor.entity.EnvironmentThresholds;
 import com.babymonitor.entity.EventType;
@@ -17,13 +16,16 @@ import java.util.Locale;
 import org.jboss.logging.Logger;
 
 /**
- * Turns a nursery reading outside the Environment page's bounds into an
- * {@link EventType#Environment} notification.
+ * Turns a nursery reading's temperature or humidity outside the Environment
+ * page's bounds into an {@link EventType#Environment} notification.
  *
  * <p>Readings are written by the sensor outside this API, so a periodic check
  * looks at the newest row and compares it with the stored bounds. The row's id
  * is recorded in the thresholds row, so each sample is checked exactly once and
  * a restart does not re-alert the sample already seen.</p>
+ *
+ * <p>Brightness is not checked here: it is the camera light sensor's band, and
+ * {@link CameraLightSupervisor} alerts on the band instead.</p>
  *
  * <p>The notification goes through {@link NotificationService}, so it reaches
  * the feed, the live event stream and the chime exactly as an Audio or Motion
@@ -61,37 +63,25 @@ public class EnvironmentSupervisor {
             if (reading.id <= lastChecked) {
                 return;
             }
-            // When the camera light sensor is in charge of brightness, leave
-            // that breach to CameraLightSupervisor so the two do not double-alert.
-            CameraLight light = CameraLight.current();
-            CameraLightBands lightBands = light == null ? null : CameraLightBands.from(light);
-            boolean cameraLightActive =
-                    light != null && light.enabled && lightBands != null && lightBands.calibrated();
             // Record the sample before notifying: both writes share this
             // transaction, so a failure in either leaves the sample unchecked
             // for the next tick rather than silently skipped.
             bounds.lastCheckedId = reading.id;
-            String description = describe(reading, bounds, !cameraLightActive);
+            String description = describe(reading, bounds);
             if (description != null) {
                 notifications.add(EventType.Environment, description, null, Instant.now());
             }
         });
     }
 
-    /** The out-of-bounds sentence for a reading, or {@code null} when it is in range. */
-    static String describe(EnvironmentReading reading, EnvironmentThresholds bounds) {
-        return describe(reading, bounds, true);
-    }
-
     /**
-     * The out-of-bounds sentence for a reading, or {@code null} when it is in
-     * range.
+     * The out-of-bounds sentence for a reading's temperature and humidity, or
+     * {@code null} when both are in range.
      *
-     * @param includeBrightness whether the reading's brightness is part of the
-     *                          check; false when the camera light sensor owns it
+     * <p>Brightness is not checked here: it is the camera light sensor's band,
+     * and {@link CameraLightSupervisor} alerts on the band instead.</p>
      */
-    static String describe(
-            EnvironmentReading reading, EnvironmentThresholds bounds, boolean includeBrightness) {
+    static String describe(EnvironmentReading reading, EnvironmentThresholds bounds) {
         List<String> breaches = new ArrayList<>();
         double temperatureF = reading.temperature.doubleValue() * 9 / 5 + 32;
         if (outside(temperatureF, bounds.temperatureLow, bounds.temperatureHigh)) {
@@ -110,16 +100,6 @@ public class EnvironmentSupervisor {
                     humidity,
                     number(bounds.humidityLow),
                     number(bounds.humidityHigh)));
-        }
-        int brightness = reading.brightness;
-        if (includeBrightness
-                && (brightness < bounds.brightnessLow || brightness > bounds.brightnessHigh)) {
-            breaches.add(String.format(
-                    Locale.ROOT,
-                    "brightness %d lux (bounds %d–%d lux)",
-                    brightness,
-                    bounds.brightnessLow,
-                    bounds.brightnessHigh));
         }
         if (breaches.isEmpty()) {
             return null;

@@ -40,7 +40,7 @@ class CameraLightSupervisorTest {
 
     @Test
     void anOutOfBoundsBandAlertsOncePerExcursion() {
-        supervisor.evaluate(sample(230, "very-bright", 3000));
+        supervisor.evaluate(sample(230, 6, 3000));
         assertEquals(1, environmentAlertCount());
         Notification alert = environmentAlert();
         assertNotNull(alert);
@@ -48,25 +48,25 @@ class CameraLightSupervisorTest {
         assertTrue(alert.description.contains("3000"), alert.description);
 
         // The same band on the next tick is not a new event.
-        supervisor.evaluate(sample(230, "very-bright", 3000));
+        supervisor.evaluate(sample(230, 6, 3000));
         assertEquals(1, environmentAlertCount());
 
         // Back in bounds clears the remembered band.
-        supervisor.evaluate(sample(100, "moderate", 300));
+        supervisor.evaluate(sample(100, 4, 300));
         assertEquals(1, environmentAlertCount());
 
         // A later excursion alerts again.
-        supervisor.evaluate(sample(230, "very-bright", 3000));
+        supervisor.evaluate(sample(230, 6, 3000));
         assertEquals(2, environmentAlertCount());
     }
 
     @Test
     void anInBoundsBandDoesNotAlert() {
-        supervisor.evaluate(sample(100, "moderate", 300));
+        supervisor.evaluate(sample(100, 4, 300));
         assertEquals(0, environmentAlertCount());
     }
 
-    private static CameraLightSampleDto sample(double luma, String band, int lux) {
+    private static CameraLightSampleDto sample(double luma, Integer band, int lux) {
         return new CameraLightSampleDto(luma, band, lux, Instant.now().toString());
     }
 

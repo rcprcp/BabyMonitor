@@ -13,7 +13,7 @@ package com.babymonitor.dto;
  * @param brightLuma      luma captured for bright, or {@code null}
  * @param veryBrightLuma  luma captured for very bright, or {@code null}
  * @param lastLuma        the most recent sample's luma, or {@code null}
- * @param lastBand        the band of the most recent sample, or {@code null}
+ * @param lastBand        the band number of the most recent sample, or {@code null}
  * @param lastLux         the proxy lux of that band, or {@code null}
  * @param lastSampleAt    when the last sample was taken, or {@code null}
  */
@@ -28,7 +28,7 @@ public record CameraLightDto(
         Double brightLuma,
         Double veryBrightLuma,
         Double lastLuma,
-        String lastBand,
+        Integer lastBand,
         Integer lastLux,
         String lastSampleAt) {
 }

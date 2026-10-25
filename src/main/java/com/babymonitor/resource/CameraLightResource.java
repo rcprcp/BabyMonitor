@@ -15,6 +15,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -56,6 +57,28 @@ public class CameraLightResource {
         return sensor.currentDto();
     }
 
+    @GET
+    @Path("/samples")
+    @Operation(
+            summary = "Read the camera light history",
+            description =
+                    "The latest calibrated band in each hour for the last `hours` hours, oldest first. "
+                            + "Gaps mean the sensor was not calibrated or not sampling.")
+    @APIResponse(
+            responseCode = "400",
+            description = "hours is outside 1..2000",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public Response samples(@QueryParam("hours") Integer hours) {
+        if (hours != null && (hours < 1 || hours > 2000)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("hours must be between 1 and 2000"))
+                    .build();
+        }
+        return Response.ok(sensor.hourlyBands(hours != null ? hours : 168)).build();
+    }
+
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(
@@ -85,16 +108,17 @@ public class CameraLightResource {
             summary = "Take one camera light probe",
             description =
                     "Switches to a fixed manual exposure, reads one frame from the camera stream, "
-                            + "restores auto-exposure, and returns the mean luma and band.")
+                            + "restores auto-exposure, and returns the mean luma and band. "
+                            + "Calibration captures pass `record=false` so they stay out of the history.")
     @APIResponse(
             responseCode = "409",
             description = "The camera is not running, has no stream, or the probe tools failed",
             content = @Content(
                     mediaType = MediaType.APPLICATION_JSON,
                     schema = @Schema(implementation = ErrorResponse.class)))
-    public Response sample() {
+    public Response sample(@QueryParam("record") Boolean record) {
         try {
-            CameraLightSampleDto sample = sensor.sampleNow();
+            CameraLightSampleDto sample = sensor.sampleNow(record == null || record);
             return Response.ok(sample).build();
         } catch (IllegalStateException e) {
             return Response.status(Response.Status.CONFLICT)

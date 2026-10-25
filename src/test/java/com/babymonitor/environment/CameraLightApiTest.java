@@ -2,13 +2,19 @@ package com.babymonitor.environment;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.babymonitor.entity.CameraLight;
+import com.babymonitor.entity.CameraLightSample;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +27,7 @@ class CameraLightApiTest {
     @AfterEach
     void reset() {
         QuarkusTransaction.requiringNew().run(() -> {
+            CameraLightSample.deleteAll();
             CameraLight row = CameraLight.current();
             row.cameraNumber = 1;
             row.exposureMs = 20;
@@ -60,6 +67,26 @@ class CameraLightApiTest {
         assertEquals(false, body.get("enabled"));
         assertNull(body.get("darkLuma"));
         assertNull(body.get("lastBand"));
+    }
+
+    @Test
+    void returnsTheHourlyCameraLightHistory() {
+        Instant now = Instant.now();
+        QuarkusTransaction.requiringNew().run(() -> {
+            new CameraLightSample(now.minus(2, ChronoUnit.HOURS), 20.0, 3, 50).persist();
+            new CameraLightSample(now.minus(1, ChronoUnit.HOURS), 30.0, 4, 300).persist();
+        });
+
+        given()
+                .header("Authorization", bearer(login()))
+                .when()
+                .get("/api/environment/light/samples?hours=24")
+                .then()
+                .statusCode(200)
+                .body("$", hasSize(2))
+                .body("[0].band", is(3))
+                .body("[1].band", is(4))
+                .body("[0].hour", endsWith(":00:00Z"));
     }
 
     @Test

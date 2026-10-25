@@ -74,9 +74,15 @@ migrations.
     `brightness` is lux
   - `babymonitor.camera_light` (single row) — the camera-derived brightness
     sensor: the chosen camera, the fixed probe exposure, the six calibration
-    lumas, and the last luma/band/proxy lux. The band cut points are the
+    lumas, and the last luma/band number/proxy lux. The band cut points are the
     midpoints of the calibration lumas; the camera's device and stream port
     still come from `babymonitor.cameras`
+  - `babymonitor.camera_light_samples` (`id`, `sampled_at`, `luma`, `band`,
+    `proxy_lux`) — the calibrated probe history behind the Environment page's
+    brightness bands. `band` is the stable number 1 (dark) through 6 (very
+    bright); the captured lumas only map a new probe to that number, so
+    recalibrating never renumbers stored bands. Calibration captures are not
+    recorded
   - `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
     parameters, keyed by `(camera_number, key)`. There is no separate camera
     row, so `enabled` (the camera's on/off flag) is repeated on every parameter
@@ -122,6 +128,10 @@ migrations.
   reading the supervisor has already checked
 - `V11__add_camera_light.sql` — adds `camera_light`, the single-row camera
   brightness sensor with its calibration and last sample
+- `V12__add_camera_light_samples.sql` — adds `camera_light_samples`, the probe
+  history behind the Environment page's brightness bands
+- `V13__number_brightness_bands.sql` — stores brightness bands as the stable
+  numbers 1–6 instead of names
 
 ## Build & run
 
@@ -189,8 +199,9 @@ webhooks.
 | GET         | `/api/environment/thresholds`          | humidity/temperature/brightness bounds |
 | PUT         | `/api/environment/thresholds`          | `{ six bounds }`: replace the bounds |
 | GET         | `/api/environment/light`               | camera light config, calibration and last sample |
+| GET         | `/api/environment/light/samples`       | hourly band numbers 1–6 (`?hours=`, 1–2000, default 168) |
 | PUT         | `/api/environment/light`               | `{ cameraNumber, exposureMs, enabled, six lumas }` |
-| POST        | `/api/environment/light/sample`        | one fixed-exposure probe; 409 when the camera is down |
+| POST        | `/api/environment/light/sample`        | one fixed-exposure probe; `?record=false` for calibration; 409 when the camera is down |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
@@ -588,26 +599,31 @@ like `/settings` works on refresh.
 
 The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
 lists the raw rows under it. Temperature and humidity share the left axis;
-brightness gets its own right axis. The page also edits the **alert bounds**:
-humidity 0-100% (default 30-75), temperature 32-100°F (default 66-76) and
-brightness 0-3000 lux (default 200-2000). Readings outside a bound are red in
-the table, and `EnvironmentSupervisor` records an `Environment` notification
-(toast + feed) when the newest reading is outside them. Temperature is shown in
-°F throughout the page.
+brightness is the camera light's band on its own right axis, stored as a number
+1–6 (1 = dark, 2 = very dim, 3 = dim, 4 = moderate, 5 = bright, 6 = very
+bright). The page also edits the **alert bounds** for humidity (0-100%, default
+30-75) and temperature (32-100°F, default 66-76). Humidity and temperature
+outside a bound are red in the table, and `EnvironmentSupervisor` records an
+`Environment` notification (toast + feed) when the newest reading is outside
+them. The stored brightness bounds (0-3000 lux, default 200-2000) drive the
+camera light band alert, but are not edited on this page. Temperature is shown
+in °F throughout the page.
 
 The same page has a **Camera light** card for a camera-derived brightness band.
 Plug in: choose a running camera and a fixed exposure. Calibrate: capture a luma
-for each of the six bands (dark, very dim, dim, moderate, bright, very bright);
-the cut points are the midpoints between the captured lumas, so the bands follow
-that camera's response. Play: enable the sensor; `CameraLightSupervisor` probes
-once a minute, maps the mean luma to a band, and records an `Environment` alert
-when the band's proxy lux (1, 10, 50, 300, 1000 or 3000) is outside the
-brightness bounds. While the sensor is enabled and calibrated,
-`EnvironmentSupervisor` leaves brightness to it and still checks the reading's
-temperature and humidity. A probe switches the camera to manual exposure, reads
-one frame from its existing MJPEG stream, and restores auto-exposure; it needs
-the camera to be running, briefly changes the live exposure, and is specific to
-UVC cameras. Recalibrate after changing the camera or the exposure.
+for each of the six bands; the cut points are the midpoints between the captured
+lumas, so the bands follow that camera's response. The band itself is stored as
+its number; the captured lumas only map a new probe to that number, so
+recalibrating never renumbers stored bands. Play: enable the sensor;
+`CameraLightSupervisor` probes once a minute, maps the mean luma to a band,
+records the probe, and raises an `Environment` alert when the band's proxy lux
+(1, 10, 50, 300, 1000 or 3000) is outside the brightness bounds. The Environment
+chart and table use the latest band in each hour; `EnvironmentSupervisor` checks
+only the reading's temperature and humidity. A probe switches the camera to
+manual exposure, reads one frame from its existing MJPEG stream, and restores
+auto-exposure; it needs the camera to be running, briefly changes the live
+exposure, and is specific to UVC cameras. Calibration captures are not added to
+the history. Recalibrate after changing the camera or the exposure.
 
 The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,

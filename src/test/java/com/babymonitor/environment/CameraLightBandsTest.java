@@ -8,35 +8,44 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Calibration, band cut points and the proxy lux table. */
+/** Calibration, band mapping and the stable band numbers. */
 class CameraLightBandsTest {
 
     private static final CameraLightBands BANDS = new CameraLightBands(10, 25, 45, 90, 160, 220);
 
     @Test
     void mapsLumaToTheSixBands() {
-        assertEquals("dark", BANDS.bandFor(0));
-        assertEquals("dark", BANDS.bandFor(17.4));
-        assertEquals("very-dim", BANDS.bandFor(17.5));
-        assertEquals("very-dim", BANDS.bandFor(30));
-        assertEquals("dim", BANDS.bandFor(40));
-        assertEquals("moderate", BANDS.bandFor(100));
-        assertEquals("bright", BANDS.bandFor(150));
-        assertEquals("very-bright", BANDS.bandFor(200));
-        assertEquals("very-bright", BANDS.bandFor(255));
+        assertEquals(BrightnessBand.DARK, BANDS.bandFor(0));
+        assertEquals(BrightnessBand.DARK, BANDS.bandFor(17.4));
+        assertEquals(BrightnessBand.VERY_DIM, BANDS.bandFor(17.5));
+        assertEquals(BrightnessBand.VERY_DIM, BANDS.bandFor(30));
+        assertEquals(BrightnessBand.DIM, BANDS.bandFor(40));
+        assertEquals(BrightnessBand.MODERATE, BANDS.bandFor(100));
+        assertEquals(BrightnessBand.BRIGHT, BANDS.bandFor(150));
+        assertEquals(BrightnessBand.VERY_BRIGHT, BANDS.bandFor(200));
+        assertEquals(BrightnessBand.VERY_BRIGHT, BANDS.bandFor(255));
     }
 
     @Test
-    void proxyLuxAndLabelsFollowTheBandOrder() {
-        assertEquals(1, CameraLightBands.proxyLux("dark"));
-        assertEquals(10, CameraLightBands.proxyLux("very-dim"));
-        assertEquals(50, CameraLightBands.proxyLux("dim"));
-        assertEquals(300, CameraLightBands.proxyLux("moderate"));
-        assertEquals(1000, CameraLightBands.proxyLux("bright"));
-        assertEquals(3000, CameraLightBands.proxyLux("very-bright"));
-        assertEquals(0, CameraLightBands.proxyLux("unknown"));
-        assertEquals("Very dim", CameraLightBands.label("very-dim"));
-        assertEquals("Very bright", CameraLightBands.label("very-bright"));
+    void bandNumbersLabelsAndProxyLuxAreStable() {
+        assertEquals(1, BrightnessBand.DARK.number());
+        assertEquals(2, BrightnessBand.VERY_DIM.number());
+        assertEquals(3, BrightnessBand.DIM.number());
+        assertEquals(4, BrightnessBand.MODERATE.number());
+        assertEquals(5, BrightnessBand.BRIGHT.number());
+        assertEquals(6, BrightnessBand.VERY_BRIGHT.number());
+
+        assertEquals(1, BrightnessBand.DARK.proxyLux());
+        assertEquals(10, BrightnessBand.VERY_DIM.proxyLux());
+        assertEquals(50, BrightnessBand.DIM.proxyLux());
+        assertEquals(300, BrightnessBand.MODERATE.proxyLux());
+        assertEquals(1000, BrightnessBand.BRIGHT.proxyLux());
+        assertEquals(3000, BrightnessBand.VERY_BRIGHT.proxyLux());
+
+        assertEquals("Very dim", BrightnessBand.VERY_DIM.label());
+        assertEquals(BrightnessBand.MODERATE, BrightnessBand.fromNumber(4));
+        assertEquals("Band 9", BrightnessBand.labelForNumber(9));
+        assertNull(BrightnessBand.fromNumber(9));
     }
 
     @Test

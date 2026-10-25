@@ -89,7 +89,7 @@ public class CameraLightSupervisor {
                 row.lastAlertedBand = null;
                 return;
             }
-            if (sample.band().equals(row.lastAlertedBand)) {
+            if (Objects.equals(sample.band(), row.lastAlertedBand)) {
                 return;
             }
             row.lastAlertedBand = sample.band();
@@ -102,7 +102,7 @@ public class CameraLightSupervisor {
     }
 
     private static String description(CameraLightSampleDto sample, EnvironmentThresholds bounds) {
-        return "Camera light is " + CameraLightBands.label(sample.band()) + " (≈"
+        return "Camera light is " + BrightnessBand.labelForNumber(sample.band()) + " (≈"
                 + sample.lux() + " lux; bounds " + bounds.brightnessLow + "–"
                 + bounds.brightnessHigh + " lux).";
     }

@@ -8,6 +8,7 @@ import {
   Group,
   Loader,
   NumberInput,
+  Paper,
   SegmentedControl,
   Select,
   SimpleGrid,
@@ -36,7 +37,13 @@ const DEFAULT_RANGE = '168'
 const SERIES = [
   { name: 'temperature', label: 'Temperature (°F)', color: 'orange.6', yAxisId: 'left' },
   { name: 'humidity', label: 'Humidity (%)', color: 'blue.6', yAxisId: 'left' },
-  { name: 'brightness', label: 'Brightness (lux)', color: 'yellow.6', yAxisId: 'right' },
+  {
+    name: 'brightness',
+    label: 'Brightness',
+    color: 'yellow.6',
+    yAxisId: 'right',
+    curveType: 'stepAfter',
+  },
 ]
 
 function tickLabel(value) {
@@ -63,15 +70,15 @@ function fahrenheit(celsius) {
 // band is the key the probe returns once calibrated. Capturing a row takes one
 // probe at the current fixed exposure and stores its luma.
 const LIGHT_BANDS = [
-  { key: 'darkLuma', band: 'dark', label: 'Dark' },
-  { key: 'veryDimLuma', band: 'very-dim', label: 'Very dim' },
-  { key: 'dimLuma', band: 'dim', label: 'Dim' },
-  { key: 'moderateLuma', band: 'moderate', label: 'Moderate' },
-  { key: 'brightLuma', band: 'bright', label: 'Bright' },
-  { key: 'veryBrightLuma', band: 'very-bright', label: 'Very bright' },
+  { key: 'darkLuma', band: 'dark', number: 1, label: 'Dark' },
+  { key: 'veryDimLuma', band: 'very-dim', number: 2, label: 'Very dim' },
+  { key: 'dimLuma', band: 'dim', number: 3, label: 'Dim' },
+  { key: 'moderateLuma', band: 'moderate', number: 4, label: 'Moderate' },
+  { key: 'brightLuma', band: 'bright', number: 5, label: 'Bright' },
+  { key: 'veryBrightLuma', band: 'very-bright', number: 6, label: 'Very bright' },
 ]
 
-const BAND_LABELS = Object.fromEntries(LIGHT_BANDS.map((band) => [band.band, band.label]))
+const BAND_BY_NUMBER = Object.fromEntries(LIGHT_BANDS.map((band) => [band.number, band]))
 
 const BAND_COLORS = {
   dark: 'gray',
@@ -87,11 +94,58 @@ const CAMERAS = [
   { value: '2', label: 'Camera 2' },
 ]
 
-// Ambient readings from the nursery sensor: a time series kept in
-// babymonitor.environment and drawn as a chart above the raw rows. The chart
-// plots oldest to newest, while the table lists the newest sample first.
+// The environment chart's right axis is the stored band number (1-6), not a
+// lux value.
+function bandTickLabel(value) {
+  const band = BAND_BY_NUMBER[Math.round(Number(value))]
+  return band?.label ?? ''
+}
+
+// The camera-light history is bucketed by UTC hour; the environment readings
+// are hourly too, so the same key lines them up.
+function hourKey(value) {
+  return `${new Date(value).toISOString().slice(0, 13)}:00:00Z`
+}
+
+// Recharts tooltip content: temperature and humidity stay numeric, brightness
+// is shown as its band name instead of the stored band number.
+function EnvironmentTooltip({ label, payload }) {
+  if (!payload || payload.length === 0) {
+    return null
+  }
+  return (
+    <Paper withBorder p="xs" shadow="sm">
+      <Text size="xs" c="dimmed" mb={4}>
+        {label ? tickLabel(label) : ''}
+      </Text>
+      {payload.map((item) => {
+        let value = item.value
+        if (value == null) {
+          value = '—'
+        } else if (item.dataKey === 'brightness') {
+          value = BAND_BY_NUMBER[Math.round(Number(value))]?.label ?? '—'
+        } else if (item.dataKey === 'temperature') {
+          value = Number(value).toFixed(1)
+        } else {
+          value = Number(value).toFixed(0)
+        }
+        return (
+          <Text key={item.dataKey} size="sm">
+            {item.name}: {value}
+          </Text>
+        )
+      })}
+    </Paper>
+  )
+}
+
+// Ambient readings from the nursery sensor (babymonitor.environment) and the
+// camera light band history (camera_light_samples), drawn as a chart above the
+// raw rows. The chart plots oldest to newest, while the table lists the newest
+// sample first.
 export default function EnvironmentPage() {
   const [readings, setReadings] = useState([])
+  const [bands, setBands] = useState([])
   const [range, setRange] = useState(DEFAULT_RANGE)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -108,7 +162,12 @@ export default function EnvironmentPage() {
     setLoading(true)
     setError(null)
     try {
-      setReadings(await api.listEnvironment(Number(range)))
+      const [nextReadings, nextBands] = await Promise.all([
+        api.listEnvironment(Number(range)),
+        api.listCameraLightBands(Number(range)),
+      ])
+      setReadings(nextReadings)
+      setBands(nextBands)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -154,14 +213,41 @@ export default function EnvironmentPage() {
     return () => clearInterval(timer)
   }, [loadLight])
 
-  // The API and database keep Celsius; the page presents Fahrenheit.
+  // Keep the chart's brightness band in step with the sampler. The environment
+  // readings are hourly and do not need a poll; the bands can change within the
+  // current hour, so refresh just the band history once a minute.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      api.listCameraLightBands(Number(range)).then(setBands).catch(() => {})
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [range])
+
+  // The API and database keep Celsius; the page presents Fahrenheit. The
+  // environment reading's lux brightness is replaced by the camera light band
+  // for the same hour: `brightness` is the band index for the chart and
+  // `brightnessBand` is its label for the table.
+  const bandByHour = useMemo(() => {
+    const map = new Map()
+    for (const band of bands) {
+      map.set(band.hour, band.band)
+    }
+    return map
+  }, [bands])
+
   const displayReadings = useMemo(
     () =>
-      readings.map((reading) => ({
-        ...reading,
-        temperature: fahrenheit(reading.temperature),
-      })),
-    [readings],
+      readings.map((reading) => {
+        const band = bandByHour.get(hourKey(reading.eventTime)) ?? null
+        return {
+          ...reading,
+          temperature: fahrenheit(reading.temperature),
+          brightness: band,
+          brightnessBand:
+            band == null ? null : BAND_BY_NUMBER[band]?.label ?? `Band ${band}`,
+        }
+      }),
+    [readings, bandByHour],
   )
 
   // The API returns newest first; the chart wants the other way round.
@@ -253,6 +339,8 @@ export default function EnvironmentPage() {
       const saved = await api.updateCameraLight(payload)
       setLight(saved)
       setLightDraft(saved)
+      // A recalibration drops the old band history; refresh the chart/table.
+      loadReadings()
     } catch (err) {
       setLightError(err.message)
     } finally {
@@ -264,7 +352,9 @@ export default function EnvironmentPage() {
     setSampling(key)
     setLightError(null)
     try {
-      const sample = await api.sampleCameraLight()
+      // Calibration captures must not enter the Environment history; the
+      // manual "Sample now" does.
+      const sample = await api.sampleCameraLight(key === 'now' || key == null)
       setLight((current) =>
         current
           ? {
@@ -285,6 +375,8 @@ export default function EnvironmentPage() {
               }
             : current,
         )
+      } else {
+        loadReadings()
       }
     } catch (err) {
       setLightError(err.message)
@@ -324,11 +416,12 @@ export default function EnvironmentPage() {
             </Group>
 
             <Text size="sm" c="dimmed">
-              Values outside these bounds are shown in red and raise an Environment alert.
-              Temperature is shown in °F throughout the page.
+              Humidity and temperature outside these bounds are shown in red and raise an
+              Environment alert. Brightness is shown as a band from the camera light
+              calibration. Temperature is shown in °F throughout the page.
             </Text>
 
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Stack gap="xs">
                 <Text fw={600}>Humidity (%)</Text>
                 <Group grow>
@@ -365,28 +458,6 @@ export default function EnvironmentPage() {
                     max={100}
                     value={draft.temperatureHigh}
                     onChange={(value) => setBound('temperatureHigh', value)}
-                  />
-                </Group>
-              </Stack>
-
-              <Stack gap="xs">
-                <Text fw={600}>Brightness (lux)</Text>
-                <Group grow>
-                  <NumberInput
-                    label="Low"
-                    min={0}
-                    max={3000}
-                    allowDecimal={false}
-                    value={draft.brightnessLow}
-                    onChange={(value) => setBound('brightnessLow', value)}
-                  />
-                  <NumberInput
-                    label="High"
-                    min={0}
-                    max={3000}
-                    allowDecimal={false}
-                    value={draft.brightnessHigh}
-                    onChange={(value) => setBound('brightnessHigh', value)}
                   />
                 </Group>
               </Stack>
@@ -481,9 +552,14 @@ export default function EnvironmentPage() {
                 >
                   Sample now
                 </Button>
-                {light?.lastBand ? (
-                  <Badge color={BAND_COLORS[light.lastBand] ?? 'gray'} variant="light">
-                    {BAND_LABELS[light.lastBand] ?? light.lastBand}
+                {light?.lastBand != null ? (
+                  <Badge
+                    color={
+                      BAND_COLORS[BAND_BY_NUMBER[light.lastBand]?.band] ?? 'gray'
+                    }
+                    variant="light"
+                  >
+                    {BAND_BY_NUMBER[light.lastBand]?.label ?? `Band ${light.lastBand}`}
                   </Badge>
                 ) : (
                   <Badge color="gray" variant="light">
@@ -574,15 +650,22 @@ export default function EnvironmentPage() {
               dataKey="eventTime"
               series={SERIES}
               curveType="monotone"
+              connectNulls={false}
               withDots={false}
               withLegend
               withTooltip
               tooltipAnimationDuration={150}
+              tooltipProps={{ content: EnvironmentTooltip }}
               xAxisProps={{ tickFormatter: tickLabel, minTickGap: 48 }}
               yAxisProps={{ width: 48 }}
               withRightYAxis
-              rightYAxisLabel="lux"
-              rightYAxisProps={{ width: 56 }}
+              rightYAxisLabel="Band"
+              rightYAxisProps={{
+                width: 90,
+                domain: [1, 6],
+                ticks: [1, 2, 3, 4, 5, 6],
+                tickFormatter: bandTickLabel,
+              }}
             />
           </Card>
 
@@ -593,7 +676,7 @@ export default function EnvironmentPage() {
                   <Table.Th>Time</Table.Th>
                   <Table.Th>Temperature (°F)</Table.Th>
                   <Table.Th>Humidity (%)</Table.Th>
-                  <Table.Th>Brightness (lux)</Table.Th>
+                  <Table.Th>Brightness</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -608,11 +691,6 @@ export default function EnvironmentPage() {
                     bounds?.humidityLow,
                     bounds?.humidityHigh,
                   )
-                  const brightnessOut = outside(
-                    reading.brightness,
-                    bounds?.brightnessLow,
-                    bounds?.brightnessHigh,
-                  )
                   return (
                     <Table.Tr key={reading.eventTime}>
                       <Table.Td>{new Date(reading.eventTime).toLocaleString()}</Table.Td>
@@ -622,9 +700,7 @@ export default function EnvironmentPage() {
                       <Table.Td style={humidityOut ? OUT_OF_BOUNDS : undefined}>
                         {reading.humidity}
                       </Table.Td>
-                      <Table.Td style={brightnessOut ? OUT_OF_BOUNDS : undefined}>
-                        {reading.brightness}
-                      </Table.Td>
+                      <Table.Td>{reading.brightnessBand ?? '—'}</Table.Td>
                     </Table.Tr>
                   )
                 })}

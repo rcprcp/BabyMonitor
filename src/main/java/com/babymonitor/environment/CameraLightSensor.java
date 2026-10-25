@@ -1,14 +1,17 @@
 package com.babymonitor.environment;
 
+import com.babymonitor.dto.CameraLightBandDto;
 import com.babymonitor.dto.CameraLightDto;
 import com.babymonitor.dto.CameraLightSampleDto;
 import com.babymonitor.dto.UpdateCameraLightRequest;
 import com.babymonitor.entity.Camera;
 import com.babymonitor.entity.CameraLight;
+import com.babymonitor.entity.CameraLightSample;
 import com.babymonitor.entity.Setting;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -40,6 +43,9 @@ public class CameraLightSensor {
     @Inject
     LightConfig config;
 
+    @Inject
+    EntityManager em;
+
     /** The current configuration, calibration and last sample. */
     public CameraLightDto currentDto() {
         return QuarkusTransaction.requiringNew().call(() -> toDto(CameraLight.current()));
@@ -49,6 +55,8 @@ public class CameraLightSensor {
     public CameraLightDto update(UpdateCameraLightRequest request) {
         return QuarkusTransaction.requiringNew().call(() -> {
             CameraLight row = CameraLight.current();
+            // The calibration only changes how future probes map to a band; the
+            // band numbers already stored in camera_light_samples stay valid.
             row.cameraNumber = request.cameraNumber();
             row.exposureMs = request.exposureMs();
             row.enabled = request.enabled();
@@ -58,11 +66,8 @@ public class CameraLightSensor {
             row.moderateLuma = request.moderateLuma();
             row.brightLuma = request.brightLuma();
             row.veryBrightLuma = request.veryBrightLuma();
-            // A changed calibration invalidates the previous reading and alert.
-            row.lastLuma = null;
-            row.lastBand = null;
-            row.lastLux = null;
-            row.lastSampleAt = null;
+            // Keep the stored bands and the last sample; only clear the alert
+            // dedup state so a fresh excursion can alert after a recalibration.
             row.lastAlertedBand = null;
             return toDto(row);
         });
@@ -70,12 +75,25 @@ public class CameraLightSensor {
 
     /**
      * Takes one probe: manual fixed exposure, one frame from the stream, mean
-     * luma, then restore auto-exposure.
+     * luma, then restore auto-exposure. The probe is appended to the history.
      *
      * @throws IllegalStateException when the camera is not running, has no
      *                               device/port, or the probe tools fail
      */
     public CameraLightSampleDto sampleNow() {
+        return sampleNow(true);
+    }
+
+    /**
+     * Takes one probe, optionally appending it to the history.
+     *
+     * @param record whether this probe belongs in the history; calibration
+     *               captures pass {@code false} so known lighting does not
+     *               distort the Environment chart
+     * @throws IllegalStateException when the camera is not running, has no
+     *                               device/port, or the probe tools fail
+     */
+    public CameraLightSampleDto sampleNow(boolean record) {
         Probe probe = QuarkusTransaction.requiringNew().call(this::loadProbe);
         double luma;
         try {
@@ -86,17 +104,47 @@ public class CameraLightSensor {
             // halfway through, so a bad probe cannot leave the live stream dark.
             restoreAuto(probe.device());
         }
-        String band = probe.bands() == null ? null : probe.bands().bandFor(luma);
-        Integer lux = band == null ? null : CameraLightBands.proxyLux(band);
+        BrightnessBand band = probe.bands() == null ? null : probe.bands().bandFor(luma);
+        Integer bandNumber = band == null ? null : band.number();
+        Integer lux = band == null ? null : band.proxyLux();
         Instant now = Instant.now();
         QuarkusTransaction.requiringNew().run(() -> {
             CameraLight row = CameraLight.current();
             row.lastLuma = luma;
-            row.lastBand = band;
+            row.lastBand = bandNumber;
             row.lastLux = lux;
             row.lastSampleAt = now;
+            if (record && bandNumber != null && lux != null) {
+                new CameraLightSample(now, luma, bandNumber, lux).persist();
+            }
         });
-        return new CameraLightSampleDto(luma, band, lux, now.toString());
+        return new CameraLightSampleDto(luma, bandNumber, lux, now.toString());
+    }
+
+    /**
+     * The latest calibrated band in each hour for the last {@code hours} hours,
+     * oldest first. Uncalibrated probes are not recorded, so a gap means the
+     * sensor was not calibrated or not sampling.
+     */
+    public List<CameraLightBandDto> hourlyBands(int hours) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = QuarkusTransaction.requiringNew().call(() -> em.createNativeQuery("""
+                select to_char(
+                           date_trunc('hour', sampled_at at time zone 'UTC'),
+                           'YYYY-MM-DD"T"HH24:MI:SS"Z"') as hour,
+                       (array_agg(band order by sampled_at desc))[1] as band,
+                       (array_agg(proxy_lux order by sampled_at desc))[1] as proxy_lux
+                from babymonitor.camera_light_samples
+                where sampled_at >= now() - (? * interval '1 hour')
+                group by date_trunc('hour', sampled_at at time zone 'UTC')
+                order by date_trunc('hour', sampled_at at time zone 'UTC')
+                """).setParameter(1, hours).getResultList());
+        return rows.stream()
+                .map(row -> new CameraLightBandDto(
+                        (String) row[0],
+                        ((Number) row[1]).intValue(),
+                        ((Number) row[2]).intValue()))
+                .toList();
     }
 
     private Probe loadProbe() {

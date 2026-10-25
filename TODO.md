@@ -126,12 +126,14 @@ These are the ones where the app looks fine while being wrong.
 ## P4 — The features a world-class baby monitor needs
 
 - [~] **Camera-derived brightness.** The Environment page has a UVC camera
-      light sensor: pick a running camera, capture a luma for each of six bands
-      (dark .. very bright), then enable it. A probe runs every minute and raises
-      an `Environment` alert when the band's proxy lux is outside the brightness
-      bounds. It is UVC/V4L2-specific (manual exposure + the camera's MJPEG
-      stream) and needs the camera running; ONVIF and libcamera need capability
-      adapters and their own calibration before this is truly plug-and-play.
+      light sensor: pick a running camera, capture a luma for each of six numbered
+      bands (1 = dark .. 6 = very bright), then enable it. A probe runs every
+      minute, is kept as history, and raises an `Environment` alert when the
+      band's proxy lux is outside the brightness bounds; the chart and table show
+      the hourly band.
+      It is UVC/V4L2-specific (manual exposure + the camera's MJPEG stream) and
+      needs the camera running; ONVIF and libcamera need capability adapters and
+      their own calibration before this is truly plug-and-play.
 - [x] **Audio.** The HLS player was hardcoded `muted` and MJPEG carried no
       audio, so you could watch your baby but not *hear* them. The Live stream
       page now has a Listen control and volume slider: the selected camera's
