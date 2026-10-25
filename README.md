@@ -104,9 +104,9 @@ migrations.
   - twelve parameters for each of the two demo cameras, inserted only while a
     `(camera, parameter)` pair is missing so edits made on the Camera pages
     survive. Both cameras are USB cameras, addressed by `video_device`
-    (`/dev/video0`, `/dev/video4`) rather than a network URL, and both ship with
-    `enabled` false, so startup is clean and a camera only comes up when the
-    user starts it from its own page
+    (`/dev/video0`, `/dev/video4`) rather than a network URL. Both ship with
+    `enabled` false; `CameraStartup` turns them on at boot unless
+    `babymonitor.start-cameras-on-boot` is disabled
   - twenty test notifications (eleven audio, nine video with a clip link)
     spread over the previous four days, one row at a time and only while its
     description is missing, so reloading brings back any that were removed
@@ -407,12 +407,20 @@ Camera page shows a red **Camera unavailable** badge plus the reason instead of
 back in recovers without another Apply; a camera that is simply stopped still
 shows "Motion stopped".
 
-### Startup is cold
+### Startup starts every camera
 
-Nothing runs when the app starts. With `babymonitor.motion.reset-on-start` on
-(the default), boot kills any `motion` left over from a previous run and marks
-every camera not enabled — see `MotionService.resetOnStartup`. Both cameras
-therefore ship switched off in the seed, and a camera only comes up when the
+With `babymonitor.start-cameras-on-boot` on (the default), boot starts every
+camera and its audio capture, even when both were stopped the last time the app
+shut down. A camera can still be stopped and restarted from its page while the
+app runs; that state is deliberately discarded at the next boot, so a reboot
+never leaves the monitor watching nothing.
+
+The reset still runs first: with `babymonitor.motion.reset-on-start` on (the
+default), boot kills any `motion` left over from a previous run and marks every
+camera not enabled — see `MotionService.resetOnStartup`. `CameraStartup` then
+marks every camera and audio row on and brings them up, and the supervisors
+retry anything that could not start. Set `babymonitor.start-cameras-on-boot` to
+`false` to restore the older cold start, where a camera only comes up when the
 user starts it from its own page.
 
 The kill matters because a started child outlives the JVM that spawned it: a
@@ -485,9 +493,10 @@ is exactly YAMNet's input length and hop.
 `babymonitor.audio.check-interval` (15 s) it checks that every camera whose audio
 is on still has a live capture. If the process died it starts a new one, backs
 off exponentially on repeated failures (15 s to 5 min) and records a `System`
-notification, throttled to one per camera per 15 minutes. A cold start kills
-leftover captures and clears every camera's desired audio state, so audio only
-comes up when a camera (or its Audio button) starts it.
+notification, throttled to one per camera per 15 minutes. At boot the reset
+kills leftover captures and clears every camera's desired audio state, then
+`CameraStartup` marks audio on and starts every camera (see *Startup starts
+every camera* above).
 
 ### Classification
 
@@ -589,9 +598,8 @@ plays Motion's stream for the chosen one, built from the `stream_url` setting
 and that camera's `stream_port` row. It restores the account's last-viewed
 camera from the profile (`users.active_camera`, saved whenever the drop-down
 changes) and otherwise defaults to the first enabled camera — Camera 1 when it
-is running, else Camera 2. It shows no stream when the chosen camera is stopped,
-which is how a cold start looks, since both cameras come up switched off;
-starting one is done from its own Camera page. A blue title bar with a hamburger menu (upper left)
+is running, else Camera 2. It shows no stream for a stopped camera; cameras are
+started at boot, and can be stopped and restarted from their own Camera pages. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link

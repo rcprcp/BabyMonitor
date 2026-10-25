@@ -7,6 +7,7 @@ import com.babymonitor.service.NotificationService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.PreDestroy;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -165,7 +166,7 @@ public class AudioService {
      * run is killed and every camera's desired audio state is cleared, so audio
      * comes up only when a camera (or its Audio button) starts it.
      */
-    void resetOnStartup(@Observes StartupEvent event) {
+    void resetOnStartup(@Observes @Priority(100) StartupEvent event) {
         if (!config.resetOnStart()) {
             return;
         }

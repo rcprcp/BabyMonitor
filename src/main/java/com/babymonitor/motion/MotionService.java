@@ -4,6 +4,7 @@ import com.babymonitor.dto.MotionStatusDto;
 import com.babymonitor.entity.Camera;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -206,7 +207,7 @@ public class MotionService {
      * the next Apply would duplicate. Desired state is deliberately not carried
      * across restarts: the user starts a camera from its own page.
      */
-    void resetOnStartup(@Observes StartupEvent event) {
+    void resetOnStartup(@Observes @Priority(100) StartupEvent event) {
         if (!config.resetOnStart()) {
             return;
         }
