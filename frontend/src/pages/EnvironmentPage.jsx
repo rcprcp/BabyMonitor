@@ -31,7 +31,7 @@ const DEFAULT_RANGE = '168'
 // Temperature and humidity share the left axis (comparable 0-100 ranges);
 // brightness is in lux and gets its own right-hand axis.
 const SERIES = [
-  { name: 'temperature', label: 'Temperature (°C)', color: 'orange.6', yAxisId: 'left' },
+  { name: 'temperature', label: 'Temperature (°F)', color: 'orange.6', yAxisId: 'left' },
   { name: 'humidity', label: 'Humidity (%)', color: 'blue.6', yAxisId: 'left' },
   { name: 'brightness', label: 'Brightness (lux)', color: 'yellow.6', yAxisId: 'right' },
 ]
@@ -98,8 +98,18 @@ export default function EnvironmentPage() {
     loadThresholds()
   }, [loadThresholds])
 
+  // The API and database keep Celsius; the page presents Fahrenheit.
+  const displayReadings = useMemo(
+    () =>
+      readings.map((reading) => ({
+        ...reading,
+        temperature: fahrenheit(reading.temperature),
+      })),
+    [readings],
+  )
+
   // The API returns newest first; the chart wants the other way round.
-  const chartData = useMemo(() => [...readings].reverse(), [readings])
+  const chartData = useMemo(() => [...displayReadings].reverse(), [displayReadings])
 
   const boundsValid = useMemo(() => {
     if (!draft) {
@@ -176,7 +186,7 @@ export default function EnvironmentPage() {
 
             <Text size="sm" c="dimmed">
               Values outside these bounds are shown in red and raise an Environment alert.
-              Temperature bounds are in °F; the chart and table show °C.
+              Temperature is shown in °F throughout the page.
             </Text>
 
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
@@ -292,16 +302,15 @@ export default function EnvironmentPage() {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Time</Table.Th>
-                  <Table.Th>Temperature (°C)</Table.Th>
+                  <Table.Th>Temperature (°F)</Table.Th>
                   <Table.Th>Humidity (%)</Table.Th>
                   <Table.Th>Brightness (lux)</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {readings.map((reading) => {
-                  const temperatureF = fahrenheit(reading.temperature)
+                {displayReadings.map((reading) => {
                   const temperatureOut = outside(
-                    temperatureF,
+                    reading.temperature,
                     bounds?.temperatureLow,
                     bounds?.temperatureHigh,
                   )
@@ -319,7 +328,7 @@ export default function EnvironmentPage() {
                     <Table.Tr key={reading.eventTime}>
                       <Table.Td>{new Date(reading.eventTime).toLocaleString()}</Table.Td>
                       <Table.Td style={temperatureOut ? OUT_OF_BOUNDS : undefined}>
-                        {reading.temperature}
+                        {Number(reading.temperature).toFixed(1)}
                       </Table.Td>
                       <Table.Td style={humidityOut ? OUT_OF_BOUNDS : undefined}>
                         {reading.humidity}

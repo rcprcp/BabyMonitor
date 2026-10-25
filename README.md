@@ -581,8 +581,8 @@ brightness gets its own right axis. The page also edits the **alert bounds**:
 humidity 0-100% (default 30-75), temperature 32-100°F (default 66-76) and
 brightness 0-3000 lux (default 200-2000). Readings outside a bound are red in
 the table, and `EnvironmentSupervisor` records an `Environment` notification
-(toast + feed) when the newest reading is outside them; temperature bounds are
-°F while the chart and table show °C. The Camera pages show one camera's
+(toast + feed) when the newest reading is outside them. Temperature is shown in
+°F throughout the page. The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
 **Stop** takes it down. Starting/stopping a camera also starts/stops its audio.
