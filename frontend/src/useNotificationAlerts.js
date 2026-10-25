@@ -166,8 +166,29 @@ export default function useNotificationAlerts() {
       poll().then(schedule)
     }
 
-    poll().then(schedule)
-    openStream()
+    // Prime the watermark from the existing feed before opening the stream, so
+    // a restart does not replay the backlog as if it were new. This fetch only
+    // seeds the watermark (no announce, no alert); the stream's lastId catches
+    // up on anything that arrived while it ran.
+    const prime = async () => {
+      watermark.current = 0
+      try {
+        const rows = await api.listNotifications()
+        watermark.current = rows.reduce(
+          (highest, notification) => Math.max(highest, notification.id ?? 0),
+          watermark.current,
+        )
+      } catch {
+        // Leave the watermark at 0; the stream and poll will recover.
+      }
+      if (cancelled) {
+        return
+      }
+      openStream()
+      schedule()
+    }
+
+    prime()
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('online', refresh)
 

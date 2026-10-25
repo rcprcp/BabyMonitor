@@ -287,6 +287,11 @@ is visible is the safety net if an event is missed. The alert hook reconnects th
 stream with bounded backoff (1 s → 30 s) and catches up with `lastId`, instead
 of silently falling back to polling.
 
+On startup the alert hook first seeds its watermark from the existing feed, so a
+restart does not replay the backlog as a burst of new alerts; only events that
+arrive afterwards (or while that first fetch runs) alert. Alert toasts auto-close
+after 10 seconds, and **Dismiss All** also closes any that are still on screen.
+
 Because `EventSource` cannot set an `Authorization` header, this one endpoint
 also accepts the session token as a `token` query parameter. That is the only
 path where a URL-borne token is accepted; every other request must use the
