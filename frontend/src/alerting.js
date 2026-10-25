@@ -86,6 +86,16 @@ export function showAlert(notification) {
   })
 }
 
+/** Closes the toast for one notification, if it is still showing. */
+export function hideAlert(notificationId) {
+  notifications.hide(`bm-notification-${notificationId}`)
+}
+
+/** Closes every app alert toast, e.g. after Dismiss All. */
+export function hideAllAlerts() {
+  notifications.clean()
+}
+
 function titleFor(eventType) {
   if (eventType === 'Video') {
     return 'Video alert'

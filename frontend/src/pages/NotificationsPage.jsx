@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core'
 import { api } from '../api'
-import { NOTIFICATIONS_ARRIVED_EVENT } from '../alerting'
+import { NOTIFICATIONS_ARRIVED_EVENT, hideAlert, hideAllAlerts } from '../alerting'
 
 // DB-backed feed: rows come from babymonitor.notifications and are written by
 // the device webhooks, so video events link to the relevant clip. The feed is
@@ -259,6 +259,7 @@ export default function NotificationsPage() {
     try {
       await api.dismissNotification(id)
       dismissedIds.current.add(id)
+      hideAlert(id)
       setNotifications((current) => current.filter((n) => n.id !== id))
     } catch (err) {
       setError(err.message)
@@ -277,6 +278,7 @@ export default function NotificationsPage() {
     try {
       await api.dismissAllNotifications()
       notifications.forEach((notification) => dismissedIds.current.add(notification.id))
+      hideAllAlerts()
       highlightTimers.current.forEach((timer) => clearTimeout(timer))
       highlightTimers.current.clear()
       setNewIds(new Set())
