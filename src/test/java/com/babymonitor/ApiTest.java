@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.babymonitor.entity.Camera;
 import com.babymonitor.entity.Notification;
+import com.babymonitor.entity.NotificationDismissal;
+import com.babymonitor.entity.User;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -132,6 +134,18 @@ class ApiTest {
      */
     private static void deleteNotificationRow(long id) {
         QuarkusTransaction.requiringNew().run(() -> Notification.deleteById(id));
+    }
+
+    /** Removes one account's dismissal rows, for test clean-up. */
+    private static void clearDismissals(String name) {
+        Long userId = QuarkusTransaction.requiringNew().call(() -> {
+            User user = User.findByName(name);
+            return user == null ? null : user.id;
+        });
+        if (userId != null) {
+            QuarkusTransaction.requiringNew()
+                    .run(() -> NotificationDismissal.delete("userId = ?1", userId));
+        }
     }
 
     /** Whether the notification row is still stored at all. */
@@ -368,6 +382,51 @@ class ApiTest {
                 .then()
                 .statusCode(404)
                 .body("error", equalTo("No such notification: 999999999"));
+    }
+
+    @Test
+    void dismissAllRequiresAToken() {
+        given().when().delete("/api/notifications").then().statusCode(401);
+    }
+
+    @Test
+    void dismissAllClearsOnlyTheCallingAccountsFeed() {
+        String cindy = login("Cindy", "Cindy");
+        String bob = login("Bob", "Bob");
+        try {
+            assertFalse(feed(cindy).isEmpty(), "Cindy starts with the seeded feed");
+            assertFalse(feed(bob).isEmpty(), "Bob starts with the seeded feed");
+
+            given()
+                    .header("Authorization", bearer(cindy))
+                    .when()
+                    .delete("/api/notifications")
+                    .then()
+                    .statusCode(204);
+
+            assertTrue(feed(cindy).isEmpty(), "Cindy's feed is empty after Dismiss All");
+            assertFalse(feed(bob).isEmpty(), "Bob's feed is untouched");
+
+            // Idempotent: pressing it again is not an error.
+            given()
+                    .header("Authorization", bearer(cindy))
+                    .when()
+                    .delete("/api/notifications")
+                    .then()
+                    .statusCode(204);
+
+            // A notification recorded afterwards is still visible to Cindy.
+            long id = postAudioWebhook("After Dismiss All");
+            try {
+                assertTrue(
+                        feedContains(feed(cindy), "After Dismiss All"),
+                        "new events still arrive after Dismiss All");
+            } finally {
+                deleteNotificationRow(id);
+            }
+        } finally {
+            clearDismissals("Cindy");
+        }
     }
 
     @Test

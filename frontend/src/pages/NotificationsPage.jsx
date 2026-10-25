@@ -69,6 +69,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dismissingAll, setDismissingAll] = useState(false)
 
   // Ids this tab has dismissed, so a late event/poll cannot bring one back.
   const dismissedIds = useRef(new Set())
@@ -124,12 +125,19 @@ export default function NotificationsPage() {
   }, [])
 
   const applyRows = useCallback(
-    (rows, { highlightNew = true } = {}) => {
+    (rows, { highlightNew = true, replace = false } = {}) => {
+      const incoming = rows ?? []
       const known = new Set(notificationsRef.current.map((notification) => notification.id))
-      const added = (rows ?? [])
+      const added = incoming
         .filter((notification) => !known.has(notification.id))
         .map((notification) => notification.id)
-      setNotifications((current) => mergeNotifications(current, rows, dismissedIds.current))
+      if (replace) {
+        setNotifications(
+          incoming.filter((notification) => !dismissedIds.current.has(notification.id)),
+        )
+      } else {
+        setNotifications((current) => mergeNotifications(current, incoming, dismissedIds.current))
+      }
       if (highlightNew && hasLoaded.current && added.length > 0) {
         highlight(added)
       }
@@ -142,7 +150,7 @@ export default function NotificationsPage() {
     setError(null)
     try {
       const rows = await api.listNotifications()
-      applyRows(rows, { highlightNew: false })
+      applyRows(rows, { highlightNew: false, replace: true })
       hasLoaded.current = true
     } catch (err) {
       setError(err.message)
@@ -257,13 +265,47 @@ export default function NotificationsPage() {
     }
   }
 
+  const dismissAll = async () => {
+    if (notifications.length === 0) {
+      return
+    }
+    if (!window.confirm('Dismiss all notifications?')) {
+      return
+    }
+    setDismissingAll(true)
+    setError(null)
+    try {
+      await api.dismissAllNotifications()
+      notifications.forEach((notification) => dismissedIds.current.add(notification.id))
+      highlightTimers.current.forEach((timer) => clearTimeout(timer))
+      highlightTimers.current.clear()
+      setNewIds(new Set())
+      setNotifications([])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDismissingAll(false)
+    }
+  }
+
   return (
     <Stack>
       <Group justify="space-between" align="center">
         <Title order={2}>Notifications</Title>
-        <Button variant="default" onClick={load} loading={loading}>
-          Refresh
-        </Button>
+        <Group gap="sm">
+          <Button
+            variant="light"
+            color="red"
+            onClick={dismissAll}
+            loading={dismissingAll}
+            disabled={loading || dismissingAll || notifications.length === 0}
+          >
+            Dismiss All
+          </Button>
+          <Button variant="default" onClick={load} loading={loading}>
+            Refresh
+          </Button>
+        </Group>
       </Group>
 
       {error && (

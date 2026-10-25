@@ -171,6 +171,7 @@ webhooks.
 | PUT         | `/api/users/me/active-camera`          | `{ "activeCamera" }`: last camera |
 | GET         | `/api/notifications`                   | newest first, minus my dismissals |
 | GET         | `/api/notifications/stream`            | server-sent events: live push of new notifications (`?token=`, `?lastId=`) |
+| DELETE      | `/api/notifications`                   | dismiss the whole feed for my account |
 | DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
 | GET         | `/api/cameras`                         | every camera parameter         |
@@ -246,6 +247,11 @@ Dismissing is idempotent — a second call still returns `204` — and an id tha
 not a notification at all returns `404`. There is no way to dismiss an event for
 the household through the API: nothing deletes notification rows any more.
 
+`DELETE /api/notifications` dismisses **every** notification for the calling
+account in one statement; it is what the page's **Dismiss All** button calls. It
+is idempotent and still per account: other accounts keep their feed, and a
+notification recorded afterwards is visible again.
+
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' -d '{"name":"Bob","password":"Bob"}' \
@@ -253,6 +259,9 @@ TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
 
 curl -X DELETE http://localhost:8080/api/notifications/4 \
   -H "Authorization: Bearer $TOKEN"   # -> 204, hidden for Bob only
+
+curl -X DELETE http://localhost:8080/api/notifications \
+  -H "Authorization: Bearer $TOKEN"   # -> 204, clears Bob's whole feed
 ```
 
 A freshly initialized database has the twenty seeded test notifications to try
@@ -567,7 +576,8 @@ meter and a volume slider that play the selected camera's audio.
 
 The Notifications page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly
-as a fallback, and Refresh forces a full reload. Rows that arrive while the page
+as a fallback, and Refresh forces a full reload. **Dismiss All**, next to
+Refresh, clears the whole feed for the account. Rows that arrive while the page
 is open carry a **New** badge and a blue left accent for ten seconds. A video
 event links the clip through the app's recordings route; because that route
 needs the bearer token, a plain link could not fetch it, so the page pulls the

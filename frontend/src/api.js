@@ -125,6 +125,7 @@ export const api = {
   listNotifications: () => request('GET', '/api/notifications'),
   dismissNotification: (id) =>
     request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
+  dismissAllNotifications: () => request('DELETE', '/api/notifications'),
 
   // Ambient readings, newest first. `limit` caps the number of rows.
   listEnvironment: (limit) =>
