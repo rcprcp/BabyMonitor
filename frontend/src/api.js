@@ -139,8 +139,18 @@ export const api = {
   updateCameraLight: (config) => request('PUT', '/api/environment/light', config),
   listCameraLightBands: (hours) =>
     request('GET', `/api/environment/light/samples?hours=${hours}`),
-  sampleCameraLight: (record = true) =>
-    request('POST', `/api/environment/light/sample?record=${record}`),
+  // A calibration capture passes the form's camera and exposure so it probes
+  // what is on screen, not the last saved configuration.
+  sampleCameraLight: (record = true, cameraNumber, exposureMs) => {
+    const params = new URLSearchParams({ record })
+    if (Number.isFinite(cameraNumber)) {
+      params.set('cameraNumber', cameraNumber)
+    }
+    if (Number.isFinite(exposureMs)) {
+      params.set('exposureMs', exposureMs)
+    }
+    return request('POST', `/api/environment/light/sample?${params}`)
+  },
 
   listCameras: () => request('GET', '/api/cameras'),
   getCamera: (cameraNumber) => request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}`),

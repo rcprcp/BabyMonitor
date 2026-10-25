@@ -201,7 +201,7 @@ webhooks.
 | GET         | `/api/environment/light`               | camera light config, calibration and last sample |
 | GET         | `/api/environment/light/samples`       | hourly band numbers 1–6 (`?hours=`, 1–2000, default 168) |
 | PUT         | `/api/environment/light`               | `{ cameraNumber, exposureMs, enabled, six lumas }` |
-| POST        | `/api/environment/light/sample`        | one fixed-exposure probe; `?record=false` for calibration; 409 when the camera is down |
+| POST        | `/api/environment/light/sample`        | one fixed-exposure probe; optional `?cameraNumber=&exposureMs=`; `?record=false` for calibration; 409 when the camera is down |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
@@ -602,19 +602,23 @@ lists the raw rows under it. Temperature and humidity share the left axis;
 brightness is the camera light's band on its own right axis, stored as a number
 1–6 (1 = dark, 2 = very dim, 3 = dim, 4 = moderate, 5 = bright, 6 = very
 bright). The page also edits the **alert bounds** for humidity (0-100%, default
-30-75) and temperature (32-100°F, default 66-76). Humidity and temperature
-outside a bound are red in the table, and `EnvironmentSupervisor` records an
-`Environment` notification (toast + feed) when the newest reading is outside
-them. The stored brightness bounds (0-3000 lux, default 200-2000) drive the
-camera light band alert, but are not edited on this page. Temperature is shown
-in °F throughout the page.
+30-75), temperature (32-100°F, default 66-76) and brightness (0-3000 proxy lux,
+default 200-2000). Humidity and temperature outside a bound are red in the table,
+and `EnvironmentSupervisor` records an `Environment` notification (toast +
+feed) when the newest reading is outside them. The brightness bounds drive the
+camera light band alert: each band has a representative lux (1, 10, 50, 300,
+1000 or 3000), so setting a bound to 200-2000, for example, alerts on bands 1-3
+and 6. Temperature is shown in °F throughout the page.
 
 The same page has a **Camera light** card for a camera-derived brightness band.
-Plug in: choose a running camera and a fixed exposure. Calibrate: capture a luma
-for each of the six bands; the cut points are the midpoints between the captured
-lumas, so the bands follow that camera's response. The band itself is stored as
-its number; the captured lumas only map a new probe to that number, so
-recalibrating never renumbers stored bands. Play: enable the sensor;
+The picker lists the cameras from the camera table and marks a camera that is
+not running; the probe buttons are disabled for it because the probe reads that
+camera's MJPEG stream. Plug in: choose a running camera and a fixed exposure.
+Calibrate: capture a luma for each of the six bands; a capture uses the camera
+and exposure currently in the form even before they are saved. The cut points
+are the midpoints between the captured lumas, so the bands follow that camera's
+response. The band itself is stored as its number; the captured lumas only map
+a new probe to that number, so recalibrating never renumbers stored bands. Play: enable the sensor;
 `CameraLightSupervisor` probes once a minute, maps the mean luma to a band,
 records the probe, and raises an `Environment` alert when the band's proxy lux
 (1, 10, 50, 300, 1000 or 3000) is outside the brightness bounds. The Environment

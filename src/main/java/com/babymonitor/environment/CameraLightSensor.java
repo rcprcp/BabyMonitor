@@ -94,7 +94,26 @@ public class CameraLightSensor {
      *                               device/port, or the probe tools fail
      */
     public CameraLightSampleDto sampleNow(boolean record) {
-        Probe probe = QuarkusTransaction.requiringNew().call(this::loadProbe);
+        return sampleNow(record, null, null);
+    }
+
+    /**
+     * Takes one probe, optionally using a camera and exposure that have not been
+     * saved yet. The Environment page passes its draft values here so a
+     * calibration capture always probes the camera and exposure on screen,
+     * rather than the last saved configuration.
+     *
+     * @param record       whether this probe belongs in the history; calibration
+     *                     captures pass {@code false}
+     * @param cameraNumber the camera to probe, or {@code null} for the saved one
+     * @param exposureMs   the fixed exposure to use, or {@code null} for the
+     *                     saved one
+     * @throws IllegalStateException when the camera is not running, has no
+     *                               device/port, or the probe tools fail
+     */
+    public CameraLightSampleDto sampleNow(boolean record, Integer cameraNumber, Integer exposureMs) {
+        Probe probe = QuarkusTransaction.requiringNew()
+                .call(() -> loadProbe(cameraNumber, exposureMs));
         double luma;
         try {
             setManual(probe.device(), probe.exposureMs());
@@ -147,30 +166,32 @@ public class CameraLightSensor {
                 .toList();
     }
 
-    private Probe loadProbe() {
+    /**
+     * Resolves the camera, exposure and stream target for one probe. The saved
+     * row supplies anything not overridden, and always supplies the calibration
+     * used to map the measured luma to a band.
+     */
+    Probe loadProbe(Integer cameraNumber, Integer exposureMs) {
         CameraLight row = CameraLight.current();
-        List<Camera> parameters = Camera.listByCamera(row.cameraNumber);
+        int camera = cameraNumber != null ? cameraNumber : row.cameraNumber;
+        int exposure = exposureMs != null ? exposureMs : row.exposureMs;
+        List<Camera> parameters = Camera.listByCamera(camera);
         if (parameters.isEmpty()) {
-            throw new IllegalStateException("No such camera: " + row.cameraNumber);
+            throw new IllegalStateException("No such camera: " + camera);
         }
         String device = parameter(parameters, "video_device");
         String port = parameter(parameters, "stream_port");
         Setting base = Setting.findByTag("stream_url");
         if (device == null || device.isBlank()) {
             throw new IllegalStateException(
-                    "Camera " + row.cameraNumber + " has no video_device parameter");
+                    "Camera " + camera + " has no video_device parameter");
         }
         if (port == null || port.isBlank() || base == null || base.value.isBlank()) {
             throw new IllegalStateException(
-                    "Camera " + row.cameraNumber + " has no stream_port/stream_url");
+                    "Camera " + camera + " has no stream_port/stream_url");
         }
         String url = base.value.replaceAll("/+$", "") + ":" + port;
-        return new Probe(
-                row.cameraNumber,
-                row.exposureMs,
-                device,
-                url,
-                CameraLightBands.from(row));
+        return new Probe(camera, exposure, device, url, CameraLightBands.from(row));
     }
 
     private void setManual(String device, int exposureMs) {
@@ -268,7 +289,8 @@ public class CameraLightSensor {
                 row.lastSampleAt == null ? null : row.lastSampleAt.toString());
     }
 
-    private record Probe(
+    /** A probe's resolved target; package-private so tests can inspect it. */
+    record Probe(
             int cameraNumber, int exposureMs, String device, String url, CameraLightBands bands) {
     }
 }

@@ -13,6 +13,7 @@ import com.babymonitor.entity.CameraLightSample;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -23,6 +24,9 @@ import org.junit.jupiter.api.Test;
 /** The camera light configuration/calibration API. */
 @QuarkusTest
 class CameraLightApiTest {
+
+    @Inject
+    CameraLightSensor sensor;
 
     @AfterEach
     void reset() {
@@ -87,6 +91,53 @@ class CameraLightApiTest {
                 .body("[0].band", is(3))
                 .body("[1].band", is(4))
                 .body("[0].hour", endsWith(":00:00Z"));
+    }
+
+    @Test
+    void aProbeUsesTheRequestedCameraAndExposure() {
+        CameraLightSensor.Probe probe = QuarkusTransaction.requiringNew()
+                .call(() -> sensor.loadProbe(2, 35));
+
+        assertEquals(2, probe.cameraNumber());
+        assertEquals(35, probe.exposureMs());
+    }
+
+    @Test
+    void aProbeFallsBackToTheSavedCameraAndExposure() {
+        CameraLightSensor.Probe probe = QuarkusTransaction.requiringNew()
+                .call(() -> sensor.loadProbe(null, null));
+
+        assertEquals(1, probe.cameraNumber());
+        assertEquals(20, probe.exposureMs());
+    }
+
+    @Test
+    void sampleRejectsInvalidOverrides() {
+        String token = login();
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .post("/api/environment/light/sample?cameraNumber=999")
+                .then()
+                .statusCode(400)
+                .body("error", containsString("No such camera: 999"));
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .post("/api/environment/light/sample?exposureMs=0")
+                .then()
+                .statusCode(400)
+                .body("error", containsString("exposureMs must be"));
+
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .post("/api/environment/light/sample?exposureMs=151")
+                .then()
+                .statusCode(400)
+                .body("error", containsString("exposureMs must be"));
     }
 
     @Test

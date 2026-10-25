@@ -89,11 +89,6 @@ const BAND_COLORS = {
   'very-bright': 'orange',
 }
 
-const CAMERAS = [
-  { value: '1', label: 'Camera 1' },
-  { value: '2', label: 'Camera 2' },
-]
-
 // The environment chart's right axis is the stored band number (1-6), not a
 // lux value.
 function bandTickLabel(value) {
@@ -157,6 +152,8 @@ export default function EnvironmentPage() {
   const [lightError, setLightError] = useState(null)
   const [sampling, setSampling] = useState(null)
   const [savingLight, setSavingLight] = useState(false)
+  const [cameras, setCameras] = useState([])
+  const [cameraError, setCameraError] = useState(null)
 
   const loadReadings = useCallback(async () => {
     setLoading(true)
@@ -212,6 +209,45 @@ export default function EnvironmentPage() {
     }, 10000)
     return () => clearInterval(timer)
   }, [loadLight])
+
+  // The picker is the camera table, not a hard-coded pair. The probe reads the
+  // camera's MJPEG stream, so also track whether Motion is actually running and
+  // block a capture that could only fail with a 409.
+  const loadCameras = useCallback(async () => {
+    try {
+      const parameters = await api.listCameras()
+      const numbers = [...new Set(parameters.map((parameter) => parameter.cameraNumber))].sort(
+        (left, right) => left - right,
+      )
+      const running = await Promise.all(
+        numbers.map(async (cameraNumber) => {
+          try {
+            const status = await api.getCameraMotion(cameraNumber)
+            return status.running
+          } catch {
+            // Keep the camera selectable; the probe still reports a real error.
+            return null
+          }
+        }),
+      )
+      setCameras(
+        numbers.map((cameraNumber, index) => ({
+          value: String(cameraNumber),
+          label: `Camera ${cameraNumber}`,
+          running: running[index],
+        })),
+      )
+      setCameraError(null)
+    } catch (err) {
+      setCameraError(err.message)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCameras()
+    const timer = setInterval(loadCameras, 15000)
+    return () => clearInterval(timer)
+  }, [loadCameras])
 
   // Keep the chart's brightness band in step with the sampler. The environment
   // readings are hourly and do not need a poll; the bands can change within the
@@ -318,6 +354,29 @@ export default function EnvironmentPage() {
     [lightDraft, lightCalibrated],
   )
 
+  // Merge the saved camera into the picker even if its rows have been deleted,
+  // and label a stopped camera so the disabled probe buttons make sense.
+  const cameraOptions = useMemo(() => {
+    const options = cameras.map((camera) => ({
+      value: camera.value,
+      label: camera.running === false ? `${camera.label} (stopped)` : camera.label,
+    }))
+    const current = lightDraft?.cameraNumber
+    if (current != null && !options.some((option) => option.value === String(current))) {
+      options.push({ value: String(current), label: `Camera ${current}` })
+    }
+    return options
+  }, [cameras, lightDraft])
+
+  const selectedCamera = useMemo(
+    () => cameras.find((camera) => camera.value === String(lightDraft?.cameraNumber)) ?? null,
+    [cameras, lightDraft],
+  )
+
+  // Unknown status (the call failed) does not block sampling; a stopped camera
+  // does, because the probe could only return a 409.
+  const cameraStopped = selectedCamera?.running === false
+
   const saveLight = async () => {
     if (!lightValid) {
       return
@@ -353,8 +412,13 @@ export default function EnvironmentPage() {
     setLightError(null)
     try {
       // Calibration captures must not enter the Environment history; the
-      // manual "Sample now" does.
-      const sample = await api.sampleCameraLight(key === 'now' || key == null)
+      // manual "Sample now" does. Pass the draft camera and exposure so a
+      // capture probes exactly the values on screen, saved or not.
+      const sample = await api.sampleCameraLight(
+        key === 'now' || key == null,
+        lightDraft?.cameraNumber,
+        lightDraft?.exposureMs,
+      )
       setLight((current) =>
         current
           ? {
@@ -418,10 +482,11 @@ export default function EnvironmentPage() {
             <Text size="sm" c="dimmed">
               Humidity and temperature outside these bounds are shown in red and raise an
               Environment alert. Brightness is shown as a band from the camera light
-              calibration. Temperature is shown in °F throughout the page.
+              calibration, and its alert compares the band&apos;s representative lux with these
+              bounds. Temperature is shown in °F throughout the page.
             </Text>
 
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
               <Stack gap="xs">
                 <Text fw={600}>Humidity (%)</Text>
                 <Group grow>
@@ -458,6 +523,28 @@ export default function EnvironmentPage() {
                     max={100}
                     value={draft.temperatureHigh}
                     onChange={(value) => setBound('temperatureHigh', value)}
+                  />
+                </Group>
+              </Stack>
+
+              <Stack gap="xs">
+                <Text fw={600}>Brightness (proxy lux)</Text>
+                <Group grow>
+                  <NumberInput
+                    label="Low"
+                    min={0}
+                    max={3000}
+                    allowDecimal={false}
+                    value={draft.brightnessLow}
+                    onChange={(value) => setBound('brightnessLow', value)}
+                  />
+                  <NumberInput
+                    label="High"
+                    min={0}
+                    max={3000}
+                    allowDecimal={false}
+                    value={draft.brightnessHigh}
+                    onChange={(value) => setBound('brightnessHigh', value)}
                   />
                 </Group>
               </Stack>
@@ -507,8 +594,11 @@ export default function EnvironmentPage() {
               <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                 <Select
                   label="Camera"
-                  data={CAMERAS}
-                  value={String(lightDraft.cameraNumber)}
+                  data={cameraOptions}
+                  value={
+                    lightDraft.cameraNumber == null ? null : String(lightDraft.cameraNumber)
+                  }
+                  placeholder="Choose a camera"
                   onChange={(value) =>
                     value &&
                     setLightDraft((current) => ({
@@ -543,12 +633,25 @@ export default function EnvironmentPage() {
                 />
               </SimpleGrid>
 
+              {cameraStopped && (
+                <Alert color="yellow" variant="light">
+                  {selectedCamera?.label} is not running. Start it from its Camera page before
+                  sampling or capturing a calibration.
+                </Alert>
+              )}
+
+              {cameraError && (
+                <Alert color="red" variant="light">
+                  Could not load the cameras: {cameraError}
+                </Alert>
+              )}
+
               <Group gap="sm" wrap="wrap">
                 <Button
                   variant="light"
                   onClick={() => sampleLight('now')}
                   loading={sampling === 'now'}
-                  disabled={sampling !== null}
+                  disabled={sampling !== null || cameraStopped}
                 >
                   Sample now
                 </Button>
@@ -600,7 +703,7 @@ export default function EnvironmentPage() {
                           variant="light"
                           onClick={() => sampleLight(band.key)}
                           loading={sampling === band.key}
-                          disabled={sampling !== null}
+                          disabled={sampling !== null || cameraStopped}
                         >
                           Capture
                         </Button>
