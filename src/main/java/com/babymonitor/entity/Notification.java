@@ -34,7 +34,8 @@ public class Notification extends PanacheEntityBase {
 
     /**
      * {@link EventType#Video} for clip alerts, {@link EventType#Audio} for
-     * sound alerts and {@link EventType#System} for app health alerts.
+     * sound alerts, {@link EventType#System} for app health alerts and
+     * {@link EventType#Environment} for nursery threshold alerts.
      *
      * <p>{@code NAMED_ENUM} tells Hibernate to bind the value as the native
      * PostgreSQL enum type named by {@code columnDefinition}, rather than as a

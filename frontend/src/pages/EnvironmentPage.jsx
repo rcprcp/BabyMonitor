@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
+  Button,
   Card,
   Center,
   Group,
   Loader,
+  NumberInput,
   SegmentedControl,
+  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -41,6 +44,18 @@ function tickLabel(value) {
   })
 }
 
+// A reading outside its saved bound is called out in the table; the temperature
+// comparison converts the stored Celsius reading to the Fahrenheit bound.
+const OUT_OF_BOUNDS = { color: 'var(--mantine-color-red-6)', fontWeight: 600 }
+
+function outside(value, low, high) {
+  return value != null && low != null && high != null && (value < low || value > high)
+}
+
+function fahrenheit(celsius) {
+  return (Number(celsius) * 9) / 5 + 32
+}
+
 // Ambient readings from the nursery sensor: a time series kept in
 // babymonitor.environment and drawn as a chart above the raw rows. The chart
 // plots oldest to newest, while the table lists the newest sample first.
@@ -49,8 +64,11 @@ export default function EnvironmentPage() {
   const [range, setRange] = useState(DEFAULT_RANGE)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [bounds, setBounds] = useState(null)
+  const [draft, setDraft] = useState(null)
+  const [saving, setSaving] = useState(false)
 
-  const load = useCallback(async () => {
+  const loadReadings = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -62,12 +80,69 @@ export default function EnvironmentPage() {
     }
   }, [range])
 
+  const loadThresholds = useCallback(async () => {
+    try {
+      const thresholds = await api.getEnvironmentThresholds()
+      setBounds(thresholds)
+      setDraft(thresholds)
+    } catch (err) {
+      setError(err.message)
+    }
+  }, [])
+
   useEffect(() => {
-    load()
-  }, [load])
+    loadReadings()
+  }, [loadReadings])
+
+  useEffect(() => {
+    loadThresholds()
+  }, [loadThresholds])
 
   // The API returns newest first; the chart wants the other way round.
   const chartData = useMemo(() => [...readings].reverse(), [readings])
+
+  const boundsValid = useMemo(() => {
+    if (!draft) {
+      return false
+    }
+    const pairs = [
+      [draft.humidityLow, draft.humidityHigh, 0, 100],
+      [draft.temperatureLow, draft.temperatureHigh, 32, 100],
+      [draft.brightnessLow, draft.brightnessHigh, 0, 3000],
+    ]
+    return pairs.every(
+      ([low, high, min, max]) =>
+        Number.isFinite(low) &&
+        Number.isFinite(high) &&
+        low >= min &&
+        high <= max &&
+        low < high,
+    )
+  }, [draft])
+
+  const setBound = (key, value) => {
+    setDraft((current) => ({
+      ...current,
+      [key]: value === '' || value === undefined ? null : value,
+    }))
+  }
+
+  const saveBounds = async () => {
+    if (!boundsValid) {
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const updated = await api.updateEnvironmentThresholds(draft)
+      setBounds(updated)
+      setDraft(updated)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <Stack>
@@ -79,6 +154,103 @@ export default function EnvironmentPage() {
           {readings.length} readings
         </Text>
       </Group>
+
+      {draft && (
+        <Card withBorder padding="md">
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <Title order={4}>Alert bounds</Title>
+              <Group gap="sm">
+                <Button
+                  variant="default"
+                  onClick={() => setDraft(bounds)}
+                  disabled={saving}
+                >
+                  Reset
+                </Button>
+                <Button onClick={saveBounds} loading={saving} disabled={!boundsValid}>
+                  Save bounds
+                </Button>
+              </Group>
+            </Group>
+
+            <Text size="sm" c="dimmed">
+              Values outside these bounds are shown in red and raise an Environment alert.
+              Temperature bounds are in °F; the chart and table show °C.
+            </Text>
+
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+              <Stack gap="xs">
+                <Text fw={600}>Humidity (%)</Text>
+                <Group grow>
+                  <NumberInput
+                    label="Low"
+                    min={0}
+                    max={100}
+                    value={draft.humidityLow}
+                    onChange={(value) => setBound('humidityLow', value)}
+                  />
+                  <NumberInput
+                    label="High"
+                    min={0}
+                    max={100}
+                    value={draft.humidityHigh}
+                    onChange={(value) => setBound('humidityHigh', value)}
+                  />
+                </Group>
+              </Stack>
+
+              <Stack gap="xs">
+                <Text fw={600}>Temperature (°F)</Text>
+                <Group grow>
+                  <NumberInput
+                    label="Low"
+                    min={32}
+                    max={100}
+                    value={draft.temperatureLow}
+                    onChange={(value) => setBound('temperatureLow', value)}
+                  />
+                  <NumberInput
+                    label="High"
+                    min={32}
+                    max={100}
+                    value={draft.temperatureHigh}
+                    onChange={(value) => setBound('temperatureHigh', value)}
+                  />
+                </Group>
+              </Stack>
+
+              <Stack gap="xs">
+                <Text fw={600}>Brightness (lux)</Text>
+                <Group grow>
+                  <NumberInput
+                    label="Low"
+                    min={0}
+                    max={3000}
+                    allowDecimal={false}
+                    value={draft.brightnessLow}
+                    onChange={(value) => setBound('brightnessLow', value)}
+                  />
+                  <NumberInput
+                    label="High"
+                    min={0}
+                    max={3000}
+                    allowDecimal={false}
+                    value={draft.brightnessHigh}
+                    onChange={(value) => setBound('brightnessHigh', value)}
+                  />
+                </Group>
+              </Stack>
+            </SimpleGrid>
+
+            {!boundsValid && (
+              <Text size="sm" c="red">
+                Low must be below high and inside the allowed range.
+              </Text>
+            )}
+          </Stack>
+        </Card>
+      )}
 
       {error && (
         <Alert color="red" variant="light">
@@ -126,14 +298,38 @@ export default function EnvironmentPage() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {readings.map((reading) => (
-                  <Table.Tr key={reading.eventTime}>
-                    <Table.Td>{new Date(reading.eventTime).toLocaleString()}</Table.Td>
-                    <Table.Td>{reading.temperature}</Table.Td>
-                    <Table.Td>{reading.humidity}</Table.Td>
-                    <Table.Td>{reading.brightness}</Table.Td>
-                  </Table.Tr>
-                ))}
+                {readings.map((reading) => {
+                  const temperatureF = fahrenheit(reading.temperature)
+                  const temperatureOut = outside(
+                    temperatureF,
+                    bounds?.temperatureLow,
+                    bounds?.temperatureHigh,
+                  )
+                  const humidityOut = outside(
+                    reading.humidity,
+                    bounds?.humidityLow,
+                    bounds?.humidityHigh,
+                  )
+                  const brightnessOut = outside(
+                    reading.brightness,
+                    bounds?.brightnessLow,
+                    bounds?.brightnessHigh,
+                  )
+                  return (
+                    <Table.Tr key={reading.eventTime}>
+                      <Table.Td>{new Date(reading.eventTime).toLocaleString()}</Table.Td>
+                      <Table.Td style={temperatureOut ? OUT_OF_BOUNDS : undefined}>
+                        {reading.temperature}
+                      </Table.Td>
+                      <Table.Td style={humidityOut ? OUT_OF_BOUNDS : undefined}>
+                        {reading.humidity}
+                      </Table.Td>
+                      <Table.Td style={brightnessOut ? OUT_OF_BOUNDS : undefined}>
+                        {reading.brightness}
+                      </Table.Td>
+                    </Table.Tr>
+                  )
+                })}
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>

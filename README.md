@@ -60,8 +60,8 @@ migrations.
   - `babymonitor.notifications` (`id`, `event_time`, `event_type`,
     `description`, `video_link`) — the feed behind the Notifications page.
     `event_type` is the PostgreSQL enum `babymonitor.event_type` with the values
-    `Video`, `Audio` and `System` (the last is written by the Motion supervisor;
-    see *Motion* below)
+    `Video`, `Audio`, `System` and `Environment` (the last two are written by the
+    Motion and Environment supervisors; see *Motion* and *Environment* below)
   - `babymonitor.notification_dismissals` (`notification_id`, `user_id`,
     `dismissed_at`) — one row per notification an account has dismissed. The
     pair is the primary key, so dismissing twice is a no-op, and the feed lists
@@ -110,6 +110,11 @@ migrations.
   switch per YAMNet class, seeded with the Speech & Human Sounds group on
 - `V7__extend_default_audio_alerts.sql` — extends the default alert set from
   classes 0-23 to 0-61 (the human-sound start of Singing & Music Genres)
+- `V8__add_environment_thresholds.sql` — adds `environment_thresholds`, the
+  high/low bounds edited on the Environment page
+- `V9__add_environment_event_type.sql` — adds `Environment` to the event enum
+- `V10__add_environment_last_checked.sql` — records the newest environment
+  reading the supervisor has already checked
 
 ## Build & run
 
@@ -174,6 +179,8 @@ webhooks.
 | DELETE      | `/api/notifications`                   | dismiss the whole feed for my account |
 | DELETE      | `/api/notifications/{id}`              | dismiss for my account only    |
 | GET         | `/api/environment`                     | ambient readings, newest first (`?limit=`, 1–2000, default 168) |
+| GET         | `/api/environment/thresholds`          | humidity/temperature/brightness bounds |
+| PUT         | `/api/environment/thresholds`          | `{ six bounds }`: replace the bounds |
 | GET         | `/api/cameras`                         | every camera parameter         |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
@@ -570,7 +577,12 @@ like `/settings` works on refresh.
 
 The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
 lists the raw rows under it. Temperature and humidity share the left axis;
-brightness gets its own right axis. The Camera pages show one camera's
+brightness gets its own right axis. The page also edits the **alert bounds**:
+humidity 0-100% (default 30-75), temperature 32-100°F (default 66-76) and
+brightness 0-3000 lux (default 200-2000). Readings outside a bound are red in
+the table, and `EnvironmentSupervisor` records an `Environment` notification
+(toast + feed) when the newest reading is outside them; temperature bounds are
+°F while the chart and table show °C. The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
 and **Start/Apply** rebuilds the config and (re)starts its Motion process while
 **Stop** takes it down. Starting/stopping a camera also starts/stops its audio.

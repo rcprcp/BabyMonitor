@@ -32,10 +32,12 @@ These are the ones where the app looks fine while being wrong.
       backoff (0/1/2/3/5 s) before showing the error, but the HLS path still has
       no retry and neither path has a manual Retry button
       (`StreamPlayer.jsx`). Add the HLS retry and a Retry control.
-- [ ] **Environment threshold alerting.** Readings are charted
-      (`EnvironmentPage.jsx`, `EnvironmentResource`) but nothing ever fires when
-      the nursery is too hot, too cold, or too humid. For a baby monitor this is
-      a safety feature, not a chart. Add configurable thresholds + notifications.
+- [x] **Environment threshold alerting.** The Environment page stores high/low
+      bounds for humidity (0-100%, default 30-75), temperature (32-100°F, default
+      66-76) and brightness (0-3000 lux, default 200-2000); readings outside them
+      are red in the table. `EnvironmentSupervisor` checks the newest reading
+      every 60 s and records an `Environment` notification (toast + feed) when a
+      value is outside its bounds.
 - [x] **Fix the failing test.** `ApiTest.cameraReturnsItsParametersInNameOrder`
       used to assert seeded values (`width=1280`) that the UI is designed to
       change, so it failed against any database a user had used. It now checks
