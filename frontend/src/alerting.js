@@ -103,6 +103,9 @@ function titleFor(eventType) {
   if (eventType === 'Audio') {
     return 'Audio alert'
   }
+  if (eventType === 'Environment') {
+    return 'Environment alert'
+  }
   return 'Monitor alert'
 }
 
@@ -112,6 +115,9 @@ function colorFor(eventType) {
   }
   if (eventType === 'Audio') {
     return 'blue'
+  }
+  if (eventType === 'Environment') {
+    return 'teal'
   }
   return 'orange'
 }

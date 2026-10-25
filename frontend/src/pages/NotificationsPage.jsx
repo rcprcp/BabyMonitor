@@ -40,6 +40,9 @@ function badgeColor(eventType) {
   if (eventType === 'Audio') {
     return 'grape'
   }
+  if (eventType === 'Environment') {
+    return 'teal'
+  }
   return 'orange'
 }
 

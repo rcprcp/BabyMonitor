@@ -130,6 +130,9 @@ export const api = {
   // Ambient readings, newest first. `limit` caps the number of rows.
   listEnvironment: (limit) =>
     request('GET', limit === undefined ? '/api/environment' : `/api/environment?limit=${limit}`),
+  getEnvironmentThresholds: () => request('GET', '/api/environment/thresholds'),
+  updateEnvironmentThresholds: (thresholds) =>
+    request('PUT', '/api/environment/thresholds', thresholds),
 
   listCameras: () => request('GET', '/api/cameras'),
   getCamera: (cameraNumber) => request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}`),
