@@ -124,6 +124,17 @@ public class NotificationService {
         return true;
     }
 
+    /**
+     * Marks every notification dismissed for one account, so the feed is empty
+     * for that account only. Idempotent.
+     *
+     * @param userId the account dismissing them, from its session
+     */
+    @Transactional
+    public void dismissAll(Long userId) {
+        NotificationDismissal.dismissAll(userId);
+    }
+
     private static NotificationDto toDto(Notification notification) {
         return new NotificationDto(
                 notification.id,

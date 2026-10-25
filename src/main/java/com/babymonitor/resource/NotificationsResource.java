@@ -104,6 +104,17 @@ public class NotificationsResource {
     }
 
     @DELETE
+    @Operation(
+            summary = "Dismiss every notification",
+            description = "Dismisses the whole feed for the calling account only. Idempotent.")
+    @APIResponse(responseCode = "204", description = "Dismissed")
+    public Response dismissAll(@Context ContainerRequestContext requestContext) {
+        User user = currentUser(requestContext);
+        notifications.dismissAll(user.id);
+        return Response.noContent().build();
+    }
+
+    @DELETE
     @Path("/{id}")
     @Operation(
             summary = "Dismiss a notification",

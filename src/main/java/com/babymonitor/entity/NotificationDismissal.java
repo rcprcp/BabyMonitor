@@ -57,6 +57,20 @@ public class NotificationDismissal extends PanacheEntityBase {
                 .executeUpdate();
     }
 
+    /**
+     * Marks every notification dismissed for one account, in one statement.
+     * Existing pairs are ignored, so pressing the button twice is harmless.
+     */
+    public static void dismissAll(Long userId) {
+        getEntityManager()
+                .createNativeQuery("INSERT INTO babymonitor.notification_dismissals "
+                        + "(notification_id, user_id) "
+                        + "SELECT n.id, ?1 FROM babymonitor.notifications n "
+                        + "ON CONFLICT DO NOTHING")
+                .setParameter(1, userId)
+                .executeUpdate();
+    }
+
     /** Composite key of {@link NotificationDismissal}. */
     public static class Key implements Serializable {
 
