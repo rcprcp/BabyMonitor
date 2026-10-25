@@ -8,6 +8,10 @@ import { notifications } from '@mantine/notifications'
 // the Notifications page can refresh its list without polling itself.
 export const NOTIFICATIONS_ARRIVED_EVENT = 'babymonitor:notifications'
 
+// Fired when an alert toast is clicked. A component inside the router listens
+// and navigates to the Notifications page, so alerting.js stays router-free.
+export const OPEN_NOTIFICATIONS_EVENT = 'babymonitor:open-notifications'
+
 // An event older than this is treated as stale: after a long disconnect the
 // catch-up can dump a backlog, and waking a parent for something that happened
 // last night would be worse than useless.
@@ -74,8 +78,20 @@ export function announceNotifications(notifications = []) {
  * Shows an alert as a Mantine notification: a dismissible toast that stacks in
  * the corner of the app. The `id` is derived from the notification so the store
  * updates an existing toast rather than stacking a duplicate.
+ *
+ * Clicking the toast opens the Notifications page and closes the toast. The
+ * close button is excluded: it should only dismiss, not navigate.
  */
 export function showAlert(notification) {
+  const openNotifications = (event) => {
+    // The close button is a <button> inside the toast; a click there bubbles to
+    // this root handler, but it should just close the toast.
+    if (event?.target?.closest?.('button')) {
+      return
+    }
+    hideAlert(notification.id)
+    window.dispatchEvent(new Event(OPEN_NOTIFICATIONS_EVENT))
+  }
   notifications.show({
     id: `bm-notification-${notification.id}`,
     title: titleFor(notification.eventType),
@@ -83,6 +99,8 @@ export function showAlert(notification) {
     color: colorFor(notification.eventType),
     withBorder: true,
     autoClose: 10000,
+    style: { cursor: 'pointer' },
+    onClick: openNotifications,
   })
 }
 

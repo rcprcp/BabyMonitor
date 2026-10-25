@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react'
 import { AppShell, MantineProvider, useMantineColorScheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import useNotificationAlerts from './useNotificationAlerts'
+import { OPEN_NOTIFICATIONS_EVENT } from './alerting'
 import TitleBar from './components/TitleBar'
 import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
@@ -21,9 +22,18 @@ import { createAppTheme, noPersistenceColorSchemeManager } from './theme'
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   // Alert the parent to new notifications from whatever page they are on.
   useNotificationAlerts()
+
+  // An alert toast asks to open the feed; the router is only available here,
+  // which is why alerting.js emits an event instead of importing useNavigate.
+  useEffect(() => {
+    const openNotifications = () => navigate('/notifications')
+    window.addEventListener(OPEN_NOTIFICATIONS_EVENT, openNotifications)
+    return () => window.removeEventListener(OPEN_NOTIFICATIONS_EVENT, openNotifications)
+  }, [navigate])
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />
