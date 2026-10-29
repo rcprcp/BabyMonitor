@@ -41,7 +41,7 @@ without hiding anything that matters for trust.
 | T2 | Camera page: simple form + advanced Motion options | High | M | done |
 | T3 | One camera power control; audio as a preference | High | S–M | done |
 | T4 | Make "Stop" honest about boot behaviour | High | S | done |
-| T5 | One Settings area; label and validate raw tags | High | S | todo |
+| T5 | One Settings area; label and validate raw tags | High | S | done |
 | T6 | Environment: monitoring first, setup behind a disclosure | Medium | M | todo |
 | T7 | Navigation: 4 destinations, camera names | Medium | S | done |
 | T8 | One save action per page, less badge noise | Medium | S–M | decision |
@@ -410,6 +410,30 @@ the backend own labels/validation.
 - An invalid stream host cannot be saved, and the live stream is unaffected.
 - Personalization controls live in the same area and still persist per account.
 
+**Done (2026-10-28).** One Settings page, one destination, validated hosts.
+
+- **Sections:** **System** (monitor name and stream address), **Alerts**
+  (notification sound plus links to Audio notifications and Environment),
+  **Appearance** (accent color, light/dark/auto), **Account** (name and sign
+  out), **Setup wizard**, and an **Other settings** fallback for tags the page
+  does not know.
+- **One destination.** `/profile` and its More entry are gone; the avatar and
+  More both open `/settings`, and the old URL redirects so bookmarks and deep
+  links keep working. The account's appearance and sound controls moved into
+  `AppearanceSettings` and `NotificationSound` components.
+- **Validation before save.** `streamUrlError()` requires an absolute
+  `http(s)` URL with no port, path, query or credentials — each camera's
+  `stream_port` is appended to it — and one **Save changes** writes the name
+  and/or host after normalising trailing slashes. The button is disabled while
+  either value is invalid, the field explains why, and the API is not called, so
+  a bad value cannot break the live stream.
+- **Tags stay visible** as muted secondary text next to the friendly label;
+  unknown tags remain editable under Other settings instead of disappearing.
+- **Tests.** Eight Settings tests cover the labelled page and hidden internal
+  row, the combined save with host normalisation, the port rejection, the
+  appearance and sound controls, sign out, the setup re-run and the unknown-tag
+  editor (12 files / 54 tests). Backend unchanged at 181 tests.
+
 ---
 
 ## T6 — Environment: monitoring first, setup behind a disclosure
@@ -511,16 +535,17 @@ click below Cameras.
   entries, so the destination opens named cards that link to the existing
   `/cameras/1` and `/cameras/2` pages.
 - **A More page** (`/more`) with plain links to Environment, Audio
-  notifications, Settings and Personal settings, plus Sign out. Being a route
-  rather than a drawer means every entry survives a reload.
+  notifications and Settings, plus Sign out. Being a route rather than a drawer
+  means every entry survives a reload. (Personal settings was a separate page
+  then; T5 merged it into Settings.)
 - **Active state** comes from React Router: the sidebar's `active` prop and the
   tab bar's CSS both key off `aria-current="page"`, so colour and semantics
   cannot disagree.
 - **Naming.** The feed's page title was "Notifications"; it is now **Alerts** to
   match the destination. The route, API, database table and README prose about
-  notifications are unchanged. The alert sound stays in Personal settings
-  (reachable from the avatar and from More) instead of becoming a second Alerts
-  entry.
+  notifications are unchanged. The alert sound did not become a second Alerts
+  entry; it stayed with the account preferences, which T5 has since collected
+  into Settings.
 - **Tests.** 12 files, 40 tests: an App shell test (the four destinations and a
   `/cameras` deep link), Navigation (destinations, active state, camera names
   and the number fallback), CamerasPage (names, fallback, error) and MorePage
@@ -840,6 +865,9 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T2 | Five friendly fields, one Save, a conditional Restart prompt | Eight controls on the default view; a save should never restart a running camera without being asked | agent |
 | 2026-10-28 | T2 | Resolution presets: VGA, 720p, 1080p, plus the current custom size | Covers the seeded cameras and any existing value without hiding it; width/height remain editable under Advanced | agent |
 | 2026-10-28 | T2 | Advanced absorbs T3's Diagnostics panel | One installer drawer instead of two disclosures, and the pid/config detail lands where the proposal put it | agent |
+| 2026-10-28 | T5 | Merge Personal settings into Settings; keep `/profile` as a redirect | Two "settings" destinations with overlapping names were the problem; a redirect keeps old links working | agent |
+| 2026-10-28 | T5 | Validate the stream host as an absolute http(s) origin, no port/path/credentials | That is exactly how StreamPage consumes it, so anything else is a broken stream waiting to happen | agent |
+| 2026-10-28 | T5 | Keep an Other settings editor for unknown tags | The table is open-ended; the friendly form must not make a future row unreachable | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -863,3 +891,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and audio, and says so. |
 | 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |
 | 2026-10-28 | T2 shipped: a five-field camera form with one save, a restart prompt and an Advanced drawer. |
+| 2026-10-28 | T5 shipped: Settings and Personal settings merged into one validated page. |

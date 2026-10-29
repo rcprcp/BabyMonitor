@@ -366,7 +366,7 @@ as a fallback when the stream is unavailable. Alerting needs no opt-in: every
 new event raises an in-app toast and plays the account's chosen tone. `System`
 notices are the one exception — they stay silent, because the supervisor has
 already recovered the camera and a chime would only startle a sleeping parent.
-Personal settings → **Notification sound** picks the tone (`chime`, a small
+Settings → **Alerts** → **Notification sound** picks the tone (`chime`, a small
 two-tone file at `/sounds/notification-chime.mp3`, by default; it is saved on
 the account so it follows the user across browsers). A browser that has not yet
 seen a user interaction may block the sound; a blocked play is ignored, so the
@@ -647,8 +647,8 @@ map still lines up with the model's output.
 React Router routes: `/login`, `/welcome` (setup wizard), `/` (stream),
 `/notifications` (Alerts), `/environment`, `/cameras` (the camera list),
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/audio-alerts` (Audio notifications), `/settings`, `/profile` (Personal
-settings) and `/more`.
+`/audio-alerts` (Audio notifications), `/settings` and `/more`. The retired
+`/profile` URL redirects to `/settings`.
 
 Navigation has four destinations, the same on every screen: **Monitor** (`/`),
 **Alerts** (`/notifications`), **Cameras** (`/cameras`) and **More** (`/more`).
@@ -656,9 +656,10 @@ On a desktop the destinations are a persistent sidebar, with the two cameras
 listed under Cameras by name; on a phone they are a fixed bottom tab bar, and
 the Cameras tab opens the same named list. The current destination is marked
 `aria-current="page"` and coloured, and watching is always one tap away. More
-holds Environment, Audio notifications, Settings and Personal settings (where
-the alert sound lives) plus Sign out. The blue title bar keeps only the system
-name and the account's initial; it is not a menu.
+holds Environment, Audio notifications, Settings and Sign out; **Settings** is
+also what the account's initial opens, and it carries the system settings, alert
+sound and links, appearance and the account card. The blue title bar keeps only
+the system name and the account's initial; it is not a menu.
 
 On a fresh install the app opens **Set up your monitor** (`/welcome`): name the
 monitor, point each camera at one of the host's `/dev/video*` nodes, then check a
@@ -679,7 +680,11 @@ The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit. The
 Settings page names the known rows in plain language — `systemName` is
 **Monitor name**, `stream_url` is **Stream address** — and keeps the raw tag
-beside the label, so support still sees what the API calls it.
+beside the label, so support still sees what the API calls it. One **Save
+changes** writes either or both, and the stream address is validated first: it
+must be an absolute `http(s)` host with no port, path or credentials, because
+each camera's `stream_port` is appended to it. Anything else in the table still
+gets an editor under **Other settings**.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
 like `/settings` works on refresh.
 
@@ -752,7 +757,7 @@ keep hand-written CSS (`frontend/src/styles.css`).
 ### Theme
 
 Each account carries its own preferences in `babymonitor.users`, and the
-Personal settings page writes them straight to the account:
+Settings page's **Appearance** section writes them straight to the account:
 
 - **Accent color** — Mantine's color palette
   (https://mantine.dev/theming/colors/) as clickable swatches. The chosen name
@@ -760,7 +765,7 @@ Personal settings page writes them straight to the account:
   `PUT /api/users/me/theme-color` and becomes the Mantine primary color, so
   buttons, links and highlights follow it. `gray` is offered too; Mantine's
   `dark` is not, as it is a surface color rather than an accent.
-- **Appearance** — `light`, `dark` or `auto` (follow the OS), stored in
+- **Light or dark** — `light`, `dark` or `auto` (follow the OS), stored in
   `theme` with `PUT /api/users/me/theme`.
 
 The database is the single source of truth — Mantine is configured with a
