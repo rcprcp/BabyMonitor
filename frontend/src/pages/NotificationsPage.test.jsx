@@ -57,6 +57,19 @@ describe('NotificationsPage', () => {
     expect(api.listNotifications).toHaveBeenCalledTimes(2)
   })
 
+  it('clears the feed when Clear my notifications is confirmed', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderWithProviders(<NotificationsPage />)
+
+    await screen.findByText('Baby cried')
+    await user.click(screen.getByRole('button', { name: 'Clear my notifications' }))
+
+    expect(api.dismissAllNotifications).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Baby cried')).not.toBeInTheDocument()
+    confirm.mockRestore()
+  })
+
   it('shows an error when the feed cannot be loaded', async () => {
     api.listNotifications.mockRejectedValue(new Error('Feed unavailable'))
     renderWithProviders(<NotificationsPage />)

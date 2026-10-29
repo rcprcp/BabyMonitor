@@ -270,7 +270,7 @@ export default function NotificationsPage() {
     if (notifications.length === 0) {
       return
     }
-    if (!window.confirm('Dismiss all notifications?')) {
+    if (!window.confirm('Clear all of your notifications? This cannot be undone.')) {
       return
     }
     setDismissingAll(true)
@@ -302,7 +302,7 @@ export default function NotificationsPage() {
             loading={dismissingAll}
             disabled={loading || dismissingAll || notifications.length === 0}
           >
-            Dismiss All
+            Clear my notifications
           </Button>
           <Button variant="default" onClick={load} loading={loading}>
             Refresh

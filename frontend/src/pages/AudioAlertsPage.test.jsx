@@ -34,9 +34,7 @@ describe('AudioAlertsPage', () => {
   it('renders the configured classes', async () => {
     renderWithProviders(<AudioAlertsPage />)
 
-    expect(
-      await screen.findByRole('heading', { name: 'Audio Notification Config' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audio notifications' })).toBeInTheDocument()
     expect((await screen.findAllByText('1 of 2 on')).length).toBeGreaterThan(0)
     expect(screen.getByRole('checkbox', { name: '19 · Crying, sobbing' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: '20 · Baby cry, infant cry' })).not.toBeChecked()

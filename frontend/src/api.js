@@ -158,7 +158,7 @@ export const api = {
       { value },
     ),
   // Adds a new parameter row; the store is passive, so Motion is untouched
-  // until Apply.
+  // until the camera is started or restarted.
   createCameraParameter: (cameraNumber, key, value) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/parameters`, { key, value }),
   // Removes the parameter row from the database outright.
@@ -169,8 +169,8 @@ export const api = {
     ),
   getCameraMotion: (cameraNumber) =>
     request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion`),
-  // Start/Apply marks the camera as running, rebuilds its config and starts (or
-  // reloads) Motion; Stop marks it not running and kills the process.
+  // Start/restart marks the camera as running, rebuilds its config and starts
+  // (or reloads) Motion; Stop marks it not running and kills the process.
   applyCameraMotion: (cameraNumber) =>
     request('POST', `/api/cameras/${encodeURIComponent(cameraNumber)}/motion/apply`),
   stopCameraMotion: (cameraNumber) =>

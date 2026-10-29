@@ -114,7 +114,7 @@ export function hideAlert(notificationId) {
   notifications.hide(`bm-notification-${notificationId}`)
 }
 
-/** Closes every app alert toast, e.g. after Dismiss All. */
+/** Closes every app alert toast, e.g. after "Clear my notifications". */
 export function hideAllAlerts() {
   notifications.clean()
 }

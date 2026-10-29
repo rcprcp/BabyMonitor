@@ -54,6 +54,10 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Personal settings' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Bob' })).toBeInTheDocument()
+    expect(screen.getByText('Accent color')).toBeInTheDocument()
+    expect(screen.getByText('Appearance')).toBeInTheDocument()
+    // The sound is written when it is picked, so there is nothing to refresh.
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Auto' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'Chime (default)' })).toBeInTheDocument()
   })

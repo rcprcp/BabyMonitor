@@ -47,7 +47,6 @@ export default function ProfilePage() {
     colorScheme,
     themeColor,
     promptSound,
-    setPromptSound,
     saveColorScheme,
     saveThemeColor,
     savePromptSound,
@@ -71,27 +70,16 @@ export default function ProfilePage() {
   const [alertSoundSaved, setAlertSoundSaved] = useState(false)
   const [savingAlertSoundUI, setSavingAlertSoundUI] = useState(false)
 
-  /** Read (or re-read) the profile so the fresh promptSound is reflected here. */
-  const refreshAlertSound = useCallback(async () => {
-    try {
-      const current = await api.getProfile()
-      if (current.promptSound) {
-        setPromptSound(current.promptSound)
-      }
-    } catch {
-      // If the call fails we keep whatever's already there.
-    } finally {
-      setSavingAlertSoundUI(false)
-    }
-  }, [setPromptSound])
-
   const changeAlertSound = async (next) => {
     setAlertSoundSaved(false)
     setSavingAlertSoundUI(true)
-    savePromptSound(next).then(() => {
+    try {
+      await savePromptSound(next)
       setAlertSoundSaved(true)
       setTimeout(() => setAlertSoundSaved(false), 3000)
-    })
+    } finally {
+      setSavingAlertSoundUI(false)
+    }
   }
 
   const load = useCallback(async () => {
@@ -204,10 +192,9 @@ export default function ProfilePage() {
 
           <Stack gap="lg">
             <Stack gap="xs" align="flex-start">
-              <Text fw={600}>Theme Selection</Text>
+              <Text fw={600}>Accent color</Text>
               <Text c="dimmed" size="sm">
-                Mantine&apos;s color palette. The color you pick becomes the accent used for
-                buttons, links and highlights.
+                The color used for buttons, links and highlights.
               </Text>
               <ThemePalette value={themeColor} onChange={changeThemeColor} disabled={savingColor} />
               {colorSaved && (
@@ -223,7 +210,7 @@ export default function ProfilePage() {
             </Stack>
 
             <Stack gap="xs" align="flex-start">
-              <Text fw={600}>Light / dark</Text>
+              <Text fw={600}>Appearance</Text>
               <Text c="dimmed" size="sm">
                 Stored with your account, so it follows you to any browser you sign in from.
               </Text>
@@ -246,20 +233,7 @@ export default function ProfilePage() {
             </Stack>
 
             <Stack gap="xs" align="flex-start">
-              <Group gap={0}>
-                <Text fw={600}>Notification sound</Text>
-                <Button
-                  variant="subtle"
-                  size="xs"
-                  disabled={savingAlertSoundUI}
-                  onClick={() => {
-                    setSavingAlertSoundUI(true)
-                    refreshAlertSound()
-                  }}
-                >
-                  Refresh
-                </Button>
-              </Group>
+              <Text fw={600}>Notification sound</Text>
               <Text c="dimmed" size="sm">
                 Select the tone played when an alert arrives. Saved on your account so it follows
                 you across browsers.

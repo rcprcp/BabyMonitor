@@ -111,7 +111,7 @@ export default function AudioAlertsPage() {
   return (
     <Stack>
       <Group justify="space-between" align="center">
-        <Title order={2}>Audio Notification Config</Title>
+        <Title order={2}>Audio notifications</Title>
         <Group gap="sm" align="center">
           {saving && (
             <Badge color="blue" variant="light">

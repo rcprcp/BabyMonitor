@@ -28,15 +28,18 @@ describe('SettingsPage', () => {
     renderWithProviders(<SettingsPage />)
 
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    expect(await screen.findByLabelText('systemName')).toHaveValue('My Monitor')
-    expect(screen.getByLabelText('stream_url')).toHaveValue('http://localhost')
+    expect(await screen.findByLabelText(/Monitor name/)).toHaveValue('My Monitor')
+    expect(screen.getByLabelText(/Stream address/)).toHaveValue('http://localhost')
+    // The raw tag stays visible so support can still map a row to the API.
+    expect(screen.getByText('systemName')).toBeInTheDocument()
+    expect(screen.getByText('stream_url')).toBeInTheDocument()
   })
 
   it('saves an edited setting', async () => {
     const user = userEvent.setup()
     renderWithProviders(<SettingsPage />)
 
-    const name = await screen.findByLabelText('systemName')
+    const name = await screen.findByLabelText(/Monitor name/)
     await user.clear(name)
     await user.type(name, 'Renamed Monitor')
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
@@ -49,7 +52,7 @@ describe('SettingsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<SettingsPage />)
 
-    const name = await screen.findByLabelText('systemName')
+    const name = await screen.findByLabelText(/Monitor name/)
     await user.type(name, '!')
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
 

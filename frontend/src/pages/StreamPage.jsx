@@ -120,7 +120,7 @@ export default function StreamPage() {
   // Switching a camera on starts Motion on the server. Give the MJPEG stream a
   // chance to accept connections a moment after the process is up, before the
   // player tries (and retries) to load it. A camera is brought up from its
-  // Camera page's Start/Apply, so this is the stream catching up.
+  // Camera page's Restart camera, so this is the stream catching up.
   useEffect(() => {
     if (!selectedCamera?.enabled) {
       setReloadKey(0)

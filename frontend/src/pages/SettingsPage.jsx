@@ -15,6 +15,19 @@ import { api } from '../api'
 
 // Application settings. Every row in babymonitor.settings is editable;
 // systemName titles the bar.
+//
+// The table stores raw tags. The page shows a readable name and keeps the tag
+// beside it: support and the API still speak tags, but a parent should not have
+// to read one. A tag with no entry here falls back to the tag itself.
+const SETTING_LABELS = {
+  systemName: 'Monitor name',
+  stream_url: 'Stream address',
+}
+
+function settingLabel(tag) {
+  return SETTING_LABELS[tag] ?? tag
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState([])
   const [drafts, setDrafts] = useState({})
@@ -79,7 +92,16 @@ export default function SettingsPage() {
           <Group key={setting.tag} align="flex-end" gap="sm" wrap="nowrap">
             <TextInput
               id={`setting-${setting.tag}`}
-              label={setting.tag}
+              label={
+                <>
+                  {settingLabel(setting.tag)}
+                  {settingLabel(setting.tag) !== setting.tag && (
+                    <Text component="span" size="xs" c="dimmed" ml={6}>
+                      {setting.tag}
+                    </Text>
+                  )}
+                </>
+              }
               style={{ flex: 1 }}
               value={drafts[setting.tag] ?? ''}
               onChange={(event) => {

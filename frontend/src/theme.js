@@ -1,7 +1,8 @@
 import { createTheme } from '@mantine/core'
 
-// Light / dark, stored per account in babymonitor.users.theme. `auto` follows
-// the operating system. The values are also Mantine's own color-scheme names.
+// The Appearance choice, stored per account in babymonitor.users.theme. `auto`
+// follows the operating system. The values are also Mantine's own color-scheme
+// names.
 export const COLOR_SCHEMES = [
   { label: 'Light', value: 'light' },
   { label: 'Dark', value: 'dark' },

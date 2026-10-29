@@ -56,14 +56,30 @@ describe('CameraPage', () => {
     expect(await screen.findByRole('heading', { name: 'Camera 1' })).toBeInTheDocument()
     expect(await screen.findByText('Nursery')).toBeInTheDocument()
     expect(screen.getByDisplayValue('/dev/video0')).toBeInTheDocument()
-    expect(screen.getByText('Motion running (pid 123)')).toBeInTheDocument()
+    expect(screen.getByText('Recording')).toBeInTheDocument()
+    expect(screen.getByText('Audio on')).toBeInTheDocument()
+    // The pid is still one hover away, for support, but no longer the label.
+    expect(screen.queryByText(/pid/)).not.toBeInTheDocument()
   })
 
-  it('applies the camera when Start/Apply is clicked', async () => {
+  it('starts a stopped camera', async () => {
+    api.getCamera.mockResolvedValue(
+      parameters.map((parameter) => ({ ...parameter, enabled: false })),
+    )
+    api.getCameraMotion.mockResolvedValue({ running: false, pid: null, configExists: true })
+    api.getCameraAudio.mockResolvedValue({ running: false, enabled: false, pid: null })
+    renderWithProviders(<CameraPage cameraNumber={1} />)
+
+    expect(await screen.findByRole('button', { name: 'Start camera' })).toBeEnabled()
+    expect(screen.getByText('Stopped')).toBeInTheDocument()
+    expect(screen.getByText('Audio stopped')).toBeInTheDocument()
+  })
+
+  it('restarts the camera when Restart camera is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<CameraPage cameraNumber={1} />)
 
-    const apply = await screen.findByRole('button', { name: 'Start/Apply' })
+    const apply = await screen.findByRole('button', { name: 'Restart camera' })
     await waitFor(() => expect(apply).toBeEnabled())
     await user.click(apply)
 
@@ -75,7 +91,7 @@ describe('CameraPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<CameraPage cameraNumber={1} />)
 
-    const apply = await screen.findByRole('button', { name: 'Start/Apply' })
+    const apply = await screen.findByRole('button', { name: 'Restart camera' })
     await waitFor(() => expect(apply).toBeEnabled())
     await user.click(apply)
 
