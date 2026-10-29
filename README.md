@@ -691,7 +691,7 @@ started at boot, and can be stopped and restarted from their own Camera pages.
 The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit. That field
 and `stream_url` live on **System Settings** (`/system-settings`, also linked
-from the Settings header), named in plain language — **Monitor name** and
+from the Settings account card), named in plain language — **Monitor name** and
 **Stream address** — with the raw tag beside the label so support still sees
 what the API calls it. One **Save changes** writes either or both, and the
 stream address is validated first: it must be an absolute `http(s)` host with no

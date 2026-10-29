@@ -46,14 +46,12 @@ describe('SettingsPage', () => {
     renderWithProviders(<SettingsPage />)
 
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'System Settings' })).toHaveAttribute(
-      'href',
-      '/system-settings',
-    )
+    const openLinks = screen.getAllByRole('link', { name: 'Open' })
+    expect(openLinks).toHaveLength(4)
+    expect(openLinks.some((link) => link.getAttribute('href') === '/system-settings')).toBe(true)
     expect(screen.getByText('Audio Configuration')).toBeInTheDocument()
     expect(screen.getByText('Environment')).toBeInTheDocument()
     expect(screen.getByText('Environment Configuration')).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Open' })).toHaveLength(3)
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Run setup again' })).toBeInTheDocument()
@@ -76,13 +74,16 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('button', { name: 'Chime (default)' })).toBeInTheDocument()
   })
 
-  it('signs out from the account card', async () => {
+  it('logs out from the header', async () => {
     const user = userEvent.setup()
     renderWithProviders(<SettingsPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    const logout = await screen.findByRole('button', { name: 'Logout' })
+    expect(logout.querySelector('svg')).not.toBeNull()
+    await user.click(logout)
 
     expect(auth.logout).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
   it('re-runs the setup wizard', async () => {
