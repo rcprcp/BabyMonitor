@@ -523,7 +523,8 @@ no audio chip at all, because the two states cannot contradict each other. The
 capture can also be started on its own under the Camera page's **Diagnostics**
 disclosure, for testing the microphone. `AudioSupervisor` only restarts captures
 while the camera itself is meant to be running, so audio never resurrects a
-camera the parent stopped. A camera captures from its own
+camera the parent stopped. Starts and stops are serialised per camera, so the
+boot observer and the first supervisor check cannot spawn two captures. A camera captures from its own
 `camera_audio.device` when one is set, otherwise the configured
 `babymonitor.audio.device` (`default`, the ALSA default input). The
 device line is asked for 16 kHz mono signed 16-bit PCM; `PcmFramer` slices that

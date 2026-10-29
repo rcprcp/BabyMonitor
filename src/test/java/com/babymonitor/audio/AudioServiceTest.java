@@ -197,6 +197,19 @@ class AudioServiceTest {
     }
 
     @Test
+    void startCaptureSaysWhetherItActuallyStartedTheProcess() {
+        int cameraNumber = 14;
+        try {
+            assertTrue(audio.startCapture(cameraNumber, "hw:14,0"),
+                    "the first call spawns the capture");
+            assertFalse(audio.startCapture(cameraNumber, "hw:14,0"),
+                    "an already-running capture is not started again");
+        } finally {
+            audio.stop(cameraNumber);
+        }
+    }
+
+    @Test
     void aStopClosesTheClassifierSessionItOpened() {
         int cameraNumber = 11;
         audio.start(cameraNumber, "hw:11,0");

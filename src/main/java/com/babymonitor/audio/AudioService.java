@@ -126,12 +126,28 @@ public class AudioService {
      * @throws UncheckedIOException when the capture process cannot be started
      */
     public AudioStatusDto start(int cameraNumber, String device) {
+        startCapture(cameraNumber, device);
+        return status(cameraNumber, true);
+    }
+
+    /**
+     * Starts the capture unless it is already running.
+     *
+     * <p>Serialised per camera: boot and the first supervisor tick can ask at the
+     * same instant, and only one of them may spawn the process.</p>
+     *
+     * @return true when this call spawned the capture, false when it was already
+     *         running (the caller then has nothing to restart or announce)
+     */
+    public boolean startCapture(int cameraNumber, String device) {
         ReentrantLock lock = lockFor(cameraNumber);
         lock.lock();
         try {
             if (processes.isRunning(cameraNumber)) {
-                LOG.warnf("Audio capture for camera %d is already running", cameraNumber);
-                return status(cameraNumber, true);
+                // Expected at boot: the startup observer and the supervisor race,
+                // and the loser lands here.
+                LOG.debugf("Audio capture for camera %d is already running", cameraNumber);
+                return false;
             }
             AudioClassifier.Session session =
                     config.classifierEnabled() ? classifier.openSession() : null;
@@ -152,7 +168,7 @@ public class AudioService {
             reader.setDaemon(true);
             readers.put(cameraNumber, reader);
             reader.start();
-            return status(cameraNumber, true);
+            return true;
         } finally {
             lock.unlock();
         }

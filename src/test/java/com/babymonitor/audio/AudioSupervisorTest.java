@@ -102,6 +102,17 @@ class AudioSupervisorTest {
     }
 
     @Test
+    void ensureRunningReportsWhenTheCaptureIsAlreadyUp() {
+        setCameraEnabled(CAMERA, true);
+        setEnabled(CAMERA, true);
+        audio.start(CAMERA, "hw:12,0");
+
+        assertFalse(
+                supervisor.ensureRunning(CAMERA, "hw:12,0"),
+                "a live capture must not be started twice");
+    }
+
+    @Test
     void theRetryBackoffWidensAndCaps() {
         AudioSupervisor.CaptureWatch watch = new AudioSupervisor.CaptureWatch();
         Instant now = Instant.ofEpochSecond(1_000_000);

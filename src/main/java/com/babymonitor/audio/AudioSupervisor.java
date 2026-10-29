@@ -125,7 +125,13 @@ public class AudioSupervisor {
         String device = row.deviceOrDefault(config.device());
         String description;
         try {
-            audio.start(cameraNumber, device);
+            if (!audio.startCapture(cameraNumber, device)) {
+                // Boot (or another caller) started it between the check above and
+                // the per-camera lock. Nothing was down, so do not log a restart
+                // or write a "stopped unexpectedly" notification.
+                watch.onHealthy();
+                return;
+            }
             LOG.warnf("Audio for camera %d was not running; restarted it on %s", cameraNumber, device);
             description = "Audio for camera " + cameraNumber
                     + " stopped unexpectedly and was restarted.";
@@ -151,14 +157,15 @@ public class AudioSupervisor {
         return row == null ? config.device() : row.deviceOrDefault(config.device());
     }
 
-    /** Ensures audio is running for a camera, restarting it if necessary. */
+    /**
+     * Ensures audio is running for a camera, restarting it if necessary.
+     *
+     * @return true when this call started the capture, false when it was already
+     *         running
+     */
     public boolean ensureRunning(int cameraNumber, String device) {
-        if (audio.status(cameraNumber).running()) {
-            return false;
-        }
         try {
-            audio.start(cameraNumber, device);
-            return true;
+            return audio.startCapture(cameraNumber, device);
         } catch (RuntimeException e) {
             throw new UncheckedIOException(
                     "Could not start audio capture for camera " + cameraNumber, new IOException(e));
