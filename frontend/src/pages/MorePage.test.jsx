@@ -28,10 +28,6 @@ describe('MorePage', () => {
       '/audio-alerts',
     )
     expect(screen.getByRole('link', { name: /Settings/ })).toHaveAttribute('href', '/settings')
-    expect(screen.getByRole('link', { name: /Personal settings/ })).toHaveAttribute(
-      'href',
-      '/profile',
-    )
   })
 
   it('signs out from the account', async () => {

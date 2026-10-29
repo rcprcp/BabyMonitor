@@ -196,7 +196,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-/** Exported for the settings dropdown in ProfilePage.jsx. */
+/** Exported for the notification-sound picker in Settings. */
 export { PROMPT_SOUNDS }
 export function useAuth() {
   const context = useContext(AuthContext)

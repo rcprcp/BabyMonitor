@@ -23,7 +23,6 @@ import CameraPage from './pages/CameraPage'
 import CamerasPage from './pages/CamerasPage'
 import AudioAlertsPage from './pages/AudioAlertsPage'
 import SettingsPage from './pages/SettingsPage'
-import ProfilePage from './pages/ProfilePage'
 import MorePage from './pages/MorePage'
 import OnboardingPage from './pages/OnboardingPage'
 import { OnboardingProvider, useOnboarding } from './onboarding'
@@ -123,7 +122,8 @@ function ThemedApp() {
             <Route path="/cameras/2" element={<CameraPage cameraNumber={2} />} />
             <Route path="/audio-alerts" element={<AudioAlertsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            {/* The old Personal settings URL is kept as a redirect for deep links. */}
+            <Route path="/profile" element={<Navigate to="/settings" replace />} />
             <Route path="/more" element={<MorePage />} />
             <Route path="/welcome" element={<OnboardingPage />} />
           </Route>

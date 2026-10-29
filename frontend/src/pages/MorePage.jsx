@@ -19,12 +19,7 @@ const LINKS = [
   {
     to: '/settings',
     label: 'Settings',
-    summary: 'System name and stream address.',
-  },
-  {
-    to: '/profile',
-    label: 'Personal settings',
-    summary: 'Appearance, accent color and notification sound.',
+    summary: 'System, alerts, appearance and your account.',
   },
 ]
 

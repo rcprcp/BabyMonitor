@@ -82,6 +82,14 @@ describe('App shell', () => {
     expect(await screen.findByRole('heading', { name: 'Set up your monitor' })).toBeInTheDocument()
   })
 
+  it('redirects the retired profile URL to Settings', async () => {
+    window.history.pushState({}, '', '/profile')
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+  })
+
   it('serves the camera list on a deep link', async () => {
     window.history.pushState({}, '', '/cameras')
 

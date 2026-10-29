@@ -25,7 +25,7 @@ export default class DebugWrapper extends Component {
                 <a href="/settings">Settings</a>
               </li>
               <li>
-                <a href="/profile">Profile</a>
+                <a href="/settings">Settings</a>
               </li>
             </ul>
           </details>

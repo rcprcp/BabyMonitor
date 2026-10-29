@@ -50,12 +50,12 @@ export default function TitleBar() {
 
       <Avatar
         component={NavLink}
-        to="/profile"
+        to="/settings"
         radius="xl"
         size="md"
         className="bm-avatar"
-        aria-label="Personal settings"
-        title={user ? `Personal settings — ${user}` : 'Personal settings'}
+        aria-label="Settings"
+        title={user ? `Settings — ${user}` : 'Settings'}
       >
         {initialOf(user)}
       </Avatar>

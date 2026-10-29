@@ -305,7 +305,7 @@ export default function OnboardingPage() {
               <Stack gap="xs">
                 <Text fw={600}>Alert sound</Text>
                 <Text size="sm" c="dimmed">
-                  Plays the tone an alert will use. You can change it in Personal settings later.
+                  Plays the tone an alert will use. You can change it in Settings later.
                 </Text>
                 <Group gap="sm">
                   <Button variant="default" onClick={playTestSound}>
