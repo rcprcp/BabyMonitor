@@ -671,9 +671,9 @@ afterwards.
 
 The app boots into the Live stream
 page, which has one button per camera on the right of the heading, labelled
-`<name> Camera<n>`: both cameras are always selectable, and it plays Motion's
-stream for the chosen one, built from the `stream_url` setting and that camera's
-`stream_port` row. It restores the account's last-viewed
+`<name> (Camera<n>)` with a spaced hyphen between the buttons: both cameras are
+always selectable, and it plays Motion's stream for the chosen one, built from
+the `stream_url` setting and that camera's `stream_port` row. It restores the account's last-viewed
 camera from the profile (`users.active_camera`, saved whenever the buttons
 change) and otherwise defaults to the first enabled camera — Camera 1 when it
 is running, else Camera 2. It shows no stream for a stopped camera; cameras are

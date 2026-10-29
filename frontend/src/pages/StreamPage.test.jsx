@@ -46,14 +46,16 @@ describe('StreamPage', () => {
   it('offers each camera as a named button', async () => {
     renderWithProviders(<StreamPage />)
 
-    expect(await screen.findByRole('button', { name: 'Nursery Camera1' })).toHaveAttribute(
+    expect(await screen.findByRole('button', { name: 'Nursery (Camera1)' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
-    expect(screen.getByRole('button', { name: 'Hallway Camera2' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Hallway (Camera2)' })).toHaveAttribute(
       'aria-pressed',
       'false',
     )
+    // The two camera buttons are separated by a hyphen.
+    expect(screen.getByText('-')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('switches the stream and remembers the camera from the buttons', async () => {
@@ -61,7 +63,7 @@ describe('StreamPage', () => {
     api.listCameras.mockResolvedValue(cameraRows.map((row) => ({ ...row, enabled: true })))
     renderWithProviders(<StreamPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Hallway Camera2' }))
+    await user.click(await screen.findByRole('button', { name: 'Hallway (Camera2)' }))
 
     expect(api.updateActiveCamera).toHaveBeenCalledWith('2')
     const stream = await screen.findByAltText('Live baby monitor stream')

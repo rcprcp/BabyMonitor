@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Center, Group, Loader, Stack, Title } from '@mantine/core'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
 import AudioListener from '../components/AudioListener'
 import { api } from '../api'
@@ -139,20 +139,26 @@ export default function StreamPage() {
     <Stack>
       <Group justify="space-between" align="center">
         <Title order={2}>Live stream</Title>
-        <Group gap="xs" justify="flex-end">
-          {cameras.map((camera) => (
-            <Button
-              key={camera.cameraNumber}
-              size="sm"
-              variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
-              aria-pressed={String(camera.cameraNumber) === selected}
-              onClick={() => chooseCamera(String(camera.cameraNumber))}
-              disabled={loading}
-            >
-              {camera.name
-                ? `${camera.name} Camera${camera.cameraNumber}`
-                : `Camera ${camera.cameraNumber}`}
-            </Button>
+        <Group gap={0} justify="flex-end" align="center">
+          {cameras.map((camera, position) => (
+            <Fragment key={camera.cameraNumber}>
+              {position > 0 && (
+                <Text c="dimmed" mx="sm" aria-hidden="true">
+                  -
+                </Text>
+              )}
+              <Button
+                size="sm"
+                variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
+                aria-pressed={String(camera.cameraNumber) === selected}
+                onClick={() => chooseCamera(String(camera.cameraNumber))}
+                disabled={loading}
+              >
+                {camera.name
+                  ? `${camera.name} (Camera${camera.cameraNumber})`
+                  : `(Camera${camera.cameraNumber})`}
+              </Button>
+            </Fragment>
           ))}
         </Group>
       </Group>
