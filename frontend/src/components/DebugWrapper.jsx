@@ -15,10 +15,18 @@ export default class DebugWrapper extends Component {
             <summary>Details</summary>
             <p>This renders all pages except login.</p>
             <ul>
-              <li><a href="/">/ (live stream)</a></li>
-              <li><a href="/notifications">Notifications</a></li>
-              <li><a href="/settings">Settings</a></li>
-              <li><a href="/profile">Profile</a></li>
+              <li>
+                <a href="/">/ (live stream)</a>
+              </li>
+              <li>
+                <a href="/notifications">Notifications</a>
+              </li>
+              <li>
+                <a href="/settings">Settings</a>
+              </li>
+              <li>
+                <a href="/profile">Profile</a>
+              </li>
             </ul>
           </details>
         </div>

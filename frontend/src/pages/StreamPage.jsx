@@ -38,16 +38,19 @@ export default function StreamPage() {
   // Restore the user's last-viewed camera from the database profile on mount,
   // so reloads and cross-device navigation pick up where they left off.
   useEffect(() => {
-    api.getProfile().then(profile => {
-      if (profile && profile.activeCamera) {
-        const value = String(profile.activeCamera).trim()
-        if (/^\d+$/.test(value) && parseInt(value, 10) >= 1) {
-          setSelected(value)
-          // Persist for the next visit (the SELECT may not have fired yet).
-          api.updateActiveCamera(value).catch(() => {})
+    api
+      .getProfile()
+      .then((profile) => {
+        if (profile && profile.activeCamera) {
+          const value = String(profile.activeCamera).trim()
+          if (/^\d+$/.test(value) && parseInt(value, 10) >= 1) {
+            setSelected(value)
+            // Persist for the next visit (the SELECT may not have fired yet).
+            api.updateActiveCamera(value).catch(() => {})
+          }
         }
-      }
-    }).catch(() => {}) // profile fetch failure is non-fatal; fall through to defaults
+      })
+      .catch(() => {}) // profile fetch failure is non-fatal; fall through to defaults
   }, [])
 
   useEffect(() => {
@@ -101,7 +104,9 @@ export default function StreamPage() {
   // the player's "no stream" state; it can be started from that camera's page.
   const options = cameras.map((camera) => ({
     value: String(camera.cameraNumber),
-    label: camera.name ? `Camera ${camera.cameraNumber} (${camera.name})` : `Camera ${camera.cameraNumber}`,
+    label: camera.name
+      ? `Camera ${camera.cameraNumber} (${camera.name})`
+      : `Camera ${camera.cameraNumber}`,
   }))
 
   const selectedCamera = cameras.find((camera) => String(camera.cameraNumber) === selected)

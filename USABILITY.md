@@ -18,8 +18,8 @@ without hiding anything that matters for trust.
    name (`agent/t3-camera-power`).
 2. Record the decision in the **Decision log** before implementing.
 3. Update the **Status** table and the topic's acceptance criteria when done.
-4. Run the checks required by `AGENTS.md` (backend tests, frontend build) and, once
-   T11 exists, the frontend tests/lint.
+4. Run the checks required by `AGENTS.md` (backend tests, frontend build) plus
+   `npm test`, `npm run lint` and `npm run format:check`.
 5. Update `README.md` wherever the UI description changes; it is the de-facto
    manual.
 6. Never delete the expert capability — move it behind an **Advanced** surface.
@@ -47,7 +47,7 @@ without hiding anything that matters for trust.
 | T8 | One save action per page, less badge noise | Medium | S–M | decision |
 | T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | todo |
 | T10 | First-run onboarding wizard | Medium | L | todo |
-| T11 | Frontend test + lint baseline (enabling work) | High | M | todo |
+| T11 | Frontend test + lint baseline (enabling work) | High | M | done |
 | T12 | Copy and naming cleanups | Low | S | todo |
 
 **Suggested sequence**
@@ -528,6 +528,31 @@ above would be unverified. Backend tests are hermetic and should stay the model.
 - Each page has at least a render smoke test.
 - CI runs backend and frontend checks on every push.
 
+**Done (2026-10-28).** All three criteria met.
+
+- **Runner.** Vitest 3 with jsdom, configured in `frontend/vite.config.js`;
+  `src/test/setup.js` stubs the browser APIs Mantine, recharts and `LevelMeter`
+  need, `src/test/render.jsx` supplies Mantine + a `MemoryRouter` with the v7
+  future flags. Each page mocks `../api` and asserts render, one primary action
+  and the error state: 8 files, 24 tests, all eight pages covered.
+- **Lint.** ESLint 9 flat config (`frontend/eslint.config.js`) with `react`,
+  `react-hooks` and a deliberately small `jsx-a11y` subset. Formatting is not
+  argued by ESLint (`eslint-config-prettier`); Prettier owns layout. The
+  baseline reports 0 errors and 2 pre-existing `exhaustive-deps` warnings
+  (`auth.jsx`, `AudioAlertsPage.jsx`), which are left for the topics that touch
+  those files rather than papered over with disables.
+- **Format.** Prettier 3 (`frontend/.prettierrc.json`, `semi: false`,
+  `singleQuote: true`, `printWidth: 100`) applied to the SPA once, as part of
+  this topic, so `npm run format:check` is a real gate from here on. The
+  alternative — shipping the config and ignoring the 14 unformatted files — was
+  rejected: a check that never passes is worse than no check.
+- **CI.** `.github/workflows/ci.yml` runs `mvn -B -DskipFrontend test` and, in a
+  second job, `npm ci && test && lint && format:check && build` on every push
+  and pull request. This closes the "checks are unchecked on every push" part of
+  `TODO.md` P2; packaging (container image, systemd unit) stays open there.
+- **Kept working.** `mvn -DskipFrontend test` still skips npm entirely, and
+  `mvn package` still builds the SPA through the existing frontend profile.
+
 ---
 
 ## T12 — Copy and naming cleanups
@@ -574,7 +599,8 @@ above would be unverified. Backend tests are hermetic and should stay the model.
 - **Presets can change alert behaviour** overnight. Default to an explicit choice;
   show the class count ("4 sounds on").
 - **Persisting Stop** (T4-A) can leave a monitor watching nothing.
-- **No frontend tests** today; T11 must land before or with the larger refactors.
+- **Frontend checks exist** (T11): `npm test`, `npm run lint` and
+  `npm run format:check` cover every page and run in CI.
 - **Docs drift**: `README.md` is the manual and describes the current UI in detail.
 
 ### Measurements
@@ -606,6 +632,9 @@ Fill in as topics are worked. One row per decision.
 
 | Date | Topic | Decision | Rationale | By |
 | --- | --- | --- | --- | --- |
+| 2026-10-28 | T11 | Vitest + Testing Library, ESLint 9 flat config, Prettier 3 | Fits Vite with no second bundler; RTL is the house style for React; ESLint+Prettier split keeps lint about correctness | agent |
+| 2026-10-28 | T11 | Reformat the SPA once instead of dropping `format:check` | T11 lands first, so this is the cheapest moment for a mechanical diff; a check that cannot pass is dead weight | agent |
+| 2026-10-28 | T11 | Two CI jobs (backend, frontend), not one | A frontend failure must not hide a backend one, and the jobs need different toolchains | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -626,3 +655,4 @@ Fill in as topics are worked. One row per decision.
 | Date | Change |
 | --- | --- |
 | 2026-10-28 | Initial review recorded; no product code changed. |
+| 2026-10-28 | T11 shipped: frontend tests, lint, format and CI baseline. |

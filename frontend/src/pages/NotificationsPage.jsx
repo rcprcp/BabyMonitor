@@ -27,9 +27,7 @@ import { NOTIFICATIONS_ARRIVED_EVENT, hideAlert, hideAllAlerts } from '../alerti
 // video. Any other link (an older or external URL) still opens in a new tab.
 function isAppRecording(link) {
   return (
-    typeof link === 'string' &&
-    link.startsWith('/api/cameras/') &&
-    link.includes('/recordings/')
+    typeof link === 'string' && link.startsWith('/api/cameras/') && link.includes('/recordings/')
   )
 }
 
@@ -60,8 +58,7 @@ function mergeNotifications(current, incoming, dismissed) {
     }
   }
   return [...byId.values()].sort(
-    (a, b) =>
-      new Date(b.eventTime).getTime() - new Date(a.eventTime).getTime() || b.id - a.id,
+    (a, b) => new Date(b.eventTime).getTime() - new Date(a.eventTime).getTime() || b.id - a.id,
   )
 }
 
@@ -342,10 +339,7 @@ export default function NotificationsPage() {
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
                 <Group gap="xs">
-                  <Badge
-                    variant="light"
-                    color={badgeColor(notification.eventType)}
-                  >
+                  <Badge variant="light" color={badgeColor(notification.eventType)}>
                     {notification.eventType}
                   </Badge>
                   {newIds.has(notification.id) && (
@@ -398,10 +392,7 @@ export default function NotificationsPage() {
             <Loader size="sm" />
           </Center>
         )}
-        {playing && (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video className="stream-media" src={playing} controls autoPlay playsInline />
-        )}
+        {playing && <video className="stream-media" src={playing} controls autoPlay playsInline />}
       </Modal>
     </Stack>
   )

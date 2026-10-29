@@ -83,8 +83,9 @@ These are the ones where the app looks fine while being wrong.
 
 ## P2 — Reliability and operations
 
-- [ ] **Add CI.** There is no `.github/workflows` (or any pipeline): the test
-      suite and the frontend build are unchecked on every push.
+- [x] **Add CI.** `.github/workflows/ci.yml` runs the backend suite and the
+      frontend tests/lint/format check/build on every push and pull request
+      (T11 in `USABILITY.md`).
 - [ ] **Package it.** No `Dockerfile`, no compose, no systemd unit. Deployment
       is documented as `mvn package && java -jar`. Provide a container image and
       a service unit, including what owns the `motion` children on restart.
@@ -202,10 +203,10 @@ These are the ones where the app looks fine while being wrong.
 
 ## P6 — Code quality, tests, docs
 
-- [ ] **Frontend tests.** There are none, and no runner configured
-      (`frontend/package.json` has only dev/build/preview).
-- [ ] **Lint and format the frontend.** `eslint-disable` comments exist but
-      ESLint is not installed; no Prettier config either.
+- [x] **Frontend tests.** Vitest + Testing Library, one smoke test per page
+      (`frontend/src/pages/*.test.jsx`): `cd frontend && npm test`.
+- [x] **Lint and format the frontend.** ESLint 9 flat config and Prettier:
+      `npm run lint`, `npm run format:check`, enforced in CI.
 - [x] **Make the backend tests hermetic.** They used to run against the live
       seeded DB, log in as `Bob/Bob` and mutate camera rows, so they depended on
       machine state — the root cause of the P0 test failure above. `%test` now

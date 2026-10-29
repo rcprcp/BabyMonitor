@@ -186,9 +186,7 @@ export default function CameraPage({ cameraNumber }) {
       const created = await api.createCameraParameter(cameraNumber, key, newValue)
       // The API returns the rows in name order, so slot the new one in rather
       // than appending and leaving the table unsorted.
-      setParameters((current) =>
-        [...current, created].sort((a, b) => a.key.localeCompare(b.key)),
-      )
+      setParameters((current) => [...current, created].sort((a, b) => a.key.localeCompare(b.key)))
       setDrafts((current) => ({ ...current, [created.key]: created.value }))
       setAdding(false)
       setNewKey('')
@@ -358,12 +356,7 @@ export default function CameraPage({ cameraNumber }) {
             <Button onClick={apply} loading={applying} disabled={loading}>
               Start/Apply
             </Button>
-            <Button
-              variant="default"
-              onClick={toggleAudio}
-              loading={audioBusy}
-              disabled={loading}
-            >
+            <Button variant="default" onClick={toggleAudio} loading={audioBusy} disabled={loading}>
               {audio?.running ? 'Stop audio' : 'Start audio'}
             </Button>
           </Stack>

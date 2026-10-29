@@ -27,11 +27,16 @@ const POLL_WITH_STREAM_MS = 60000
 /** Map a stored sound key to the actual file prefix used in /sounds/. */
 function soundPrefix(id) {
   switch (id) {
-    case 'alarm-loud':   return 'alarm-loud'
-    case 'doorbell':     return 'doorbell-ding-dong'
-    case 'beep':         return 'beep-short'
-    case 'chime':        return 'notification-chime'
-    default:             return id ?? 'chime'
+    case 'alarm-loud':
+      return 'alarm-loud'
+    case 'doorbell':
+      return 'doorbell-ding-dong'
+    case 'beep':
+      return 'beep-short'
+    case 'chime':
+      return 'notification-chime'
+    default:
+      return id ?? 'chime'
   }
 }
 

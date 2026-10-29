@@ -174,6 +174,19 @@ The audio and Motion suites never spawn the real binaries or open a microphone:
 `AudioTestResource` and `MotionTestResource` repoint them at classpath stubs
 (see the *Audio* and *Motion* sections).
 
+The SPA has its own suite and linter (Vitest + Testing Library under jsdom,
+ESLint, Prettier). It needs no backend and no Docker:
+
+```bash
+cd frontend
+npm test              # page smoke tests
+npm run lint          # ESLint
+npm run format:check  # Prettier, check only; `npm run format` rewrites
+```
+
+CI (`.github/workflows/ci.yml`) runs the backend suite and the frontend
+tests/lint/format check/build on every push and pull request.
+
 ## API
 
 All `/api` calls need `Authorization: Bearer <token>` except login and the

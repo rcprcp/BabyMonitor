@@ -42,13 +42,22 @@ function initialOf(name) {
  * any browser: the accent color (Mantine's palette) and light / dark / auto.
  */
 export default function ProfilePage() {
-  const { user, colorScheme, themeColor, promptSound, setPromptSound, saveColorScheme, saveThemeColor, savePromptSound, logout } = useAuth()
+  const {
+    user,
+    colorScheme,
+    themeColor,
+    promptSound,
+    setPromptSound,
+    saveColorScheme,
+    saveThemeColor,
+    savePromptSound,
+    logout,
+  } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const [savingAlertSound, setSavingAlertSound] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
   const [colorSaved, setColorSaved] = useState(false)
   const [colorError, setColorError] = useState(null)
@@ -166,13 +175,7 @@ export default function ProfilePage() {
       {!loading && profile && (
         <Card withBorder padding="lg">
           <Group wrap="nowrap" align="flex-start">
-            <Avatar
-              size={64}
-              radius="xl"
-              color={themeColor}
-              variant="filled"
-              fw={600}
-            >
+            <Avatar size={64} radius="xl" color={themeColor} variant="filled" fw={600}>
               {initialOf(displayName)}
             </Avatar>
             <Stack gap={4}>
@@ -258,16 +261,17 @@ export default function ProfilePage() {
                 </Button>
               </Group>
               <Text c="dimmed" size="sm">
-                Select the tone played when an alert arrives. Saved on your account so it follows you across browsers.
+                Select the tone played when an alert arrives. Saved on your account so it follows
+                you across browsers.
               </Text>
               <Popover position="bottom" withArrow p={0}>
                 <Popover.Target>
-                    <Box w={isLarge ? '30vw' : undefined}>
-                      <Button variant="outline" fullWidth radius="md">
-                        {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? 'Select a sound'}
-                      </Button>
-                    </Box>
-                  </Popover.Target>
+                  <Box w={isLarge ? '30vw' : undefined}>
+                    <Button variant="outline" fullWidth radius="md">
+                      {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? 'Select a sound'}
+                    </Button>
+                  </Box>
+                </Popover.Target>
                 <Popover.Dropdown
                   mah={300}
                   w={isLarge ? '30vw' : undefined}
@@ -283,9 +287,19 @@ export default function ProfilePage() {
                         px="xs"
                         py="xs"
                         radius="md"
-                        bg={sound.id === promptSound ? 'var(--mantine-primary-color-light)' : undefined}
-                        onClick={() => { previewSound(sound.prefix); changeAlertSound(sound.id) }}
-                        style={{ cursor: savingAlertSoundUI ? 'wait' : 'pointer', userSelect: 'none' }}
+                        bg={
+                          sound.id === promptSound
+                            ? 'var(--mantine-primary-color-light)'
+                            : undefined
+                        }
+                        onClick={() => {
+                          previewSound(sound.prefix)
+                          changeAlertSound(sound.id)
+                        }}
+                        style={{
+                          cursor: savingAlertSoundUI ? 'wait' : 'pointer',
+                          userSelect: 'none',
+                        }}
                       >
                         <Group gap="xs" wrap="nowrap">
                           <Button
@@ -295,10 +309,13 @@ export default function ProfilePage() {
                             fw={600}
                             c="blue"
                             radius="md"
-                            onClick={(e) => { e.stopPropagation(); previewSound(sound.prefix) }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              previewSound(sound.prefix)
+                            }}
                           >
                             Play ▶
-                          </Button>{" "}
+                          </Button>{' '}
                           <Text>{sound.label}</Text>
                         </Group>
                       </Group>
@@ -312,7 +329,9 @@ export default function ProfilePage() {
                 </Badge>
               )}
               <Group gap={0}>
-                <Text c="dimmed" size="sm" fw={500}>Current:</Text>{' '}
+                <Text c="dimmed" size="sm" fw={500}>
+                  Current:
+                </Text>{' '}
                 <Text c="blue" fw={500} span>
                   {PROMPT_SOUNDS.find((s) => s.id === promptSound)?.label ?? '—'}
                 </Text>

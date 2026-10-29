@@ -112,8 +112,7 @@ export const api = {
   getProfile: () => request('GET', '/api/users/me'),
   updateTheme: (theme) => request('PUT', '/api/users/me/theme', { theme }),
   updateThemeColor: (themeColor) => request('PUT', '/api/users/me/theme-color', { themeColor }),
-  updatePromptSound: (promptSound) =>
-    request('PUT', '/api/users/me/prompt-sound', { promptSound }),
+  updatePromptSound: (promptSound) => request('PUT', '/api/users/me/prompt-sound', { promptSound }),
   updateActiveCamera: (activeCamera) =>
     request('PUT', '/api/users/me/active-camera', { activeCamera }),
 
@@ -123,8 +122,7 @@ export const api = {
     request('PUT', `/api/settings/${encodeURIComponent(tag)}`, { value }),
 
   listNotifications: () => request('GET', '/api/notifications'),
-  dismissNotification: (id) =>
-    request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
+  dismissNotification: (id) => request('DELETE', `/api/notifications/${encodeURIComponent(id)}`),
   dismissAllNotifications: () => request('DELETE', '/api/notifications'),
 
   // Ambient readings, newest first. `limit` caps the number of rows.
@@ -137,8 +135,7 @@ export const api = {
   // Camera-derived brightness: configuration, calibration, history and a probe.
   getCameraLight: () => request('GET', '/api/environment/light'),
   updateCameraLight: (config) => request('PUT', '/api/environment/light', config),
-  listCameraLightBands: (hours) =>
-    request('GET', `/api/environment/light/samples?hours=${hours}`),
+  listCameraLightBands: (hours) => request('GET', `/api/environment/light/samples?hours=${hours}`),
   // A calibration capture passes the form's camera and exposure so it probes
   // what is on screen, not the last saved configuration.
   sampleCameraLight: (record = true, cameraNumber, exposureMs) => {
@@ -204,8 +201,7 @@ export const api = {
   getAudioAlertClasses: () => request('GET', '/api/audio/alert-classes'),
   setAudioAlertClass: (index, enabled) =>
     request('PUT', `/api/audio/alert-classes/${encodeURIComponent(index)}`, { enabled }),
-  setAudioAlertClasses: (indices) =>
-    request('PUT', '/api/audio/alert-classes', { indices }),
+  setAudioAlertClasses: (indices) => request('PUT', '/api/audio/alert-classes', { indices }),
   resetAudioAlertClasses: () => request('POST', '/api/audio/alert-classes/reset'),
 
   // A camera's recordings, and one clip's bytes for in-app playback.

@@ -240,7 +240,10 @@ export default function AudioListener({ cameraNumber }) {
       >
         {listening ? 'Stop listening' : 'Start listening'}
       </Button>
-      <Badge color={status === 'playing' ? 'green' : captureRunning ? 'yellow' : 'gray'} variant="light">
+      <Badge
+        color={status === 'playing' ? 'green' : captureRunning ? 'yellow' : 'gray'}
+        variant="light"
+      >
         {label}
       </Badge>
       <LevelMeter rms={lastRms} analyser={analyser} active={captureRunning} />

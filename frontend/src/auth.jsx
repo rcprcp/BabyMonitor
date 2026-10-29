@@ -1,11 +1,6 @@
 import { useCallback, useContext, createContext, useEffect, useMemo, useState } from 'react'
 import { api, clearSession, getToken, getName, setSession, setUnauthorizedHandler } from './api'
-import {
-  DEFAULT_COLOR_SCHEME,
-  DEFAULT_THEME_COLOR,
-  readPrefsHint,
-  writePrefsHint,
-} from './theme'
+import { DEFAULT_COLOR_SCHEME, DEFAULT_THEME_COLOR, readPrefsHint, writePrefsHint } from './theme'
 
 // Auth state is just "is there a valid token in localStorage". We do not trust
 // the stored name for anything security-relevant; it is only a display hint.
@@ -18,13 +13,13 @@ const AuthContext = createContext(null)
 
 /** Available notification sounds: each entry is `{id, label, prefix}`. */
 const PROMPT_SOUNDS = [
-  { id: 'chime',      label: 'Chime (default)',    prefix: 'notification-chime' },
-  { id: 'beep',       label: 'Short beep',         prefix: 'beep-short' },
-  { id: 'chirp',      label: 'Chirp',              prefix: 'chirp' },
-  { id: 'ding',       label: 'Ding',               prefix: 'ding' },
-  { id: 'doorbell',   label: 'Doorbell',           prefix: 'doorbell-ding-dong' },
-  { id: 'soft',       label: 'Soft tone',          prefix: 'soft' },
-  { id: 'alarm-loud', label: 'Loud alarm',         prefix: 'alarm-loud' },
+  { id: 'chime', label: 'Chime (default)', prefix: 'notification-chime' },
+  { id: 'beep', label: 'Short beep', prefix: 'beep-short' },
+  { id: 'chirp', label: 'Chirp', prefix: 'chirp' },
+  { id: 'ding', label: 'Ding', prefix: 'ding' },
+  { id: 'doorbell', label: 'Doorbell', prefix: 'doorbell-ding-dong' },
+  { id: 'soft', label: 'Soft tone', prefix: 'soft' },
+  { id: 'alarm-loud', label: 'Loud alarm', prefix: 'alarm-loud' },
 ]
 
 const DEFAULT_PROMPT_SOUND = PROMPT_SOUNDS[0].id
@@ -167,7 +162,6 @@ export function AuthProvider({ children }) {
       cancelled = true
     }
     // Only re-run when the token itself changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const value = useMemo(
@@ -185,7 +179,18 @@ export function AuthProvider({ children }) {
       saveThemeColor,
       isAuthenticated: Boolean(token),
     }),
-    [token, user, colorScheme, themeColor, promptSound, setPromptSound, login, logout, saveColorScheme, saveThemeColor],
+    [
+      token,
+      user,
+      colorScheme,
+      themeColor,
+      promptSound,
+      setPromptSound,
+      login,
+      logout,
+      saveColorScheme,
+      saveThemeColor,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

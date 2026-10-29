@@ -23,11 +23,16 @@ const DEFAULT_CHIME_URL = '/sounds/notification-chime.mp3'
 /** Build an alert-sound URL for the given stored sound key. */
 export function getSoundUrl(name) {
   switch (name) {
-    case 'alarm-loud':   return '/sounds/alarm-loud.mp3'
-    case 'doorbell':     return '/sounds/doorbell-ding-dong.mp3'
-    case 'beep':         return '/sounds/beep-short.mp3'
-    case 'chime':        return DEFAULT_CHIME_URL
-    default:             return `/sounds/${name}.mp3`
+    case 'alarm-loud':
+      return '/sounds/alarm-loud.mp3'
+    case 'doorbell':
+      return '/sounds/doorbell-ding-dong.mp3'
+    case 'beep':
+      return '/sounds/beep-short.mp3'
+    case 'chime':
+      return DEFAULT_CHIME_URL
+    default:
+      return `/sounds/${name}.mp3`
   }
 }
 

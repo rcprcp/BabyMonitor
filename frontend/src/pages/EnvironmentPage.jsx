@@ -205,7 +205,10 @@ export default function EnvironmentPage() {
     // The scheduled sampler updates the last band in the background; refresh it
     // without clobbering a calibration the user is editing.
     const timer = setInterval(() => {
-      api.getCameraLight().then(setLight).catch(() => {})
+      api
+        .getCameraLight()
+        .then(setLight)
+        .catch(() => {})
     }, 10000)
     return () => clearInterval(timer)
   }, [loadLight])
@@ -254,7 +257,10 @@ export default function EnvironmentPage() {
   // current hour, so refresh just the band history once a minute.
   useEffect(() => {
     const timer = setInterval(() => {
-      api.listCameraLightBands(Number(range)).then(setBands).catch(() => {})
+      api
+        .listCameraLightBands(Number(range))
+        .then(setBands)
+        .catch(() => {})
     }, 60000)
     return () => clearInterval(timer)
   }, [range])
@@ -279,8 +285,7 @@ export default function EnvironmentPage() {
           ...reading,
           temperature: fahrenheit(reading.temperature),
           brightness: band,
-          brightnessBand:
-            band == null ? null : BAND_BY_NUMBER[band]?.label ?? `Band ${band}`,
+          brightnessBand: band == null ? null : (BAND_BY_NUMBER[band]?.label ?? `Band ${band}`),
         }
       }),
     [readings, bandByHour],
@@ -300,11 +305,7 @@ export default function EnvironmentPage() {
     ]
     return pairs.every(
       ([low, high, min, max]) =>
-        Number.isFinite(low) &&
-        Number.isFinite(high) &&
-        low >= min &&
-        high <= max &&
-        low < high,
+        Number.isFinite(low) && Number.isFinite(high) && low >= min && high <= max && low < high,
     )
   }, [draft])
 
@@ -466,11 +467,7 @@ export default function EnvironmentPage() {
             <Group justify="space-between" align="center">
               <Title order={4}>Alert bounds</Title>
               <Group gap="sm">
-                <Button
-                  variant="default"
-                  onClick={() => setDraft(bounds)}
-                  disabled={saving}
-                >
+                <Button variant="default" onClick={() => setDraft(bounds)} disabled={saving}>
                   Reset
                 </Button>
                 <Button onClick={saveBounds} loading={saving} disabled={!boundsValid}>
@@ -481,9 +478,9 @@ export default function EnvironmentPage() {
 
             <Text size="sm" c="dimmed">
               Humidity and temperature outside these bounds are shown in red and raise an
-              Environment alert. Brightness is shown as a band from the camera light
-              calibration, and its alert compares the band&apos;s representative lux with these
-              bounds. Temperature is shown in °F throughout the page.
+              Environment alert. Brightness is shown as a band from the camera light calibration,
+              and its alert compares the band&apos;s representative lux with these bounds.
+              Temperature is shown in °F throughout the page.
             </Text>
 
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
@@ -578,9 +575,9 @@ export default function EnvironmentPage() {
           </Group>
 
           <Text size="sm" c="dimmed">
-            Plug in: choose a running camera. Calibrate: put the room in each lighting and
-            capture its luma. Play: enable the sensor; a probe runs every minute and raises an
-            Environment alert when the band is outside the brightness bounds.
+            Plug in: choose a running camera. Calibrate: put the room in each lighting and capture
+            its luma. Play: enable the sensor; a probe runs every minute and raises an Environment
+            alert when the band is outside the brightness bounds.
           </Text>
 
           {!lightDraft && (
@@ -595,9 +592,7 @@ export default function EnvironmentPage() {
                 <Select
                   label="Camera"
                   data={cameraOptions}
-                  value={
-                    lightDraft.cameraNumber == null ? null : String(lightDraft.cameraNumber)
-                  }
+                  value={lightDraft.cameraNumber == null ? null : String(lightDraft.cameraNumber)}
                   placeholder="Choose a camera"
                   onChange={(value) =>
                     value &&
@@ -657,9 +652,7 @@ export default function EnvironmentPage() {
                 </Button>
                 {light?.lastBand != null ? (
                   <Badge
-                    color={
-                      BAND_COLORS[BAND_BY_NUMBER[light.lastBand]?.band] ?? 'gray'
-                    }
+                    color={BAND_COLORS[BAND_BY_NUMBER[light.lastBand]?.band] ?? 'gray'}
                     variant="light"
                   >
                     {BAND_BY_NUMBER[light.lastBand]?.label ?? `Band ${light.lastBand}`}

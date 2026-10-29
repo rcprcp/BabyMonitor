@@ -1,7 +1,15 @@
 import { useEffect, useMemo } from 'react'
 import { AppShell, MantineProvider, useMantineColorScheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import useNotificationAlerts from './useNotificationAlerts'
 import { OPEN_NOTIFICATIONS_EVENT } from './alerting'

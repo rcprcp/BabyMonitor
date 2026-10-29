@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // Dev: `npm run dev` serves the SPA on :5173 and proxies /api to the Quarkus
@@ -28,5 +28,14 @@ export default defineConfig({
   build: {
     outDir: '../target/classes/META-INF/resources',
     emptyOutDir: true,
+  },
+  // `npm test` runs the page smoke tests under jsdom. The setup file stubs the
+  // browser APIs Mantine and recharts expect (matchMedia, ResizeObserver, …).
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    include: ['src/**/*.{test,spec}.{js,jsx}'],
+    clearMocks: true,
   },
 })
