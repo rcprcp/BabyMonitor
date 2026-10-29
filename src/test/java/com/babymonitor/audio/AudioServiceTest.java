@@ -17,6 +17,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,6 +146,54 @@ class AudioServiceTest {
             audio.stop(cameraNumber);
         }
         assertNull(findNotification(cameraNumber), "nothing should have been stored");
+    }
+
+    @Test
+    void twoConcurrentStartsSpawnOnlyOneCapture() throws Exception {
+        // Boot and the first supervisor tick can both ask for a camera at the
+        // same instant. Without a per-camera lock both saw "not running" and
+        // spawned a capture, leaving an untracked sox child behind.
+        int cameraNumber = 13;
+        String device = "race-device-13";
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(2);
+            Future<AudioStatusDto> first = pool.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return audio.start(cameraNumber, device);
+            });
+            Future<AudioStatusDto> second = pool.submit(() -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return audio.start(cameraNumber, device);
+            });
+
+            AudioStatusDto a = first.get(20, TimeUnit.SECONDS);
+            AudioStatusDto b = second.get(20, TimeUnit.SECONDS);
+
+            assertNotNull(a.pid());
+            assertEquals(a.pid(), b.pid(), "both starts must resolve to the same capture process");
+            // Count only the stub itself; the parent shell's command line can
+            // contain the device string too when a test is run by pattern.
+            var matching = ProcessHandle.allProcesses()
+                    .filter(process -> {
+                        String command = process.info().commandLine().orElse("");
+                        return command.contains("fake-capture.sh") && command.contains(device);
+                    })
+                    .map(process -> process.pid() + " " + process.info().commandLine().orElse(""))
+                    .toList();
+            assertEquals(1, matching.size(), "only one capture process may exist: " + matching);
+        } finally {
+            audio.stop(cameraNumber);
+            // Defensive: if the lock ever regresses, kill the stray stub so the
+            // test fails instead of leaking a process into the suite.
+            ProcessHandle.allProcesses()
+                    .filter(process -> {
+                        String command = process.info().commandLine().orElse("");
+                        return command.contains("fake-capture.sh") && command.contains(device);
+                    })
+                    .forEach(ProcessHandle::destroyForcibly);
+            pool.shutdownNow();
+        }
     }
 
     @Test

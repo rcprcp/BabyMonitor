@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
 
@@ -73,6 +74,18 @@ public class AudioService {
     /** The stdout reader per camera, so a restart can join the old one. */
     private final Map<Integer, Thread> readers = new ConcurrentHashMap<>();
 
+    /**
+     * One lock per camera around the start/stop check-then-act. Boot
+     * ({@code CameraStartup}) and the first supervisor tick can ask at the same
+     * instant; without this both would see "not running" and spawn a capture,
+     * leaving an untracked {@code sox} child behind.
+     */
+    private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    private ReentrantLock lockFor(int cameraNumber) {
+        return locks.computeIfAbsent(cameraNumber, number -> new ReentrantLock());
+    }
+
     /** The current state of a camera's capture process and classifier. */
     public AudioStatusDto status(int cameraNumber) {
         return status(cameraNumber, false);
@@ -113,52 +126,65 @@ public class AudioService {
      * @throws UncheckedIOException when the capture process cannot be started
      */
     public AudioStatusDto start(int cameraNumber, String device) {
-        if (processes.isRunning(cameraNumber)) {
-            LOG.warnf("Audio capture for camera %d is already running", cameraNumber);
-            return status(cameraNumber, true);
-        }
-        AudioClassifier.Session session = config.classifierEnabled() ? classifier.openSession() : null;
-        CryDetector detector = session == null ? null : newDetector();
-        Process process;
+        ReentrantLock lock = lockFor(cameraNumber);
+        lock.lock();
         try {
-            process = processes.start(cameraNumber, device);
-        } catch (IOException e) {
-            closeQuietly(session);
-            throw new UncheckedIOException(
-                    "Could not start the audio capture for camera " + cameraNumber, e);
+            if (processes.isRunning(cameraNumber)) {
+                LOG.warnf("Audio capture for camera %d is already running", cameraNumber);
+                return status(cameraNumber, true);
+            }
+            AudioClassifier.Session session =
+                    config.classifierEnabled() ? classifier.openSession() : null;
+            CryDetector detector = session == null ? null : newDetector();
+            Process process;
+            try {
+                process = processes.start(cameraNumber, device);
+            } catch (IOException e) {
+                closeQuietly(session);
+                throw new UncheckedIOException(
+                        "Could not start the audio capture for camera " + cameraNumber, e);
+            }
+            devices.put(cameraNumber, device);
+            counters.put(cameraNumber, new Counters());
+            Thread reader = new Thread(
+                    () -> readLoop(cameraNumber, process.getInputStream(), session, detector),
+                    "audio-capture-" + cameraNumber);
+            reader.setDaemon(true);
+            readers.put(cameraNumber, reader);
+            reader.start();
+            return status(cameraNumber, true);
+        } finally {
+            lock.unlock();
         }
-        devices.put(cameraNumber, device);
-        counters.put(cameraNumber, new Counters());
-        Thread reader = new Thread(
-                () -> readLoop(cameraNumber, process.getInputStream(), session, detector),
-                "audio-capture-" + cameraNumber);
-        reader.setDaemon(true);
-        readers.put(cameraNumber, reader);
-        reader.start();
-        return status(cameraNumber, true);
     }
 
     /** Stops a camera's capture and waits for its reader to finish. */
     public AudioStatusDto stop(int cameraNumber) {
-        // End any live-listen stream first, so a listener's HTTP response does
-        // not hang open waiting for audio that will never come.
-        broadcaster.finish(cameraNumber);
-        Thread reader = readers.remove(cameraNumber);
-        processes.stop(cameraNumber);
-        if (reader != null) {
-            try {
-                reader.join(TimeUnit.SECONDS.toMillis(2));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+        ReentrantLock lock = lockFor(cameraNumber);
+        lock.lock();
+        try {
+            // End any live-listen stream first, so a listener's HTTP response
+            // does not hang open waiting for audio that will never come.
+            broadcaster.finish(cameraNumber);
+            Thread reader = readers.remove(cameraNumber);
+            processes.stop(cameraNumber);
+            if (reader != null) {
+                try {
+                    reader.join(TimeUnit.SECONDS.toMillis(2));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
+            // The reader owns its classifier session and closes it in its own
+            // finally, once the stopped process closes stdout. Nothing is closed
+            // here: a thread that would not join must not have its predictor
+            // pulled out from under it.
+            counters.remove(cameraNumber);
+            devices.remove(cameraNumber);
+            return status(cameraNumber, false);
+        } finally {
+            lock.unlock();
         }
-        // The reader owns its classifier session and closes it in its own
-        // finally, once the stopped process closes stdout. Nothing is closed
-        // here: a thread that would not join must not have its predictor
-        // pulled out from under it.
-        counters.remove(cameraNumber);
-        devices.remove(cameraNumber);
-        return status(cameraNumber, false);
     }
 
     /**
