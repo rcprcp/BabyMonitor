@@ -540,7 +540,9 @@ click below Cameras.
   a reload.
 - **A Cameras list page** (`/cameras`). The phone tab bar cannot show two nested
   entries, so the destination opens named cards that link to the existing
-  `/cameras/1` and `/cameras/2` pages.
+  `/cameras/1` and `/cameras/2` pages. (2026-10-29: the menu item is named
+  **Camera Configuration** and no longer lists the two cameras by name; they are
+  reached from that page.)
 - **A More page** (`/more`) with plain links to Environment, Audio
   notifications and Settings, plus Sign out. Being a route rather than a drawer
   means every entry survives a reload. (Personal settings was a separate page

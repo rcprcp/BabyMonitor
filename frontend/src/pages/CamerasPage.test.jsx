@@ -19,7 +19,7 @@ describe('CamerasPage', () => {
   it('lists each camera by name, falling back to its number', async () => {
     renderWithProviders(<CamerasPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Cameras' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Camera Configuration' })).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: /Nursery/ })).toHaveAttribute(
       'href',
       '/cameras/1',

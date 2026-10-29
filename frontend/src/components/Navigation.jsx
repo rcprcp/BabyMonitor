@@ -1,7 +1,5 @@
-import { Fragment } from 'react'
 import { Group, NavLink as MantineNavLink, Stack } from '@mantine/core'
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
-import { cameraLabel, useCameras } from '../useCameras'
 
 // The desktop sidebar holds every destination; the phone tab bar keeps the four
 // daily ones and reaches the rest through Settings.
@@ -9,7 +7,7 @@ export const SIDE_DESTINATIONS = [
   { to: '/', label: 'Live Stream', end: true, Icon: MonitorIcon },
   { to: '/notifications', label: 'Alerts', Icon: BellIcon },
   { to: '/environment', label: 'Environment', Icon: EnvironmentIcon },
-  { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
+  { to: '/cameras', label: 'Camera Configuration', Icon: CameraIcon },
   { to: '/audio-alerts', label: 'Audio Configuration', Icon: AudioIcon },
   {
     to: '/environment-config',
@@ -35,38 +33,24 @@ export function isActive(pathname, destination) {
   return pathname === destination.to || pathname.startsWith(`${destination.to}/`)
 }
 
-// Desktop: a persistent sidebar, with the two camera pages listed under
-// Cameras so a named camera is one click away.
+// Desktop: a persistent sidebar. The individual camera pages are reached from
+// the Camera Configuration list, not listed here.
 export function SideNavigation() {
   const { pathname } = useLocation()
-  const { cameras } = useCameras()
 
   return (
     <Stack gap={4}>
       {SIDE_DESTINATIONS.map((destination) => (
-        <Fragment key={destination.to}>
-          <MantineNavLink
-            component={RouterNavLink}
-            to={destination.to}
-            end={destination.end}
-            label={destination.label}
-            leftSection={<destination.Icon />}
-            active={isActive(pathname, destination)}
-            variant="light"
-          />
-          {destination.to === '/cameras' &&
-            cameras.map((camera) => (
-              <MantineNavLink
-                key={camera.cameraNumber}
-                component={RouterNavLink}
-                to={`/cameras/${camera.cameraNumber}`}
-                label={cameraLabel(camera)}
-                pl={44}
-                active={pathname === `/cameras/${camera.cameraNumber}`}
-                variant="subtle"
-              />
-            ))}
-        </Fragment>
+        <MantineNavLink
+          key={destination.to}
+          component={RouterNavLink}
+          to={destination.to}
+          end={destination.end}
+          label={destination.label}
+          leftSection={<destination.Icon />}
+          active={isActive(pathname, destination)}
+          variant="light"
+        />
       ))}
     </Stack>
   )

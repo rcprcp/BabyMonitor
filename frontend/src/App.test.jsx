@@ -69,7 +69,7 @@ describe('App shell', () => {
     expect((await screen.findAllByRole('link', { name: /Live Stream/ })).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Alerts/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Environment/ }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Camera Configuration/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Audio Configuration/ }).length).toBeGreaterThan(0)
     expect(
       screen.getAllByRole('link', { name: /Environment Configuration/ }).length,
@@ -110,8 +110,8 @@ describe('App shell', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Cameras' })).toBeInTheDocument()
-    // Both the sidebar and the camera card link to the camera page.
+    expect(await screen.findByRole('heading', { name: 'Camera Configuration' })).toBeInTheDocument()
+    // The camera card links to the camera page.
     const links = await screen.findAllByRole('link', { name: /Nursery/ })
     expect(links.some((link) => link.getAttribute('href') === '/cameras/1')).toBe(true)
   })

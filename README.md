@@ -654,8 +654,8 @@ Configuration), `/settings` and `/system-settings` (System Settings). The retire
 `/profile` and `/more` URLs redirect to `/settings`.
 
 On a desktop the sidebar lists every destination: **Live Stream** (`/`), **Alerts**
-(`/notifications`), **Environment** (`/environment`), **Cameras** (`/cameras`,
-with the two camera pages below it by name), **Audio Configuration**
+(`/notifications`), **Environment** (`/environment`), **Camera
+Configuration** (`/cameras`), **Audio Configuration**
 (`/audio-alerts`), **Environment Configuration** (`/environment-config`),
 **Settings** (`/settings`) and **System Settings** (`/system-settings`) at the
 bottom. On a phone the fixed bottom tab bar keeps four daily

@@ -13,15 +13,15 @@ import {
 import { Link as RouterLink } from 'react-router-dom'
 import { cameraLabel, useCameras } from '../useCameras'
 
-// The Cameras destination: a list of cameras by name. Each card opens that
-// camera's page, which is where its name, device, stream port and Motion
-// options live.
+// The Camera Configuration destination: a list of cameras by name. Each card
+// opens that camera's page, which is where its name, device, stream port and
+// Motion options live.
 export default function CamerasPage() {
   const { cameras, loading, error } = useCameras()
 
   return (
     <Stack>
-      <Title order={2}>Cameras</Title>
+      <Title order={2}>Camera Configuration</Title>
       <Text c="dimmed" size="sm">
         Each camera has its own page for its name, device, stream port and recording options.
       </Text>

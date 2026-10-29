@@ -1,31 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { BottomNavigation, SideNavigation } from './Navigation'
 import { renderWithProviders } from '../test/render'
 
-const { api } = vi.hoisted(() => ({ api: { listCameras: vi.fn() } }))
-
-vi.mock('../api', () => ({ api }))
-
-beforeEach(() => {
-  api.listCameras.mockResolvedValue([
-    { cameraNumber: 1, key: 'camera_name', value: 'Nursery', enabled: true },
-    { cameraNumber: 1, key: 'stream_port', value: '8081', enabled: true },
-    { cameraNumber: 2, key: 'stream_port', value: '8082', enabled: true },
-  ])
-})
-
 describe('SideNavigation', () => {
-  it('lists every destination in the requested order, with named cameras', async () => {
+  it('lists every destination in the requested order, without camera names', () => {
     renderWithProviders(<SideNavigation />)
 
     expect(screen.getByRole('link', { name: /Live Stream/ })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    // A named camera uses its name; an unnamed one falls back to its number.
-    expect(await screen.findByRole('link', { name: 'Nursery' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Camera 2' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Camera Configuration' })).toBeInTheDocument()
 
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
     expect(hrefs).toEqual([
@@ -33,23 +19,22 @@ describe('SideNavigation', () => {
       '/notifications',
       '/environment',
       '/cameras',
-      '/cameras/1',
-      '/cameras/2',
       '/audio-alerts',
       '/environment-config',
       '/settings',
       '/system-settings',
     ])
+    // Camera rows are reached from the list, not the menu.
+    expect(screen.queryByRole('link', { name: /Nursery|Camera 2/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Environment Configuration/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'System Settings' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 
-  it('keeps the camera section active inside a camera page', async () => {
+  it('keeps Camera Configuration active inside a camera page', () => {
     renderWithProviders(<SideNavigation />, { route: '/cameras/1' })
 
-    expect(screen.getByRole('link', { name: /Cameras/ })).toHaveAttribute('aria-current', 'page')
-    expect(await screen.findByRole('link', { name: 'Nursery' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Camera Configuration' })).toHaveAttribute(
       'aria-current',
       'page',
     )

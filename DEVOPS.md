@@ -479,7 +479,8 @@ container or sysfs setup is the first thing to check (section 11).
    ```
 
 4. In **System Settings**, set `systemName` and `stream_url` (the host base, no
-   port; the SPA appends each camera's `stream_port`). In **Cameras**, set each
+   port; the SPA appends each camera's `stream_port`). In **Camera
+   Configuration**, set each
    camera's name, video device, resolution, frame rate and stream port in the
    friendly form; `webcontrol_port`, `target_dir`, `log_file` and every other
    Motion option are under that camera's **Advanced**.
