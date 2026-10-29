@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Center,
+  Divider,
   Group,
   Loader,
   Stack,
@@ -11,7 +12,10 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useOnboarding } from '../onboarding'
+import { notifySettingsChanged } from '../settingsEvents'
 
 // Application settings. Every row in babymonitor.settings is editable;
 // systemName titles the bar.
@@ -24,23 +28,30 @@ const SETTING_LABELS = {
   stream_url: 'Stream address',
 }
 
+// Settings the app owns are not hand-editable rows; they get a control below
+// instead of a text field (the setup wizard owns onboardingComplete).
+const INTERNAL_TAGS = new Set(['onboardingComplete'])
+
 function settingLabel(tag) {
   return SETTING_LABELS[tag] ?? tag
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
+  const { restart } = useOnboarding()
   const [settings, setSettings] = useState([])
   const [drafts, setDrafts] = useState({})
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingTag, setSavingTag] = useState(null)
   const [savedTag, setSavedTag] = useState(null)
+  const [setupError, setSetupError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const list = await api.listSettings()
+      const list = (await api.listSettings()).filter((row) => !INTERNAL_TAGS.has(row.tag))
       setSettings(list)
       setDrafts(Object.fromEntries(list.map((s) => [s.tag, s.value])))
     } catch (err) {
@@ -62,6 +73,7 @@ export default function SettingsPage() {
       const updated = await api.updateSetting(tag, drafts[tag])
       setSettings((current) => current.map((s) => (s.tag === tag ? updated : s)))
       setSavedTag(tag)
+      notifySettingsChanged()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -127,6 +139,36 @@ export default function SettingsPage() {
           </Group>
         ))}
       </Stack>
+
+      <Divider />
+
+      <Group justify="space-between" align="center" wrap="nowrap">
+        <Stack gap={2}>
+          <Text fw={600}>Setup wizard</Text>
+          <Text size="sm" c="dimmed">
+            Walk through the monitor name, camera devices and a stream test again.
+          </Text>
+        </Stack>
+        <Button
+          variant="default"
+          onClick={async () => {
+            setSetupError(null)
+            try {
+              await restart()
+              navigate('/welcome')
+            } catch (err) {
+              setSetupError(err.message)
+            }
+          }}
+        >
+          Run setup again
+        </Button>
+      </Group>
+      {setupError && (
+        <Alert color="red" variant="light">
+          {setupError}
+        </Alert>
+      )}
     </Stack>
   )
 }

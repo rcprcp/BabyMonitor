@@ -11,7 +11,12 @@ const { api } = vi.hoisted(() => ({
   },
 }))
 
+const { restart } = vi.hoisted(() => ({ restart: vi.fn() }))
+
 vi.mock('../api', () => ({ api }))
+vi.mock('../onboarding', () => ({
+  useOnboarding: () => ({ complete: true, markComplete: vi.fn(), restart }),
+}))
 
 const settings = [
   { tag: 'systemName', value: 'My Monitor' },
@@ -21,6 +26,7 @@ const settings = [
 beforeEach(() => {
   api.listSettings.mockResolvedValue(settings)
   api.updateSetting.mockImplementation((tag, value) => Promise.resolve({ tag, value }))
+  restart.mockResolvedValue(undefined)
 })
 
 describe('SettingsPage', () => {
@@ -45,6 +51,16 @@ describe('SettingsPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0])
 
     expect(api.updateSetting).toHaveBeenCalledWith('systemName', 'Renamed Monitor')
+  })
+
+  it('can re-run the setup wizard', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<SettingsPage />)
+
+    await screen.findByLabelText(/Monitor name/)
+    await user.click(screen.getByRole('button', { name: 'Run setup again' }))
+
+    expect(restart).toHaveBeenCalledTimes(1)
   })
 
   it('shows an error when saving fails', async () => {

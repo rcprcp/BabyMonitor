@@ -149,6 +149,9 @@ export const api = {
     return request('POST', `/api/environment/light/sample?${params}`)
   },
 
+  // The setup wizard's camera picker. Empty when the host exposes no nodes.
+  listVideoDevices: () => request('GET', '/api/video-devices'),
+
   listCameras: () => request('GET', '/api/cameras'),
   getCamera: (cameraNumber) => request('GET', `/api/cameras/${encodeURIComponent(cameraNumber)}`),
   updateCameraParameter: (cameraNumber, key, value) =>

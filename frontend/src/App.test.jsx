@@ -11,6 +11,7 @@ const { api } = vi.hoisted(() => ({
     updateActiveCamera: vi.fn(),
     getCameraAudio: vi.fn(),
     listNotifications: vi.fn(),
+    listVideoDevices: vi.fn(),
   },
 }))
 
@@ -25,7 +26,13 @@ beforeEach(() => {
   localStorage.setItem('babymonitor.token', 'test-token')
   localStorage.setItem('babymonitor.name', 'Bob')
 
-  api.getSetting.mockResolvedValue({ tag: 'systemName', value: 'Nursery Monitor' })
+  // The shell asks for the system name and the first-run marker separately.
+  api.getSetting.mockImplementation((tag) =>
+    Promise.resolve({
+      tag,
+      value: tag === 'onboardingComplete' ? 'true' : 'Nursery Monitor',
+    }),
+  )
   api.listCameras.mockResolvedValue([
     { cameraNumber: 1, key: 'camera_name', value: 'Nursery', enabled: true },
     { cameraNumber: 1, key: 'stream_port', value: '8081', enabled: true },
@@ -36,6 +43,7 @@ beforeEach(() => {
   api.updateActiveCamera.mockResolvedValue({})
   api.getCameraAudio.mockResolvedValue({ running: false, enabled: false })
   api.listNotifications.mockResolvedValue([])
+  api.listVideoDevices.mockResolvedValue([{ device: '/dev/video0', name: 'Integrated Camera' }])
 })
 
 afterEach(() => {
@@ -62,6 +70,16 @@ describe('App shell', () => {
     expect(screen.getAllByRole('link', { name: /Alerts/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /More/ }).length).toBeGreaterThan(0)
+  })
+
+  it('sends a first run to the setup wizard', async () => {
+    api.getSetting.mockImplementation((tag) =>
+      Promise.resolve({ tag, value: tag === 'onboardingComplete' ? 'false' : 'Nursery Monitor' }),
+    )
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Set up your monitor' })).toBeInTheDocument()
   })
 
   it('serves the camera list on a deep link', async () => {

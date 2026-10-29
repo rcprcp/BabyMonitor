@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Avatar, Group, Title } from '@mantine/core'
 import { NavLink } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { SETTINGS_CHANGED_EVENT } from '../settingsEvents'
 
 // Shown until the systemName setting has been read (and if it is missing).
 const DEFAULT_TITLE = 'BabyMonitor'
@@ -21,25 +22,25 @@ export default function TitleBar() {
   const { user } = useAuth()
 
   // The title comes from the systemName setting, so the system can be renamed
-  // from the Settings page. The default is kept if the tag is missing.
-  useEffect(() => {
-    let cancelled = false
-    api
-      .getSetting('systemName')
-      .then((setting) => {
-        if (cancelled || !setting?.value) {
-          return
-        }
+  // from the Settings page or the setup wizard. The default is kept if the tag
+  // is missing.
+  const loadTitle = useCallback(async () => {
+    try {
+      const setting = await api.getSetting('systemName')
+      if (setting?.value) {
         setSystemName(setting.value)
         document.title = setting.value
-      })
-      .catch(() => {
-        // Keep the default title if the setting cannot be read.
-      })
-    return () => {
-      cancelled = true
+      }
+    } catch {
+      // Keep the current title if the setting cannot be read.
     }
   }, [])
+
+  useEffect(() => {
+    loadTitle()
+    window.addEventListener(SETTINGS_CHANGED_EVENT, loadTitle)
+    return () => window.removeEventListener(SETTINGS_CHANGED_EVENT, loadTitle)
+  }, [loadTitle])
 
   return (
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">

@@ -285,6 +285,35 @@ class ApiTest {
     }
 
     @Test
+    void onboardingSettingTellsTheWizardWhetherToRun() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/settings/onboardingComplete")
+                .then()
+                .statusCode(200)
+                .body("tag", equalTo("onboardingComplete"))
+                .body("value", notNullValue());
+    }
+
+    @Test
+    void videoDevicesRequireAToken() {
+        given().when().get("/api/video-devices").then().statusCode(401);
+    }
+
+    @Test
+    void videoDevicesAreListedForTheWizard() {
+        String token = login("Bob", "Bob");
+        given()
+                .header("Authorization", bearer(token))
+                .when()
+                .get("/api/video-devices")
+                .then()
+                .statusCode(200);
+    }
+
+    @Test
     void notificationFeedRequiresToken() {
         given().when().get("/api/notifications").then().statusCode(401);
     }
