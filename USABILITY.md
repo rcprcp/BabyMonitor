@@ -43,7 +43,7 @@ without hiding anything that matters for trust.
 | T4 | Make "Stop" honest about boot behaviour | High | S | decision |
 | T5 | One Settings area; label and validate raw tags | High | S | todo |
 | T6 | Environment: monitoring first, setup behind a disclosure | Medium | M | todo |
-| T7 | Navigation: 4 destinations, camera names | Medium | S | todo |
+| T7 | Navigation: 4 destinations, camera names | Medium | S | done |
 | T8 | One save action per page, less badge noise | Medium | S–M | decision |
 | T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | todo |
 | T10 | First-run onboarding wizard | Medium | L | todo |
@@ -424,6 +424,39 @@ behind a hamburger, and camera entries are numbered even though they have names.
 - The current page is visibly selected.
 - A deep link to every page still works on refresh (`SpaFallbackFilter`).
 
+**Done (2026-10-28).** Four destinations shipped, with the camera pages one
+click below Cameras.
+
+- **Monitor / Alerts / Cameras / More** on every protected page. Desktop: a
+  persistent sidebar (`AppShell.Navbar`, 230 px). Phone: a fixed bottom tab bar
+  with icons and labels, hidden from Mantine's `sm` breakpoint up. The title bar
+  keeps only the system name and the account avatar; the hamburger and its
+  nine-item menu are gone.
+- **Named cameras.** The sidebar lists both camera pages under Cameras, labelled
+  from `camera_name` and falling back to "Camera N". A new `useCameras()` hook
+  rolls up the parameter rows and listens for
+  `babymonitor:cameras-changed`, which `CameraPage` fires after a successful
+  parameter save/add/delete, so renaming a camera updates the navigation without
+  a reload.
+- **A Cameras list page** (`/cameras`). The phone tab bar cannot show two nested
+  entries, so the destination opens named cards that link to the existing
+  `/cameras/1` and `/cameras/2` pages.
+- **A More page** (`/more`) with plain links to Environment, Audio
+  notifications, Settings and Personal settings, plus Sign out. Being a route
+  rather than a drawer means every entry survives a reload.
+- **Active state** comes from React Router: the sidebar's `active` prop and the
+  tab bar's CSS both key off `aria-current="page"`, so colour and semantics
+  cannot disagree.
+- **Naming.** The feed's page title was "Notifications"; it is now **Alerts** to
+  match the destination. The route, API, database table and README prose about
+  notifications are unchanged. The alert sound stays in Personal settings
+  (reachable from the avatar and from More) instead of becoming a second Alerts
+  entry.
+- **Tests.** 12 files, 40 tests: an App shell test (the four destinations and a
+  `/cameras` deep link), Navigation (destinations, active state, camera names
+  and the number fallback), CamerasPage (names, fallback, error) and MorePage
+  (links, sign out).
+
 ---
 
 ## T8 — One save action per page, less badge noise
@@ -697,6 +730,10 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T1 | Presets: Cry only (11,19,20,21), Voices and cries (0–23), Human sounds (0–61, default), Custom | Three steps of sensitivity; the default keeps today's behaviour and the middle step is the documented Speech & Human Sounds group | agent |
 | 2026-10-28 | T1 | Derive the active preset from the enabled set instead of storing a name | One source of truth (the switches), so an edit can never leave a stale label; no schema change | agent |
 | 2026-10-28 | T1 | Keep 0–61 as the shipped default; no migration | It already is the default, and 0–16 (considered) would have excluded the cry classes | agent |
+| 2026-10-28 | T7 | Four destinations, not three | Alerts is the daily "what happened" check and deserves its own tab; the feed would otherwise sit two taps deep under More | agent |
+| 2026-10-28 | T7 | Desktop sidebar + phone tab bar, title bar loses the hamburger | Wayfinding belongs in persistent navigation, not behind a menu; the title bar keeps identity only | agent |
+| 2026-10-28 | T7 | Cameras destination is a list page, camera pages stay at `/cameras/N` | A tab bar cannot show two nested entries, and keeping the old routes preserves every deep link | agent |
+| 2026-10-28 | T7 | Alert sound stays in Personal settings | The avatar is always visible and More links to it; a second Alerts entry would duplicate the same control | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -708,8 +745,7 @@ Fill in as topics are worked. One row per decision.
 1. **T4** — Does Stop persist across restarts, or is it relabelled?
 2. **T6** — Are brightness bounds expressed in bands or proxy lux?
 3. **T8** — Autosave, or an explicit save bar?
-4. **T7** — Four destinations as proposed, or three?
-5. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
+4. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
 
 ## Changelog
 
@@ -719,3 +755,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T11 shipped: frontend tests, lint, format and CI baseline. |
 | 2026-10-28 | T12 shipped: intent-first labels across the SPA; camera names and the config badge handed to T7/T2. |
 | 2026-10-28 | T1 shipped: three audio-alert presets plus Custom; 0–61 remains the default. |
+| 2026-10-28 | T7 shipped: Monitor/Alerts/Cameras/More with a sidebar or tab bar, camera names and a More page. |

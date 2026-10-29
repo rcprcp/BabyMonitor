@@ -58,7 +58,7 @@ migrations.
     color, a Mantine palette name (defaulting to `blue`), and `prompt_sound` the
     alert-tone prefix it plays (defaulting to `chime`)
   - `babymonitor.notifications` (`id`, `event_time`, `event_type`,
-    `description`, `video_link`) — the feed behind the Notifications page.
+    `description`, `video_link`) — the feed behind the Alerts page.
     `event_type` is the PostgreSQL enum `babymonitor.event_type` with the values
     `Video`, `Audio`, `System` and `Environment` (the last two are written by the
     Motion and Environment supervisors; see *Motion* and *Environment* below)
@@ -241,7 +241,7 @@ webhooks.
 
 `POST /api/webhooks/audioNotification` and
 `POST /api/webhooks/videoNotification` receive alerts from the camera / motion
-detector and store them in `babymonitor.notifications`, where the Notifications
+detector and store them in `babymonitor.notifications`, where the Alerts
 page lists them. They are exempt from the bearer-token gate (the sender is a
 device, not a browser).
 
@@ -313,7 +313,7 @@ this on: dismiss one as Bob and it stays in Cindy's feed.
 
 `GET /api/notifications/stream` is a [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
 stream: every new notification is pushed as a `notification` event the moment
-the webhook that recorded it commits, so the Notifications page updates and the
+the webhook that recorded it commits, so the Alerts page updates and the
 parent is alerted without waiting for a refresh.
 
 A reconnecting client passes the last event id it saw, via the standard
@@ -322,7 +322,7 @@ A reconnecting client passes the last event id it saw, via the standard
 is deliberately not used for this: a webhook may back-date an event, while the
 id is always monotonic.
 
-The Notifications page does not wait for a refetch: the fresh rows ride on the
+The Alerts page does not wait for a refetch: the fresh rows ride on the
 browser event (`CustomEvent.detail.notifications`) and are merged into the top of
 the list immediately, de-duplicated by id. A light 10-second poll while the page
 is visible is the safety net if an event is missed. The alert hook reconnects the
@@ -332,7 +332,7 @@ of silently falling back to polling.
 On startup the alert hook first seeds its watermark from the existing feed, so a
 restart does not replay the backlog as a burst of new alerts; only events that
 arrive afterwards (or while that first fetch runs) alert. Alert toasts auto-close
-after 10 seconds, clicking one opens the Notifications page, and
+after 10 seconds, clicking one opens the Alerts page, and
 **Clear my notifications** also closes any that are still on screen.
 
 Because `EventSource` cannot set an `Authorization` header, this one endpoint
@@ -473,7 +473,7 @@ copied into the base directory on first use and never overwritten — delete
 absolute or the default `<base>/<n>/recordings`). The name must be a plain file
 name, so a request cannot read outside that directory, and the response honours
 a byte `Range` so a player can seek. Both sit behind the same bearer gate as the
-rest of `/api`; that is why the Notifications page fetches a clip with its token
+rest of `/api`; that is why the Alerts page fetches a clip with its token
 and plays it in an in-app player rather than opening the URL in a new tab.
 
 ## Audio and cry detection
@@ -618,18 +618,30 @@ map still lines up with the model's output.
 
 ## SPA
 
-React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
-`/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/audio-alerts` (Audio notifications), `/settings`, `/profile` (Personal
-settings). The app boots into the Live stream
+React Router routes: `/login`, `/` (stream), `/notifications` (Alerts),
+`/environment`, `/cameras` (the camera list), `/cameras/1` and `/cameras/2` (the
+shared Camera page, one route per camera), `/audio-alerts` (Audio
+notifications), `/settings`, `/profile` (Personal settings) and `/more`.
+
+Navigation has four destinations, the same on every screen: **Monitor** (`/`),
+**Alerts** (`/notifications`), **Cameras** (`/cameras`) and **More** (`/more`).
+On a desktop the destinations are a persistent sidebar, with the two cameras
+listed under Cameras by name; on a phone they are a fixed bottom tab bar, and
+the Cameras tab opens the same named list. The current destination is marked
+`aria-current="page"` and coloured, and watching is always one tap away. More
+holds Environment, Audio notifications, Settings and Personal settings (where
+the alert sound lives) plus Sign out. The blue title bar keeps only the system
+name and the account's initial; it is not a menu.
+
+The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
 plays Motion's stream for the chosen one, built from the `stream_url` setting
 and that camera's `stream_port` row. It restores the account's last-viewed
 camera from the profile (`users.active_camera`, saved whenever the drop-down
 changes) and otherwise defaults to the first enabled camera — Camera 1 when it
 is running, else Camera 2. It shows no stream for a stopped camera; cameras are
-started at boot, and can be stopped and restarted from their own Camera pages. A blue title bar with a hamburger menu (upper left)
-links the pages. The title bar text — and the browser tab title — come from the
+started at boot, and can be stopped and restarted from their own Camera pages.
+The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit. The
 Settings page names the known rows in plain language — `systemName` is
 **Monitor name**, `stream_url` is **Stream address** — and keeps the raw tag
@@ -680,7 +692,7 @@ start/restart button; the chip reads **Audio on**, **Audio down — restarting**
 is lost for support. The Live stream page has a Listen control, a level
 meter and a volume slider that play the selected camera's audio.
 
-The Notifications page lists the feed the webhooks write. It updates live as
+The Alerts page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly
 as a fallback, and Refresh forces a full reload. **Clear my notifications**, next
 to Refresh, clears the whole feed for the account. Rows that arrive while the
