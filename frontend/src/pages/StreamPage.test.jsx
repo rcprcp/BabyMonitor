@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import StreamPage from './StreamPage'
 import { renderWithProviders } from '../test/render'
 
@@ -40,6 +41,31 @@ describe('StreamPage', () => {
     const stream = await screen.findByAltText('Live baby monitor stream')
     expect(stream).toHaveAttribute('src', 'http://localhost:8081')
     expect(api.updateActiveCamera).toHaveBeenCalledWith('1')
+  })
+
+  it('offers each camera as a named button', async () => {
+    renderWithProviders(<StreamPage />)
+
+    expect(await screen.findByRole('button', { name: 'Nursery Camera1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Hallway Camera2' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+  })
+
+  it('switches the stream and remembers the camera from the buttons', async () => {
+    const user = userEvent.setup()
+    api.listCameras.mockResolvedValue(cameraRows.map((row) => ({ ...row, enabled: true })))
+    renderWithProviders(<StreamPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Hallway Camera2' }))
+
+    expect(api.updateActiveCamera).toHaveBeenCalledWith('2')
+    const stream = await screen.findByAltText('Live baby monitor stream')
+    expect(stream).toHaveAttribute('src', 'http://localhost:8082')
   })
 
   it('shows the audio control in its stopped state', async () => {

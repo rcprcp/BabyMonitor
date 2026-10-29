@@ -62,14 +62,17 @@ vi.stubGlobal(
 )
 
 describe('App shell', () => {
-  it('renders the four destinations around the monitor', async () => {
+  it('puts every destination in the sidebar and drops the More hub', async () => {
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: 'Live stream' })).toBeInTheDocument()
     expect((await screen.findAllByRole('link', { name: /Monitor/ })).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Alerts/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Environment/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('link', { name: /More/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Audio Configuration/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Settings/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 
   it('sends a first run to the setup wizard', async () => {
@@ -80,6 +83,14 @@ describe('App shell', () => {
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: 'Set up your monitor' })).toBeInTheDocument()
+  })
+
+  it('redirects the retired More hub to Settings', async () => {
+    window.history.pushState({}, '', '/more')
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('redirects the retired profile URL to Settings', async () => {

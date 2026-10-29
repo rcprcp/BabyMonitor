@@ -23,7 +23,6 @@ import CameraPage from './pages/CameraPage'
 import CamerasPage from './pages/CamerasPage'
 import AudioAlertsPage from './pages/AudioAlertsPage'
 import SettingsPage from './pages/SettingsPage'
-import MorePage from './pages/MorePage'
 import OnboardingPage from './pages/OnboardingPage'
 import { OnboardingProvider, useOnboarding } from './onboarding'
 import { createAppTheme, noPersistenceColorSchemeManager } from './theme'
@@ -124,7 +123,8 @@ function ThemedApp() {
             <Route path="/settings" element={<SettingsPage />} />
             {/* The old Personal settings URL is kept as a redirect for deep links. */}
             <Route path="/profile" element={<Navigate to="/settings" replace />} />
-            <Route path="/more" element={<MorePage />} />
+            {/* The old More hub is gone; its links live in the sidebar now. */}
+            <Route path="/more" element={<Navigate to="/settings" replace />} />
             <Route path="/welcome" element={<OnboardingPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

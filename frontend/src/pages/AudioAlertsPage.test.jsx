@@ -54,19 +54,19 @@ beforeEach(() => {
 })
 
 describe('AudioAlertsPage', () => {
-  it('opens on the preset that matches the saved set', async () => {
+  it('opens on the matching preset with every section closed', async () => {
     renderWithProviders(<AudioAlertsPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Audio notifications' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audio Configuration' })).toBeInTheDocument()
     const human = await screen.findByRole('button', { name: /Human sounds/ })
     expect(human).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /Cry only/ })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
     expect(await screen.findByText('62 of 62 on')).toBeInTheDocument()
-    // The 521 checkboxes are a tuning screen, not the default view.
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Set to Default' })).toBeEnabled()
+    expect(screen.queryByText('Custom')).not.toBeInTheDocument()
+
+    const sections = document.querySelectorAll('details')
+    expect(sections).toHaveLength(2)
+    sections.forEach((section) => expect(section.open).toBe(false))
   })
 
   it('saves the whole set when a preset is chosen', async () => {
@@ -81,33 +81,46 @@ describe('AudioAlertsPage', () => {
     expect(cry).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('keeps the full list behind Custom', async () => {
+  it('opens a section to edit a class and marks the set Custom', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AudioAlertsPage />)
 
-    const custom = await screen.findByRole('button', { name: /Custom/ })
-    expect(custom).toHaveAttribute('aria-expanded', 'false')
+    await user.click(await screen.findByText('Speech & Human Sounds'))
+    expect(document.querySelector('details')).toHaveAttribute('open')
 
-    await user.click(custom)
-
-    expect(custom).toHaveAttribute('aria-expanded', 'true')
     const crying = screen.getByRole('checkbox', { name: '19 · Crying, sobbing' })
     expect(crying).toBeChecked()
-
     await user.click(crying)
 
     expect(api.setAudioAlertClass).toHaveBeenCalledWith(19, false)
+    expect(await screen.findByText('Custom')).toBeInTheDocument()
   })
 
-  it('shows a hand-picked set as Custom and opens it', async () => {
+  it('restores the preset it started from with Set to Default', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<AudioAlertsPage />)
+
+    await user.click(await screen.findByRole('button', { name: /Cry only/ }))
+    await user.click(await screen.findByText('Speech & Human Sounds'))
+    await user.click(screen.getByRole('checkbox', { name: '19 · Crying, sobbing' }))
+    expect(await screen.findByText('3 of 62 on')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Set to Default' }))
+
+    expect(api.setAudioAlertClasses).toHaveBeenLastCalledWith([11, 19, 20, 21])
+    expect(await screen.findByText('4 of 62 on')).toBeInTheDocument()
+  })
+
+  it('falls back to the shipped default for a hand-picked set', async () => {
+    const user = userEvent.setup()
     api.getAudioAlertClasses.mockResolvedValue(configFor([19]))
     renderWithProviders(<AudioAlertsPage />)
 
-    expect((await screen.findAllByText('1 of 62 on')).length).toBeGreaterThan(0)
-    const custom = screen.getByRole('button', { name: /Custom/ })
-    expect(custom).toHaveAttribute('aria-expanded', 'true')
-    expect(custom).toHaveTextContent('Current')
-    expect(screen.getByRole('checkbox', { name: '19 · Crying, sobbing' })).toBeChecked()
+    expect(await screen.findByText('Custom')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Set to Default' }))
+
+    expect(api.setAudioAlertClasses).toHaveBeenCalledWith(humanSounds)
+    expect(await screen.findByText('62 of 62 on')).toBeInTheDocument()
   })
 
   it('warns when no sound can alert', async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Avatar, Group, Title } from '@mantine/core'
+import { Avatar, Title } from '@mantine/core'
 import { NavLink } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
@@ -43,7 +43,7 @@ export default function TitleBar() {
   }, [loadTitle])
 
   return (
-    <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+    <div className="bm-titlebar-inner">
       <Title order={1} fz="1.35rem" fw={600} className="bm-title">
         {systemName}
       </Title>
@@ -59,6 +59,6 @@ export default function TitleBar() {
       >
         {initialOf(user)}
       </Avatar>
-    </Group>
+    </div>
   )
 }

@@ -21,15 +21,34 @@
   font-weight: 600;
 }
 
+/* Three equal tracks with the title in the middle one, so it is centred in the
+   bar regardless of the avatar's width. The side tracks absorb long names. */
+.bm-titlebar-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  height: 100%;
+  padding: 0 var(--mantine-spacing-md);
+}
+
 /* The system name stays on one line: a long household name is ellipsised rather
    than wrapped. Mantine 8.3's Title has no `truncate` prop -- unknown props are
    forwarded to the DOM element, which makes React warn -- so the truncation
-   lives here. `min-width: 0` lets the flex item shrink below its text width. */
+   lives here. `min-width: 0` lets the grid item shrink below its text width. */
 .bm-titlebar .bm-title {
+  grid-column: 2;
   min-width: 0;
+  max-width: 70vw;
   overflow: hidden;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.bm-titlebar-inner .bm-avatar {
+  grid-column: 3;
+  justify-self: end;
 }
 
 /* Black letterbox for the stream, whatever shape the camera sends. */

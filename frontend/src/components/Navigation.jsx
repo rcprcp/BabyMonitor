@@ -3,14 +3,22 @@ import { Group, NavLink as MantineNavLink, Stack } from '@mantine/core'
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
 import { cameraLabel, useCameras } from '../useCameras'
 
-// The four destinations. Everything else lives under More, so a parent has one
-// obvious place for the day-to-day jobs: watch, see what happened, and find a
-// camera. The same list feeds the sidebar and the phone tab bar.
-export const DESTINATIONS = [
+// The desktop sidebar holds every destination; the phone tab bar keeps the four
+// daily ones and reaches the rest through Settings.
+export const SIDE_DESTINATIONS = [
+  { to: '/', label: 'Monitor', end: true, Icon: MonitorIcon },
+  { to: '/notifications', label: 'Alerts', Icon: BellIcon },
+  { to: '/environment', label: 'Environment', Icon: EnvironmentIcon },
+  { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
+  { to: '/audio-alerts', label: 'Audio Configuration', Icon: AudioIcon },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon },
+]
+
+export const MOBILE_DESTINATIONS = [
   { to: '/', label: 'Monitor', end: true, Icon: MonitorIcon },
   { to: '/notifications', label: 'Alerts', Icon: BellIcon },
   { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
-  { to: '/more', label: 'More', Icon: MoreIcon },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
 /** `true` when `pathname` belongs to `destination` (children count). */
@@ -29,7 +37,7 @@ export function SideNavigation() {
 
   return (
     <Stack gap={4}>
-      {DESTINATIONS.map((destination) => (
+      {SIDE_DESTINATIONS.map((destination) => (
         <Fragment key={destination.to}>
           <MantineNavLink
             component={RouterNavLink}
@@ -63,7 +71,7 @@ export function SideNavigation() {
 export function BottomNavigation() {
   return (
     <Group h="100%" gap={0} wrap="nowrap" className="bm-tabs">
-      {DESTINATIONS.map((destination) => (
+      {MOBILE_DESTINATIONS.map((destination) => (
         <RouterNavLink
           key={destination.to}
           to={destination.to}
@@ -117,12 +125,30 @@ function CameraIcon() {
   )
 }
 
-function MoreIcon() {
+function EnvironmentIcon() {
   return (
     <svg {...iconProps}>
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="19" cy="12" r="1.6" />
+      <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z" />
+    </svg>
+  )
+}
+
+function AudioIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+      <circle cx="9" cy="6" r="2" />
+      <circle cx="15" cy="12" r="2" />
+      <circle cx="7" cy="18" r="2" />
+    </svg>
+  )
+}
+
+function SettingsIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
     </svg>
   )
 }

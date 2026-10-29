@@ -287,7 +287,7 @@ export default function SettingsPage() {
               <Divider />
               <Group justify="space-between" align="center" wrap="nowrap">
                 <Stack gap={2}>
-                  <Text fw={500}>Audio notifications</Text>
+                  <Text fw={500}>Audio Configuration</Text>
                   <Text size="sm" c="dimmed">
                     Which sounds may raise an alert.
                   </Text>

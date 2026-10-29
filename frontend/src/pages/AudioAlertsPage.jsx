@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Accordion,
   Alert,
   Badge,
+  Box,
   Button,
   Center,
   Checkbox,
@@ -20,18 +20,18 @@ import { api } from '../api'
 import { PRESETS, matchPreset } from '../audioPresets'
 
 // Every YAMNet class is scored on every window; this page chooses which ones
-// may raise an Audio notification. Day to day that is one of three presets.
-// The full per-class list still exists, but only under Custom: 521 checkboxes
-// are a tuning screen, not a setting.
+// may raise an Audio notification. A preset is the starting point, and the six
+// sound sections underneath stay available (closed) so a preset can be tuned.
 export default function AudioAlertsPage() {
   const [config, setConfig] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('')
-  // Open by default only when the saved set is not a preset: the page should
-  // never hide which sounds are actually on.
-  const [editorOpen, setEditorOpen] = useState(false)
+  // The preset the user most recently applied. "Set to Default" restores this,
+  // not the shipped default, so tune -> reset works for whichever preset was
+  // chosen. Null when a saved set matched no preset and none was chosen yet.
+  const [lastPresetId, setLastPresetId] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -39,7 +39,8 @@ export default function AudioAlertsPage() {
     try {
       const next = await api.getAudioAlertClasses()
       setConfig(next)
-      setEditorOpen(matchPreset(enabledIn(next.classes)) === 'custom')
+      const matched = matchPreset(enabledIn(next.classes))
+      setLastPresetId(matched === 'custom' ? null : matched)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -56,6 +57,11 @@ export default function AudioAlertsPage() {
   const enabledCount = classes.filter((c) => c.enabled).length
   const enabledIndices = useMemo(() => enabledIn(classes), [classes])
   const active = matchPreset(enabledIndices)
+  // With no remembered preset (a custom set from an older page load) reset
+  // falls back to the shipped default rather than doing nothing.
+  const restorePreset =
+    PRESETS.find((preset) => preset.id === lastPresetId) ??
+    PRESETS.find((preset) => preset.isDefault)
 
   const filtered = useMemo(() => {
     const needle = filter.trim().toLowerCase()
@@ -73,7 +79,6 @@ export default function AudioAlertsPage() {
   const applyPreset = async (preset) => {
     setError(null)
     setSaving(true)
-    setEditorOpen(false)
     const wanted = new Set(preset.indices)
     setConfig((current) => ({
       ...current,
@@ -84,6 +89,7 @@ export default function AudioAlertsPage() {
     }))
     try {
       await api.setAudioAlertClasses(preset.indices)
+      setLastPresetId(preset.id)
     } catch (err) {
       setError(err.message)
       await load()
@@ -131,24 +137,10 @@ export default function AudioAlertsPage() {
     }
   }
 
-  const reset = async () => {
-    setError(null)
-    setSaving(true)
-    try {
-      const next = await api.resetAudioAlertClasses()
-      setConfig(next)
-      setEditorOpen(matchPreset(enabledIn(next.classes)) === 'custom')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <Stack>
       <Group justify="space-between" align="center">
-        <Title order={2}>Audio notifications</Title>
+        <Title order={2}>Audio Configuration</Title>
         <Group gap="sm" align="center">
           {saving && (
             <Badge color="blue" variant="light">
@@ -162,15 +154,13 @@ export default function AudioAlertsPage() {
       </Group>
 
       <Text c="dimmed" size="sm">
-        Choose which sounds may raise an Audio notification. A preset replaces the whole set and is
-        saved on the monitor straight away, so it survives a reload. Custom keeps a hand-picked
-        list.
+        Start from a preset, then open a sound section below to tailor it. Set to Default puts the
+        preset you chose back exactly as it was.
       </Text>
 
       {enabledCount === 0 && !loading && (
         <Alert color="yellow" variant="light" title="No sounds are enabled">
-          An audio event can never notify you. Choose a preset, or open Custom and enable at least
-          one sound.
+          An audio event can never notify you. Choose a preset, or enable at least one sound below.
         </Alert>
       )}
 
@@ -185,63 +175,68 @@ export default function AudioAlertsPage() {
           <Loader size="sm" />
         </Center>
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
-          {PRESETS.map((preset) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              selected={active === preset.id}
-              disabled={saving}
-              onClick={() => applyPreset(preset)}
+        <>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+            {PRESETS.map((preset) => (
+              <PresetCard
+                key={preset.id}
+                preset={preset}
+                selected={active === preset.id}
+                disabled={saving}
+                onClick={() => applyPreset(preset)}
+              />
+            ))}
+          </SimpleGrid>
+
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <Group gap="sm" align="center">
+                <Text fw={600}>Sounds</Text>
+                {active === 'custom' && (
+                  <Badge color="yellow" variant="light">
+                    Custom
+                  </Badge>
+                )}
+              </Group>
+              <Group gap="sm" align="center">
+                <Text size="xs" c="dimmed">
+                  Restores {restorePreset.label}
+                </Text>
+                <Button
+                  size="xs"
+                  variant="default"
+                  onClick={() => applyPreset(restorePreset)}
+                  disabled={saving}
+                >
+                  Set to Default
+                </Button>
+              </Group>
+            </Group>
+
+            <TextInput
+              placeholder="Filter sounds…"
+              aria-label="Filter sounds"
+              value={filter}
+              onChange={(event) => setFilter(event.currentTarget.value)}
+              disabled={loading}
+              w={280}
             />
-          ))}
-          <CustomCard
-            open={editorOpen}
-            current={active === 'custom'}
-            disabled={saving}
-            onClick={() => setEditorOpen((open) => !open)}
-          />
-        </SimpleGrid>
-      )}
 
-      {editorOpen && (
-        <Stack gap="sm" id="custom-sounds">
-          <Group justify="space-between" align="center">
-            <Text fw={600}>Custom sounds</Text>
-            <Badge color="gray" variant="light">
-              {enabledCount} of {classes.length} on
-            </Badge>
-          </Group>
-
-          <TextInput
-            placeholder="Filter sounds…"
-            aria-label="Filter sounds"
-            value={filter}
-            onChange={(event) => setFilter(event.currentTarget.value)}
-            disabled={loading}
-            w={280}
-          />
-
-          <Accordion
-            multiple
-            defaultValue={groups.length > 0 ? [String(groups[0].id)] : []}
-            variant="separated"
-          >
             {groups.map((group) => {
               const all = allFor(group)
               const shown = shownFor(group)
               const on = all.filter((candidate) => candidate.enabled).length
               return (
-                <Accordion.Item key={group.id} value={String(group.id)}>
-                  <Accordion.Control>
+                <Paper key={group.id} withBorder component="details">
+                  <Box component="summary" p="md" style={{ cursor: 'pointer', listStyle: 'none' }}>
                     <Group justify="space-between" pr="md">
                       <Text fw={600}>{group.name}</Text>
                       <Badge color={on > 0 ? 'green' : 'gray'} variant="light">
                         {on} of {all.length} on
                       </Badge>
                     </Group>
-                  </Accordion.Control>
-                  <Accordion.Panel>
+                  </Box>
+                  <Box px="md" pb="md">
                     <Stack gap="sm">
                       <Group gap="sm">
                         <Button
@@ -280,22 +275,13 @@ export default function AudioAlertsPage() {
                         </SimpleGrid>
                       )}
                     </Stack>
-                  </Accordion.Panel>
-                </Accordion.Item>
+                  </Box>
+                </Paper>
               )
             })}
-          </Accordion>
-        </Stack>
+          </Stack>
+        </>
       )}
-
-      <Group justify="space-between" align="center">
-        <Text size="xs" c="dimmed">
-          Anything outside a preset stays reachable under Custom.
-        </Text>
-        <Button variant="subtle" size="xs" onClick={reset} loading={saving} disabled={loading}>
-          Reset to default
-        </Button>
-      </Group>
     </Stack>
   )
 }
@@ -334,43 +320,6 @@ function PresetCard({ preset, selected, disabled, onClick }) {
         </Text>
         <Text size="xs" c="dimmed" mt={8}>
           {preset.indices.length} sounds
-        </Text>
-      </Paper>
-    </UnstyledButton>
-  )
-}
-
-function CustomCard({ open, current, disabled, onClick }) {
-  return (
-    <UnstyledButton
-      onClick={onClick}
-      disabled={disabled}
-      aria-expanded={open}
-      aria-controls="custom-sounds"
-      style={{ height: '100%' }}
-    >
-      <Paper
-        withBorder
-        p="md"
-        h="100%"
-        style={{
-          borderColor: open || current ? 'var(--mantine-primary-color-filled)' : undefined,
-          background: open || current ? 'var(--mantine-primary-color-light)' : undefined,
-        }}
-      >
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-          <Text fw={600}>Custom</Text>
-          {current && (
-            <Badge size="xs" variant="light">
-              Current
-            </Badge>
-          )}
-        </Group>
-        <Text size="xs" c="dimmed" mt={4}>
-          Pick individual sounds, groups or a filter.
-        </Text>
-        <Text size="xs" c="dimmed" mt={8}>
-          {open ? 'Hide the full list' : 'Show the full list'}
         </Text>
       </Paper>
     </UnstyledButton>

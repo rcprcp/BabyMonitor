@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Center, Group, Loader, Select, Stack, Title } from '@mantine/core'
+import { Alert, Box, Button, Center, Group, Loader, Stack, Title } from '@mantine/core'
 import StreamPlayer from '../components/StreamPlayer'
 import AudioListener from '../components/AudioListener'
 import { api } from '../api'
@@ -102,12 +102,10 @@ export default function StreamPage() {
 
   // Every camera is offered, enabled or not: picking a stopped one just shows
   // the player's "no stream" state; it can be started from that camera's page.
-  const options = cameras.map((camera) => ({
-    value: String(camera.cameraNumber),
-    label: camera.name
-      ? `Camera ${camera.cameraNumber} (${camera.name})`
-      : `Camera ${camera.cameraNumber}`,
-  }))
+  const chooseCamera = (value) => {
+    setSelected(value)
+    api.updateActiveCamera(value).catch(() => {}) // save; non-fatal
+  }
 
   const selectedCamera = cameras.find((camera) => String(camera.cameraNumber) === selected)
   // A stopped camera, or one with no host/port, has nothing to play. The page
@@ -141,20 +139,22 @@ export default function StreamPage() {
     <Stack>
       <Group justify="space-between" align="center">
         <Title order={2}>Live stream</Title>
-        <Select
-          aria-label="Camera"
-          data={options}
-          value={selected}
-          onChange={(value) => {
-            if (value) {
-              setSelected(value)
-              api.updateActiveCamera(value).catch(() => {}) // save; non-fatal
-            }
-          }}
-          allowDeselect={false}
-          disabled={loading || options.length === 0}
-          w={200}
-        />
+        <Group gap="xs" justify="flex-end">
+          {cameras.map((camera) => (
+            <Button
+              key={camera.cameraNumber}
+              size="sm"
+              variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
+              aria-pressed={String(camera.cameraNumber) === selected}
+              onClick={() => chooseCamera(String(camera.cameraNumber))}
+              disabled={loading}
+            >
+              {camera.name
+                ? `${camera.name} Camera${camera.cameraNumber}`
+                : `Camera ${camera.cameraNumber}`}
+            </Button>
+          ))}
+        </Group>
       </Group>
 
       {error && (

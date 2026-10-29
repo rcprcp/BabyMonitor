@@ -16,17 +16,26 @@ beforeEach(() => {
 })
 
 describe('SideNavigation', () => {
-  it('lists the four destinations and the cameras by name', async () => {
+  it('lists every destination in the requested order, with named cameras', async () => {
     renderWithProviders(<SideNavigation />)
 
     expect(screen.getByRole('link', { name: /Monitor/ })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: /Alerts/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Cameras/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /More/ })).toBeInTheDocument()
-
     // A named camera uses its name; an unnamed one falls back to its number.
     expect(await screen.findByRole('link', { name: 'Nursery' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Camera 2' })).toBeInTheDocument()
+
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/',
+      '/notifications',
+      '/environment',
+      '/cameras',
+      '/cameras/1',
+      '/cameras/2',
+      '/audio-alerts',
+      '/settings',
+    ])
+    expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 
   it('keeps the camera section active inside a camera page', async () => {
@@ -39,22 +48,27 @@ describe('SideNavigation', () => {
     )
   })
 
-  it('does not mark Alerts active on another page', () => {
-    renderWithProviders(<SideNavigation />, { route: '/settings' })
+  it('marks Environment and does not mark Alerts elsewhere', () => {
+    renderWithProviders(<SideNavigation />, { route: '/environment' })
 
+    expect(screen.getByRole('link', { name: /Environment/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByRole('link', { name: /Alerts/ })).not.toHaveAttribute('aria-current')
-    // Monitor is an `end` link: it is not active just because every path starts
-    // with a slash.
     expect(screen.getByRole('link', { name: /Monitor/ })).not.toHaveAttribute('aria-current')
   })
 })
 
 describe('BottomNavigation', () => {
-  it('marks the current tab and leaves the others alone', () => {
-    renderWithProviders(<BottomNavigation />, { route: '/more' })
+  it('keeps four daily tabs and marks the current one', () => {
+    renderWithProviders(<BottomNavigation />, { route: '/settings' })
 
-    expect(screen.getByRole('link', { name: /More/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: /Settings/ })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: /Monitor/ })).not.toHaveAttribute('aria-current')
+    // The phone bar has no More tab; the rest is reachable through Settings.
+    expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(4)
   })
 
   it('keeps Cameras active on a camera page', () => {

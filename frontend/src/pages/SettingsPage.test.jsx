@@ -70,7 +70,7 @@ describe('SettingsPage', () => {
     expect(screen.queryByLabelText(/onboardingComplete/)).not.toBeInTheDocument()
 
     expect(screen.getAllByRole('link', { name: 'Open' })).toHaveLength(2)
-    expect(screen.getByText('Audio notifications')).toBeInTheDocument()
+    expect(screen.getByText('Audio Configuration')).toBeInTheDocument()
     expect(screen.getByText('Environment')).toBeInTheDocument()
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
