@@ -1,0 +1,77 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import App from './App'
+
+const { api } = vi.hoisted(() => ({
+  api: {
+    getSetting: vi.fn(),
+    listCameras: vi.fn(),
+    listSettings: vi.fn(),
+    getProfile: vi.fn(),
+    updateActiveCamera: vi.fn(),
+    getCameraAudio: vi.fn(),
+    listNotifications: vi.fn(),
+  },
+}))
+
+// Keep the real auth/session helpers (they read localStorage) and replace only
+// the network calls the shell makes.
+vi.mock('./api', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, api }
+})
+
+beforeEach(() => {
+  localStorage.setItem('babymonitor.token', 'test-token')
+  localStorage.setItem('babymonitor.name', 'Bob')
+
+  api.getSetting.mockResolvedValue({ tag: 'systemName', value: 'Nursery Monitor' })
+  api.listCameras.mockResolvedValue([
+    { cameraNumber: 1, key: 'camera_name', value: 'Nursery', enabled: true },
+    { cameraNumber: 1, key: 'stream_port', value: '8081', enabled: true },
+    { cameraNumber: 2, key: 'stream_port', value: '8082', enabled: true },
+  ])
+  api.listSettings.mockResolvedValue([{ tag: 'stream_url', value: 'http://localhost' }])
+  api.getProfile.mockResolvedValue({ activeCamera: 1 })
+  api.updateActiveCamera.mockResolvedValue({})
+  api.getCameraAudio.mockResolvedValue({ running: false, enabled: false })
+  api.listNotifications.mockResolvedValue([])
+})
+
+afterEach(() => {
+  localStorage.clear()
+  window.history.replaceState({}, '', '/')
+})
+
+// The alert stream opens an EventSource; jsdom has none and the shell only
+// needs the object to exist and close cleanly.
+vi.stubGlobal(
+  'EventSource',
+  class {
+    close() {}
+    addEventListener() {}
+  },
+)
+
+describe('App shell', () => {
+  it('renders the four destinations around the monitor', async () => {
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Live stream' })).toBeInTheDocument()
+    expect((await screen.findAllByRole('link', { name: /Monitor/ })).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Alerts/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /More/ }).length).toBeGreaterThan(0)
+  })
+
+  it('serves the camera list on a deep link', async () => {
+    window.history.pushState({}, '', '/cameras')
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Cameras' })).toBeInTheDocument()
+    // Both the sidebar and the camera card link to the camera page.
+    const links = await screen.findAllByRole('link', { name: /Nursery/ })
+    expect(links.some((link) => link.getAttribute('href') === '/cameras/1')).toBe(true)
+  })
+})

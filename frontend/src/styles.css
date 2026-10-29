@@ -60,3 +60,38 @@
     0 0 2px rgba(0, 0, 0, 0.75),
     0 0 3px rgba(0, 0, 0, 0.55);
 }
+
+/* Phone tab bar: fixed to the bottom, hidden from Mantine's `sm` breakpoint up
+   (the sidebar takes over). Four equal targets, icon over label. The active tab
+   is React Router's `aria-current="page"`, so the styling and the accessibility
+   state can never disagree. */
+.bm-bottom-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 64px;
+  background: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-default-border);
+  z-index: 200;
+}
+
+.bm-tabs .bm-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  font-size: 0.7rem;
+  color: var(--mantine-color-dimmed);
+  text-decoration: none;
+}
+
+.bm-tabs .bm-tab:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.bm-tabs .bm-tab-active {
+  color: var(--mantine-primary-color-filled);
+  font-weight: 600;
+}

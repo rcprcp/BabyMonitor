@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { api } from '../api'
+import { notifyCamerasChanged } from '../useCameras'
 
 // Mantine's default Button height (size "sm"). The status badges are wrapped in
 // rows of this height so a badge's midpoint lines up with the button beside it.
@@ -153,6 +154,7 @@ export default function CameraPage({ cameraNumber }) {
       const updated = await api.updateCameraParameter(cameraNumber, key, drafts[key])
       setParameters((current) => current.map((p) => (p.key === key ? updated : p)))
       setSavedKey(key)
+      notifyCamerasChanged()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -194,6 +196,7 @@ export default function CameraPage({ cameraNumber }) {
       setAdding(false)
       setNewKey('')
       setNewValue('')
+      notifyCamerasChanged()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -217,6 +220,7 @@ export default function CameraPage({ cameraNumber }) {
         delete next[key]
         return next
       })
+      notifyCamerasChanged()
       // Drop a "Saved" badge left over from the row that just went away.
       if (savedKey === key) {
         setSavedKey(null)

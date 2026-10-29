@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { AppShell, MantineProvider, useMantineColorScheme } from '@mantine/core'
+import { AppShell, Box, MantineProvider, useMantineColorScheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import {
   BrowserRouter,
@@ -14,19 +14,22 @@ import { AuthProvider, useAuth } from './auth'
 import useNotificationAlerts from './useNotificationAlerts'
 import { OPEN_NOTIFICATIONS_EVENT } from './alerting'
 import TitleBar from './components/TitleBar'
+import { BottomNavigation, SideNavigation } from './components/Navigation'
 import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
 import NotificationsPage from './pages/NotificationsPage'
 import EnvironmentPage from './pages/EnvironmentPage'
 import CameraPage from './pages/CameraPage'
+import CamerasPage from './pages/CamerasPage'
 import AudioAlertsPage from './pages/AudioAlertsPage'
 import SettingsPage from './pages/SettingsPage'
 import ProfilePage from './pages/ProfilePage'
+import MorePage from './pages/MorePage'
 import { createAppTheme, noPersistenceColorSchemeManager } from './theme'
 
-// Everything except the login screen sits behind this layout: it renders the
-// blue title bar and bounces unauthenticated visitors to /login (remembering
-// where they were heading).
+// Everything except the login screen sits behind this layout: the blue title
+// bar, the desktop sidebar or phone tab bar, and a bounce to /login for
+// unauthenticated visitors (remembering where they were heading).
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth()
   const location = useLocation()
@@ -48,13 +51,24 @@ function ProtectedLayout() {
   }
 
   return (
-    <AppShell header={{ height: 60 }} padding="md">
+    <AppShell
+      header={{ height: 60 }}
+      navbar={{ width: 230, breakpoint: 'sm', collapsed: { mobile: true } }}
+      padding="md"
+    >
       <AppShell.Header className="bm-titlebar">
         <TitleBar />
       </AppShell.Header>
-      <AppShell.Main>
+      <AppShell.Navbar p="sm">
+        <SideNavigation />
+      </AppShell.Navbar>
+      {/* The tab bar only exists on phones; the sidebar takes over from `sm`. */}
+      <AppShell.Main pb={{ base: 88, sm: 'md' }}>
         <Outlet />
       </AppShell.Main>
+      <Box component="nav" aria-label="Main" hiddenFrom="sm" className="bm-bottom-nav">
+        <BottomNavigation />
+      </Box>
     </AppShell>
   )
 }
@@ -93,11 +107,13 @@ function ThemedApp() {
           <Route path="/" element={<StreamPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/environment" element={<EnvironmentPage />} />
+          <Route path="/cameras" element={<CamerasPage />} />
           <Route path="/cameras/1" element={<CameraPage cameraNumber={1} />} />
           <Route path="/cameras/2" element={<CameraPage cameraNumber={2} />} />
           <Route path="/audio-alerts" element={<AudioAlertsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/more" element={<MorePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -107,7 +123,7 @@ function ThemedApp() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <ThemedApp />
       </AuthProvider>

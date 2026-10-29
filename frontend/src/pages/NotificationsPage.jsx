@@ -293,7 +293,7 @@ export default function NotificationsPage() {
   return (
     <Stack>
       <Group justify="space-between" align="center">
-        <Title order={2}>Notifications</Title>
+        <Title order={2}>Alerts</Title>
         <Group gap="sm">
           <Button
             variant="light"

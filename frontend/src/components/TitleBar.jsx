@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Avatar, Burger, Group, Menu, Title } from '@mantine/core'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { Avatar, Group, Title } from '@mantine/core'
+import { NavLink } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 
@@ -13,14 +13,12 @@ function initialOf(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
 }
 
-// The blue title bar: a hamburger menu on the left, the system name in the
-// middle and the user's initial on the right. Mantine's Menu handles closing on
-// navigation, outside click and Escape.
+// The blue title bar: the system name on the left and the account's initial on
+// the right. Navigation lives in the sidebar (desktop) or tab bar (phone), so
+// the bar keeps only what is identity, not wayfinding.
 export default function TitleBar() {
-  const [opened, setOpened] = useState(false)
   const [systemName, setSystemName] = useState(DEFAULT_TITLE)
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
 
   // The title comes from the systemName setting, so the system can be renamed
   // from the Settings page. The default is kept if the tag is missing.
@@ -43,73 +41,23 @@ export default function TitleBar() {
     }
   }, [])
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
   return (
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-      <Menu opened={opened} onChange={setOpened} shadow="md" width={230} position="bottom-start">
-        <Menu.Target>
-          <Burger
-            opened={opened}
-            color="var(--mantine-primary-color-contrast)"
-            size="sm"
-            aria-label="Open the menu"
-            aria-expanded={opened}
-          />
-        </Menu.Target>
-
-        <Menu.Dropdown>
-          <Menu.Item component={NavLink} to="/" end>
-            Live stream
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/notifications">
-            Notifications
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/environment">
-            Environment
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/cameras/1">
-            Camera1
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/cameras/2">
-            Camera2
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/audio-alerts">
-            Audio notifications
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/settings">
-            Settings
-          </Menu.Item>
-          <Menu.Item component={NavLink} to="/profile">
-            Personal settings
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item color="red" onClick={handleLogout}>
-            Sign out{user ? ` (${user})` : ''}
-          </Menu.Item>
-        </Menu.Dropdown>
-      </Menu>
-
       <Title order={1} fz="1.35rem" fw={600} className="bm-title">
         {systemName}
       </Title>
 
-      <Group gap="sm" wrap="nowrap">
-        <Avatar
-          component={NavLink}
-          to="/profile"
-          radius="xl"
-          size="md"
-          className="bm-avatar"
-          aria-label="Personal settings"
-          title={user ? `Personal settings — ${user}` : 'Personal settings'}
-        >
-          {initialOf(user)}
-        </Avatar>
-      </Group>
+      <Avatar
+        component={NavLink}
+        to="/profile"
+        radius="xl"
+        size="md"
+        className="bm-avatar"
+        aria-label="Personal settings"
+        title={user ? `Personal settings — ${user}` : 'Personal settings'}
+      >
+        {initialOf(user)}
+      </Avatar>
     </Group>
   )
 }

@@ -42,7 +42,7 @@ describe('NotificationsPage', () => {
   it('renders the feed returned by the API', async () => {
     renderWithProviders(<NotificationsPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Alerts' })).toBeInTheDocument()
     expect(await screen.findByText('Baby cried')).toBeInTheDocument()
     expect(screen.getByText('Motion detected')).toBeInTheDocument()
   })
