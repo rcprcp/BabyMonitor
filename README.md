@@ -431,17 +431,16 @@ deliberately discarded at the next boot, so a reboot never leaves the monitor
 watching nothing. The Camera page says so: a stopped camera reads "Stopped.
 Cameras start again when the monitor restarts."
 
-Audio is the exception, because **Listen for cries** is a preference rather than
-a run state: boot creates a missing `camera_audio` row switched on (the default)
-but never changes an existing one, and it starts only the captures whose
-preference is on. Turning audio off therefore survives a reboot; turning the
-camera off does not.
+Audio is not an exception: boot marks every `camera_audio` row on and starts its
+capture, so a monitor never comes back deaf and a mute lasts only until the next
+restart. During a run, **Listen for cries** still governs what happens when the
+camera is switched back on.
 
 The reset still runs first: with `babymonitor.motion.reset-on-start` on (the
 default), boot kills any `motion` left over from a previous run and marks every
 camera not enabled — see `MotionService.resetOnStartup`. `CameraStartup` then
-marks every camera on and brings it, and its wanted audio, up; the supervisors
-retry anything that could not start. Set
+marks every camera and audio row on and brings them up; the supervisors retry
+anything that could not start. Set
 `babymonitor.start-cameras-on-boot` to `false` to restore the older cold start,
 where a camera only comes up when the user starts it from its own page.
 
@@ -504,7 +503,8 @@ stdout *is* the PCM feed, so unlike Motion its diagnostics go to
 Audio follows the camera, with one preference on top: **Listen for cries**. It is
 stored in `camera_audio.enabled`, applied whenever the camera starts and
 remembered across a Stop, so a camera deliberately kept silent stays silent when
-it is switched back on. A running camera shows whether its capture is processing
+it is switched back on. A restart is the exception: boot forces listening back
+on with the camera. A running camera shows whether its capture is processing
 (green), down and being retried (yellow) or off (grey); a stopped camera shows
 no audio chip at all, because the two states cannot contradict each other. The
 capture can also be started on its own under the Camera page's **Diagnostics**
@@ -698,7 +698,8 @@ The Camera pages show one camera's
 parameters under one power control. **Monitor this camera** switches the camera
 and its audio together: on rebuilds the config and starts (or reloads) Motion,
 off kills both processes. **Listen for cries** is the audio preference — the
-camera records either way, and the choice is remembered for the next start. A
+camera records either way, and the choice is remembered when the camera is
+switched back on (a restart turns listening on with the camera). A
 stopped camera cannot be shown listening, so its audio chip disappears. The
 status chips read **Recording** / **Recording down — restarting** / **Stopped**,
 and while recording **Audio on** / **Audio down — restarting** / **Audio off**;

@@ -273,7 +273,8 @@ kept for support.
   old **Start/Apply**, **Stop** and **Start/Stop audio** buttons are gone.
 - **Listen for cries** is the preference, stored in `camera_audio.enabled`. It is
   applied when the camera starts and survives a Stop, so a camera deliberately
-  kept silent stays silent when switched back on. Video records either way.
+  kept silent stays silent when switched back on. Boot is the exception: it
+  forces both the camera and its audio back on. Video records either way.
 - **No contradictory state.** The audio chip only exists while the camera is
   recording, and the preference checkbox is disabled while it is stopped. The
   header reads **Audio on**, **Audio down — restarting** or **Audio off**.
@@ -325,10 +326,10 @@ watching nothing. The switch is labelled **Monitor this camera** and, when it is
 off, the helper text reads "Stopped. Cameras start again when the monitor
 restarts."
 
-Audio follows the preference rather than the power state: a camera whose
-**Listen for cries** was turned off stays silent across a reboot, because that
-is a setting rather than a Stop. Nothing else persists a Stop, and the README
-describes exactly this asymmetry.
+Boot is all-or-nothing: every camera and its audio come back on, including one
+whose **Listen for cries** was off, so the monitor cannot return deaf. During a
+run the preference still governs what starts with the camera, and its off-state
+copy says listening returns at the next restart.
 
 ---
 
@@ -771,6 +772,7 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T3 | Stopping the camera keeps the audio preference; `AudioSupervisor` gates on the camera | The preference must survive a Stop, but audio must never resurrect a camera the parent turned off | agent |
 | 2026-10-28 | T3 | Manual audio start stays under Diagnostics | T2 will fold it into Advanced; until then support still needs to test a microphone | agent |
 | 2026-10-28 | T4 | Keep auto-start at boot (option B) and say it in the UI | A baby monitor must not boot watching nothing; the copy admits the stop lasts until the next restart | agent |
+| 2026-10-28 | T4 | Boot forces audio on as well, not just the camera | A monitor that comes back deaf is no better than one that comes back blind; the preference only rules within a run | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -792,4 +794,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T12 shipped: intent-first labels across the SPA; camera names and the config badge handed to T7/T2. |
 | 2026-10-28 | T1 shipped: three audio-alert presets plus Custom; 0–61 remains the default. |
 | 2026-10-28 | T7 shipped: Monitor/Alerts/Cameras/More with a sidebar or tab bar, camera names and a More page. |
-| 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and says so. |
+| 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and audio, and says so. |
