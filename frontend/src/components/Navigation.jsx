@@ -6,7 +6,7 @@ import { cameraLabel, useCameras } from '../useCameras'
 // The desktop sidebar holds every destination; the phone tab bar keeps the four
 // daily ones and reaches the rest through Settings.
 export const SIDE_DESTINATIONS = [
-  { to: '/', label: 'Monitor', end: true, Icon: MonitorIcon },
+  { to: '/', label: 'Live Stream', end: true, Icon: MonitorIcon },
   { to: '/notifications', label: 'Alerts', Icon: BellIcon },
   { to: '/environment', label: 'Environment', Icon: EnvironmentIcon },
   { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
@@ -21,7 +21,7 @@ export const SIDE_DESTINATIONS = [
 ]
 
 export const MOBILE_DESTINATIONS = [
-  { to: '/', label: 'Monitor', end: true, Icon: MonitorIcon },
+  { to: '/', label: 'Live Stream', end: true, Icon: MonitorIcon },
   { to: '/notifications', label: 'Alerts', Icon: BellIcon },
   { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },

@@ -653,13 +653,13 @@ shared Camera page, one route per camera), `/audio-alerts` (Audio
 Configuration), `/settings` and `/system-settings` (System Settings). The retired
 `/profile` and `/more` URLs redirect to `/settings`.
 
-On a desktop the sidebar lists every destination: **Monitor** (`/`), **Alerts**
+On a desktop the sidebar lists every destination: **Live Stream** (`/`), **Alerts**
 (`/notifications`), **Environment** (`/environment`), **Cameras** (`/cameras`,
 with the two camera pages below it by name), **Audio Configuration**
 (`/audio-alerts`), **Environment Configuration** (`/environment-config`),
 **Settings** (`/settings`) and **System Settings** (`/system-settings`) at the
 bottom. On a phone the fixed bottom tab bar keeps four daily
-tabs — Monitor, Alerts, Cameras and Settings — and the Settings page links to
+tabs — Live Stream, Alerts, Cameras and Settings — and the Settings page links to
 Environment, Environment Configuration and Audio Configuration. The current
 destination is marked `aria-current="page"` and coloured, and watching is always
 one tap away. **Settings** is also what the account's initial opens, and it

@@ -19,7 +19,10 @@ describe('SideNavigation', () => {
   it('lists every destination in the requested order, with named cameras', async () => {
     renderWithProviders(<SideNavigation />)
 
-    expect(screen.getByRole('link', { name: /Monitor/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: /Live Stream/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     // A named camera uses its name; an unnamed one falls back to its number.
     expect(await screen.findByRole('link', { name: 'Nursery' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Camera 2' })).toBeInTheDocument()
@@ -60,7 +63,7 @@ describe('SideNavigation', () => {
       'page',
     )
     expect(screen.getByRole('link', { name: /Alerts/ })).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('link', { name: /Monitor/ })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: /Live Stream/ })).not.toHaveAttribute('aria-current')
   })
 })
 
@@ -69,7 +72,7 @@ describe('BottomNavigation', () => {
     renderWithProviders(<BottomNavigation />, { route: '/settings' })
 
     expect(screen.getByRole('link', { name: /Settings/ })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: /Monitor/ })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: /Live Stream/ })).not.toHaveAttribute('aria-current')
     // The phone bar has no More tab; the rest is reachable through Settings.
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link')).toHaveLength(4)

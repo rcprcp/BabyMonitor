@@ -525,7 +525,9 @@ behind a hamburger, and camera entries are numbered even though they have names.
 **Done (2026-10-28).** Four destinations shipped, with the camera pages one
 click below Cameras.
 
-- **Monitor / Alerts / Cameras / More** on every protected page. Desktop: a
+- **Monitor / Alerts / Cameras / More** on every protected page. (The Monitor
+  label is **Live Stream** since a 2026-10-29 follow-up; the rest of this block
+  describes the T7 shape.) Desktop: a
   persistent sidebar (`AppShell.Navbar`, 230 px). Phone: a fixed bottom tab bar
   with icons and labels, hidden from Mantine's `sm` breakpoint up. The title bar
   keeps only the system name and the account avatar; the hamburger and its
@@ -902,4 +904,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |
 | 2026-10-28 | T2 shipped: a five-field camera form with one save, a restart prompt and an Advanced drawer. |
 | 2026-10-28 | T5 shipped: Settings and Personal settings merged into one validated page. |
-| 2026-10-29 | Follow-ups: centred title, stream camera buttons, Audio Configuration sections with Set to Default, the sidebar/More merge, Environment Configuration split from Environment, and System Settings split from Settings. |
+| 2026-10-29 | Follow-ups: centred title, stream camera buttons, Audio Configuration sections with Set to Default, the sidebar/More merge, Environment Configuration split from Environment, System Settings split from Settings, the login screen made neutral, and Monitor renamed to Live Stream. |

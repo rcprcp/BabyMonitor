@@ -66,7 +66,7 @@ describe('App shell', () => {
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: 'Live stream' })).toBeInTheDocument()
-    expect((await screen.findAllByRole('link', { name: /Monitor/ })).length).toBeGreaterThan(0)
+    expect((await screen.findAllByRole('link', { name: /Live Stream/ })).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Alerts/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Environment/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
