@@ -38,7 +38,7 @@ without hiding anything that matters for trust.
 | # | Topic | Priority | Size | Status |
 | --- | --- | --- | --- | --- |
 | T1 | Audio-alert presets instead of 521 checkboxes | High | S | done |
-| T2 | Camera page: simple form + advanced Motion options | High | M | todo |
+| T2 | Camera page: simple form + advanced Motion options | High | M | done |
 | T3 | One camera power control; audio as a preference | High | S–M | done |
 | T4 | Make "Stop" honest about boot behaviour | High | S | done |
 | T5 | One Settings area; label and validate raw tags | High | S | todo |
@@ -227,6 +227,36 @@ change.
 
 - Which resolution presets should be offered (and does the device support them)?
 - Should the friendly form write immediately or behind one save (see T8)?
+
+**Done (2026-10-28).** Eight controls, one summary line and an Advanced drawer.
+
+- **Camera settings** is one card with five fields — **name**, **device**
+  (autocomplete over `GET /api/video-devices`, free text when none are found),
+  **resolution** (VGA / 720p / 1080p, or the current custom size), **frame rate**
+  (1–60) and **stream port** (1024–65535) — and a single **Save changes**. With
+  the power switch and the audio preference that is exactly the eight-control
+  target; the status is one line (**Recording · Audio on**, **Camera
+  unavailable**, …) instead of a row of chips.
+- **One save, then an honest restart prompt.** Only changed rows are written
+  (a missing row is created), and the form validates the ranges client-side.
+  A name change needs no restart; a device/resolution/frame-rate/port change
+  while the camera is running shows **Restart camera** instead of reloading
+  Motion behind the user's back. This is the per-page answer to T8, not a
+  global decision.
+- **Advanced** is a native disclosure holding everything installer-shaped: the
+  raw Motion option table with Add Row and per-row Save/Delete (delete still
+  confirms), the generated-config status, the Motion/audio pids, and the manual
+  audio-only start that T3 had left in a separate Diagnostics panel. Raw edits
+  also raise the restart prompt, and they update the friendly form if they touch
+  one of its five fields.
+- **No duplicate truth.** The form and the table both read the same
+  `babymonitor.cameras` rows; a rename updates the navigation through the
+  existing `cameras-changed` event.
+- **Tests.** Ten camera-page tests: the friendly values and summary, a
+  no-restart name save, a device save followed by the restart prompt, a
+  resolution preset writing `width`+`height`, the power switch, the audio
+  preference, disabled audio while stopped, Advanced's contents and disclosure
+  state, and the manual audio start. The suite ran with the backend's 181 tests.
 
 ---
 
@@ -807,6 +837,9 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T10 | `onboardingComplete` is a settings row seeded by a "still looks untouched" check | Fresh installs see the wizard; existing deployments are not interrupted, and re-running is one row flip | agent |
 | 2026-10-28 | T10 | List devices from sysfs instead of running `v4l2-ctl` | No process per request, works without v4l-utils, and the wizard only needs node names | agent |
 | 2026-10-28 | T10 | The wizard edits the normal settings/camera rows | Keeps one source of truth and makes re-running idempotent by construction | agent |
+| 2026-10-28 | T2 | Five friendly fields, one Save, a conditional Restart prompt | Eight controls on the default view; a save should never restart a running camera without being asked | agent |
+| 2026-10-28 | T2 | Resolution presets: VGA, 720p, 1080p, plus the current custom size | Covers the seeded cameras and any existing value without hiding it; width/height remain editable under Advanced | agent |
+| 2026-10-28 | T2 | Advanced absorbs T3's Diagnostics panel | One installer drawer instead of two disclosures, and the pid/config detail lands where the proposal put it | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -829,3 +862,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T7 shipped: Monitor/Alerts/Cameras/More with a sidebar or tab bar, camera names and a More page. |
 | 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and audio, and says so. |
 | 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |
+| 2026-10-28 | T2 shipped: a five-field camera form with one save, a restart prompt and an Advanced drawer. |

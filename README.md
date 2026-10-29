@@ -715,20 +715,23 @@ auto-exposure; it needs the camera to be running, briefly changes the live
 exposure, and is specific to UVC cameras. Calibration captures are not added to
 the history. Recalibrate after changing the camera or the exposure.
 
-The Camera pages show one camera's
-parameters under one power control. **Monitor this camera** switches the camera
-and its audio together: on rebuilds the config and starts (or reloads) Motion,
-off kills both processes. **Listen for cries** is the audio preference — the
-camera records either way, and the choice is remembered when the camera is
-switched back on (a restart turns listening on with the camera). A
-stopped camera cannot be shown listening, so its audio chip disappears. The
-status chips read **Recording** / **Recording down — restarting** / **Stopped**,
-and while recording **Audio on** / **Audio down — restarting** / **Audio off**;
-each pid stays available in a tooltip. The raw parameter table is below, with
-**Add Row** and a per-row Save/Delete, and **Diagnostics** keeps the manual
-audio-only start and the process pids for support. The Live stream page has a
-Listen control, a level meter and a volume slider that play the selected
-camera's audio.
+The Camera pages show one camera under one power control. **Monitor this
+camera** switches the camera and its audio together: on rebuilds the config and
+starts (or reloads) Motion, off kills both processes. **Listen for cries** is the
+audio preference — the camera records either way, and the choice is remembered
+when the camera is switched back on (a restart turns listening on with the
+camera). One status line summarises both processes, e.g. **Recording · Audio
+on**, with **Audio down — restarting** or **Camera unavailable** when degraded.
+
+**Camera settings** edits the five things a parent or installer actually
+chooses — name, device, resolution (VGA/720p/1080p, or the current custom size),
+frame rate and stream port — behind one **Save changes** button. A change Motion
+only reads at startup (device, resolution, frame rate, port) shows a **Restart
+camera** prompt rather than restarting silently; a name change needs no restart.
+**Advanced** holds the raw Motion option table with Add Row and per-row
+Save/Delete, the generated-config status, the pids, and a manual audio-only start
+for testing the microphone. The Live stream page has a Listen control, a level
+meter and a volume slider that play the selected camera's audio.
 
 The Alerts page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly

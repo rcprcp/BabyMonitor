@@ -479,8 +479,9 @@ container or sysfs setup is the first thing to check (section 11).
 
 4. In **Settings**, set `systemName` and `stream_url` (the host base, no port;
    the SPA appends each camera's `stream_port`). In **Cameras**, set each camera's
-   name, `video_device`, resolution, `stream_port`, `webcontrol_port`,
-   `target_dir` and `log_file`.
+   name, video device, resolution, frame rate and stream port in the friendly
+   form; `webcontrol_port`, `target_dir`, `log_file` and every other Motion
+   option are under that camera's **Advanced**.
 5. On the **Camera** pages, press **Monitor this camera**; on **Audio
    notifications**, pick a preset; on **Environment**, calibrate the camera light
    if you use it (needs `v4l2-ctl` and `ffmpeg`).
