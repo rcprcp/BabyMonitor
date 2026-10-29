@@ -86,12 +86,14 @@ function ProtectedLayout() {
 // Mantine only reads `defaultColorScheme` when it mounts, so later changes (from
 // the Theme selector) are pushed in here instead.
 function ColorSchemeSync() {
-  const { colorScheme } = useAuth()
+  const { isAuthenticated, colorScheme } = useAuth()
   const { setColorScheme } = useMantineColorScheme()
 
+  // The login screen follows the OS and uses the neutral palette; once signed
+  // in, the account's own scheme and accent take over.
   useEffect(() => {
-    setColorScheme(colorScheme)
-  }, [colorScheme, setColorScheme])
+    setColorScheme(isAuthenticated ? colorScheme : 'auto')
+  }, [isAuthenticated, colorScheme, setColorScheme])
 
   return null
 }
@@ -100,13 +102,16 @@ function ColorSchemeSync() {
 // (which is deliberately Mantine-free), so MantineProvider sits inside it and
 // its theme is rebuilt whenever the account's accent color changes.
 function ThemedApp() {
-  const { colorScheme, themeColor } = useAuth()
-  const theme = useMemo(() => createAppTheme(themeColor), [themeColor])
+  const { isAuthenticated, colorScheme, themeColor } = useAuth()
+  // Before sign-in there is no account to take colors from: use the neutral
+  // gray palette so the login page never borrows someone's accent.
+  const themeColorForScreen = isAuthenticated ? themeColor : 'gray'
+  const theme = useMemo(() => createAppTheme(themeColorForScreen), [themeColorForScreen])
 
   return (
     <MantineProvider
       theme={theme}
-      defaultColorScheme={colorScheme}
+      defaultColorScheme={isAuthenticated ? colorScheme : 'auto'}
       colorSchemeManager={noPersistenceColorSchemeManager}
     >
       <OnboardingProvider>

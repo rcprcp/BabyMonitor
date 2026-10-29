@@ -15,7 +15,8 @@ import java.util.Map;
  * Bearer-token gate for the {@code /api} tree.
  *
  * <p>Every {@code /api} request must carry {@code Authorization: Bearer <token>}
- * except the login endpoint. On success the resolved {@link Session} and the raw
+ * except the login endpoint, the webhooks (shared secret) and the small
+ * {@code /api/public/} tree the sign-in screen reads. On success the resolved {@link Session} and the raw
  * token are attached to the request context for downstream resources to read.
  *
  * <p>This is a JAX-RS filter, so it only sees REST endpoints -- static SPA
@@ -33,6 +34,7 @@ public class AuthFilter implements ContainerRequestFilter {
     private static final String API_PREFIX = "api/";
     private static final String LOGIN_PATH = "api/auth/login";
     private static final String WEBHOOK_PREFIX = "api/webhooks/";
+    private static final String PUBLIC_PREFIX = "api/public/";
     private static final String NOTIFICATION_STREAM_PATH = "api/notifications/stream";
     private static final String TOKEN_QUERY_PARAM = "token";
     private static final String BEARER_PREFIX = "Bearer ";
@@ -57,6 +59,9 @@ public class AuthFilter implements ContainerRequestFilter {
         }
         if (path.startsWith(WEBHOOK_PREFIX)) {
             return; // webhooks authenticate with a shared secret, not a session
+        }
+        if (path.startsWith(PUBLIC_PREFIX)) {
+            return; // the login screen needs the monitor's name before sign-in
         }
 
         String header = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION);

@@ -314,6 +314,16 @@ class ApiTest {
     }
 
     @Test
+    void publicSystemNameIsAvailableWithoutAToken() {
+        given()
+                .when()
+                .get("/api/public/system-name")
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("Cindy & Stephen's Baby Monitor"));
+    }
+
+    @Test
     void notificationFeedRequiresToken() {
         given().when().get("/api/notifications").then().statusCode(401);
     }

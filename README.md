@@ -211,6 +211,7 @@ webhooks.
 | POST        | `/api/auth/login`                      | `{ "name", "password" }` → token |
 | POST        | `/api/auth/logout`                     | invalidates the token          |
 | GET         | `/api/auth/me`                         | current session                |
+| GET         | `/api/public/system-name`              | the monitor's `systemName`, before sign-in |
 | GET         | `/api/settings`                        | list all settings              |
 | GET/PUT     | `/api/settings/{tag}`                  | read / update one setting      |
 | GET         | `/api/users/me`                        | the signed-in user's record    |
@@ -665,6 +666,11 @@ one tap away. **Settings** is also what the account's initial opens, and it
 carries the system settings, alert sound and links, appearance and the account
 card. The blue title bar keeps only the centred system name and the account's
 initial; it is not a menu.
+
+The sign-in screen (`/login`) paints a neutral gray header with the monitor's
+name, read from `/api/public/system-name`. Until an account is signed in it
+follows the operating system's light/dark scheme and uses gray as the accent;
+the account's own scheme and color take over after login.
 
 On a fresh install the app opens **Set up your monitor** (`/welcome`): name the
 monitor, point each camera at one of the host's `/dev/video*` nodes, then check a

@@ -116,6 +116,9 @@ export const api = {
   updateActiveCamera: (activeCamera) =>
     request('PUT', '/api/users/me/active-camera', { activeCamera }),
 
+  // Before sign-in: the login screen shows the monitor's name.
+  getPublicSystemName: () => request('GET', '/api/public/system-name'),
+
   listSettings: () => request('GET', '/api/settings'),
   getSetting: (tag) => request('GET', `/api/settings/${encodeURIComponent(tag)}`),
   updateSetting: (tag, value) =>

@@ -114,3 +114,37 @@
   color: var(--mantine-primary-color-filled);
   font-weight: 600;
 }
+
+/* The login screen's top bar is deliberately neutral: the account's accent
+   color is not known until sign-in, so it uses the gray palette in whatever
+   scheme the operating system asks for. */
+.bm-login-header {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding: 0 var(--mantine-spacing-md);
+  background: var(--mantine-color-gray-2);
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme='dark'] .bm-login-header {
+  background: var(--mantine-color-dark-6);
+  color: var(--mantine-color-gray-1);
+}
+
+/* Chrome/Safari paint autofilled fields with their own pale background, which
+   looks green/blue next to the dark theme. Paint them with the app's surface
+   and text instead, keeping the user's theme. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--mantine-color-text);
+  caret-color: var(--mantine-color-text);
+  box-shadow: 0 0 0 1000px var(--mantine-color-body) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+input:autofill {
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+}

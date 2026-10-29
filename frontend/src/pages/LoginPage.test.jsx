@@ -6,19 +6,23 @@ import { renderWithProviders } from '../test/render'
 
 // AuthProvider is not part of this smoke test: the page only needs useAuth.
 const { login } = vi.hoisted(() => ({ login: vi.fn() }))
+const { api } = vi.hoisted(() => ({ api: { getPublicSystemName: vi.fn() } }))
 
 vi.mock('../auth', () => ({
   useAuth: () => ({ login, isAuthenticated: false }),
 }))
+vi.mock('../api', () => ({ api }))
 
 beforeEach(() => {
   login.mockReset()
+  api.getPublicSystemName.mockResolvedValue({ name: 'Nursery Monitor' })
 })
 
 describe('LoginPage', () => {
-  it('renders the sign-in form', () => {
+  it('shows the system name in the header and the sign-in form', async () => {
     renderWithProviders(<LoginPage />, { route: '/login' })
 
+    expect(await screen.findByRole('heading', { name: 'Nursery Monitor' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Password/)).toBeInTheDocument()
