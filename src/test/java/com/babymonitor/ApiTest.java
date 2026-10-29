@@ -1131,9 +1131,17 @@ class ApiTest {
     }
 
     @Test
-    void startingACameraAlsoStartsItsAudio() {
+    void startingACameraStartsWantedAudioAndStoppingKeepsThePreference() {
         String token = login("Bob", "Bob");
         try {
+            // "Listen for cries" on: the camera brings the capture up with it.
+            given()
+                    .header("Authorization", bearer(token))
+                    .contentType(ContentType.JSON)
+                    .when()
+                    .post("/api/cameras/1/audio/start")
+                    .then()
+                    .statusCode(200);
             applyMotion(token, 1);
             given()
                     .header("Authorization", bearer(token))
@@ -1146,15 +1154,35 @@ class ApiTest {
         } finally {
             stopMotion(token, 1);
         }
-        // Stopping the camera stops its audio too.
+        // Stopping the camera stops the capture but keeps the preference, so
+        // the next start listens again.
         given()
                 .header("Authorization", bearer(token))
                 .when()
                 .get("/api/cameras/1/audio")
                 .then()
                 .statusCode(200)
-                .body("enabled", equalTo(false))
+                .body("enabled", equalTo(true))
                 .body("running", equalTo(false));
+    }
+
+    @Test
+    void startingACameraWithAudioOffLeavesItSilent() {
+        String token = login("Bob", "Bob");
+        stopCameraAudio(token, 1);
+        try {
+            applyMotion(token, 1);
+            given()
+                    .header("Authorization", bearer(token))
+                    .when()
+                    .get("/api/cameras/1/audio")
+                    .then()
+                    .statusCode(200)
+                    .body("enabled", equalTo(false))
+                    .body("running", equalTo(false));
+        } finally {
+            stopMotion(token, 1);
+        }
     }
 
     // --- Motion process ----------------------------------------------------

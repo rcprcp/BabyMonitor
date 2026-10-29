@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.babymonitor.AudioTestResource;
+import com.babymonitor.entity.Camera;
 import com.babymonitor.entity.CameraAudio;
 import com.babymonitor.entity.EventType;
 import com.babymonitor.entity.Notification;
@@ -14,6 +15,7 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,10 +47,20 @@ class AudioSupervisorTest {
         audio.stop(CAMERA);
         deleteAlerts(CAMERA);
         setEnabled(CAMERA, false);
+        deleteCamera(CAMERA);
+    }
+
+    @AfterEach
+    void forgetCamera() {
+        audio.stop(CAMERA);
+        deleteCamera(CAMERA);
+        deleteAlerts(CAMERA);
+        setEnabled(CAMERA, false);
     }
 
     @Test
     void aDeadCaptureIsRestartedAndANotificationIsWritten() {
+        setCameraEnabled(CAMERA, true);
         setEnabled(CAMERA, true);
         audio.start(CAMERA, "hw:12,0");
         assertTrue(audio.status(CAMERA).running(), "the capture should be up to begin with");
@@ -65,12 +77,27 @@ class AudioSupervisorTest {
 
     @Test
     void aCameraThatDoesNotWantAudioIsLeftAlone() {
+        setCameraEnabled(CAMERA, true);
         setEnabled(CAMERA, false);
         audio.stop(CAMERA);
 
         supervisor.checkOnce();
 
         assertFalse(audio.status(CAMERA).running(), "a stopped camera is not the supervisor's business");
+        assertNull(findSystemAlert(CAMERA), "and it raises no notification");
+    }
+
+    @Test
+    void aStoppedCameraIsNotBroughtBackByItsAudioPreference() {
+        // The parent stopped the camera but left "Listen for cries" on. Audio
+        // must not resurrect the camera behind their back.
+        setCameraEnabled(CAMERA, false);
+        setEnabled(CAMERA, true);
+        audio.stop(CAMERA);
+
+        supervisor.checkOnce();
+
+        assertFalse(audio.status(CAMERA).running(), "a stopped camera stays stopped");
         assertNull(findSystemAlert(CAMERA), "and it raises no notification");
     }
 
@@ -90,6 +117,25 @@ class AudioSupervisorTest {
         }
         assertFalse(watch.restartDue(now.plus(AudioSupervisor.RETRY_MAX).minusSeconds(1)));
         assertTrue(watch.restartDue(now.plus(AudioSupervisor.RETRY_MAX)));
+    }
+
+    /** The camera's own desired state, which gates audio supervision. */
+    private static void setCameraEnabled(int cameraNumber, boolean enabled) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            Camera row = Camera.find("cameraNumber = ?1", cameraNumber).firstResult();
+            if (row == null) {
+                row = new Camera();
+                row.cameraNumber = cameraNumber;
+                row.paramKey = "camera_name";
+                row.value = "Supervisor test";
+            }
+            row.enabled = enabled;
+            row.persist();
+        });
+    }
+
+    private static void deleteCamera(int cameraNumber) {
+        QuarkusTransaction.requiringNew().run(() -> Camera.delete("cameraNumber = ?1", cameraNumber));
     }
 
     private static void setEnabled(int cameraNumber, boolean enabled) {

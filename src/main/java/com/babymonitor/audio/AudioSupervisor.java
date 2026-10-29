@@ -1,5 +1,6 @@
 package com.babymonitor.audio;
 
+import com.babymonitor.entity.Camera;
 import com.babymonitor.entity.CameraAudio;
 import com.babymonitor.entity.EventType;
 import com.babymonitor.service.NotificationService;
@@ -20,17 +21,17 @@ import org.jboss.logging.Logger;
  * Keeps the audio capture for cameras that want it running.
  *
  * <p>Every {@code babymonitor.audio.check-interval} (15 seconds by default) it
- * looks at each camera whose persisted state says "audio on" and checks that its
- * capture process is still alive. If it is gone -- {@code sox} crashed, the
+ * looks at each camera that is meant to be running and whose audio preference is
+ * on, and checks that its capture process is still alive. If it is gone -- {@code sox} crashed, the
  * device was unplugged, the OOM killer struck -- it starts a new capture and
  * records a {@link EventType#System} notification, because a camera that has
  * silently stopped listening is the one failure a baby monitor must never hide.
  * It is the audio twin of {@link com.babymonitor.motion.MotionSupervisor}.</p>
  *
- * <p>Cameras whose state says "audio off" are left completely alone: the Audio
- * Stop button is the user saying "do not supervise this one". The device is the
- * camera's own {@code camera_audio.device} when set, otherwise
- * {@link AudioConfig#device()}.</p>
+ * <p>A camera whose audio preference is off, or which is not meant to be
+ * running, is left completely alone: that is the parent saying "do not
+ * supervise this one". The device is the camera's own
+ * {@code camera_audio.device} when set, otherwise {@link AudioConfig#device()}.</p>
  *
  * <p>Two limits stop a camera that cannot stay up from thrashing: repeated
  * restarts back off exponentially (15s, 30s, ... capped at 5 minutes) until a
@@ -85,8 +86,23 @@ public class AudioSupervisor {
                 watches.remove(row.cameraNumber);
                 continue;
             }
+            if (!cameraWanted(row.cameraNumber)) {
+                // "Listen for cries" can be on while the camera itself is
+                // stopped. Audio must not resurrect a camera the parent turned
+                // off; the next start brings it back.
+                watches.remove(row.cameraNumber);
+                continue;
+            }
             supervise(row);
         }
+    }
+
+    /** True when the camera's persisted state says it should be running. */
+    private static boolean cameraWanted(int cameraNumber) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            List<Camera> rows = Camera.listByCamera(cameraNumber);
+            return !rows.isEmpty() && rows.get(0).enabled;
+        });
     }
 
     /** Checks one camera that wants audio, restarting its capture if it is gone. */

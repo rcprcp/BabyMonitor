@@ -5,9 +5,13 @@ import {
   Badge,
   Button,
   Center,
+  Checkbox,
+  Divider,
   Group,
   Loader,
+  Paper,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
@@ -16,10 +20,6 @@ import {
 } from '@mantine/core'
 import { api } from '../api'
 import { notifyCamerasChanged } from '../useCameras'
-
-// Mantine's default Button height (size "sm"). The status badges are wrapped in
-// rows of this height so a badge's midpoint lines up with the button beside it.
-const CONTROL_ROW_HEIGHT = 36
 
 // The app carries no icon library, so the few glyphs this page needs are small
 // inline SVGs. Drawn like Tabler's icons so they sit naturally beside the
@@ -277,13 +277,15 @@ export default function CameraPage({ cameraNumber }) {
     }
   }
 
-  const toggleAudio = async () => {
+  // "Listen for cries" is a preference stored on the camera: starting audio
+  // also remembers it, so the next start of the camera honours the choice.
+  const setListening = async (enabled) => {
     setError(null)
     setAudioBusy(true)
     try {
-      const status = audio?.running
-        ? await api.stopCameraAudio(cameraNumber)
-        : await api.startCameraAudio(cameraNumber)
+      const status = enabled
+        ? await api.startCameraAudio(cameraNumber)
+        : await api.stopCameraAudio(cameraNumber)
       setAudio(status)
     } catch (err) {
       setError(err.message)
@@ -294,11 +296,18 @@ export default function CameraPage({ cameraNumber }) {
   }
 
   const name = parameters.find((p) => p.key === 'camera_name')?.value
-  // The persisted desired state: set by Start/Restart camera, cleared by Stop.
-  // The badge follows the process, not this flag.
+  // The persisted desired state: set when the camera is switched on, cleared by
+  // Stop. The chips follow the processes, not this flag.
   const desired = parameters[0]?.enabled ?? false
   const running = motion?.running ?? false
   const configWritten = motion?.configExists ?? false
+  // One control owns both processes. `on` reflects either the running camera or
+  // the persisted "should be running" state, so a camera that is still starting
+  // does not flicker off.
+  const on = running || desired
+  const busy = loading || applying || stopping
+
+  const setPower = (enabled) => (enabled ? apply() : stop())
 
   return (
     <Stack>
@@ -311,90 +320,63 @@ export default function CameraPage({ cameraNumber }) {
             </Text>
           )}
         </Group>
-        <Group gap="sm" align="flex-start">
+        <Group gap="sm" align="center">
           <Badge color={configWritten ? 'blue' : 'gray'} variant="light">
             {configWritten ? 'Config written' : 'No config yet'}
           </Badge>
-          <Stack gap="xs" align="flex-end">
-            <Group h={CONTROL_ROW_HEIGHT} align="center" justify="flex-end">
-              {motion?.error && (running || desired) ? (
-                <Badge color="red" variant="light" title={motion.error}>
-                  Camera unavailable
+          {motion?.error && on ? (
+            <Badge color="red" variant="light" title={motion.error}>
+              Camera unavailable
+            </Badge>
+          ) : running ? (
+            <Tooltip
+              label={`Motion process ${motion.pid}`}
+              withArrow
+              openDelay={200}
+              disabled={!motion.pid}
+              position="bottom"
+            >
+              <Badge color="green" variant="light">
+                Recording
+              </Badge>
+            </Tooltip>
+          ) : desired ? (
+            <Badge color="yellow" variant="light">
+              Recording down — restarting
+            </Badge>
+          ) : (
+            <Badge color="gray" variant="light">
+              Stopped
+            </Badge>
+          )}
+          {/* Only while recording: a stopped camera cannot have honest audio. */}
+          {running &&
+            audio &&
+            (audio.running ? (
+              <Tooltip
+                label={`Audio process ${audio.pid}`}
+                withArrow
+                openDelay={200}
+                disabled={!audio.pid}
+                position="bottom"
+              >
+                <Badge color="green" variant="light">
+                  Audio on
                 </Badge>
-              ) : running ? (
-                <Tooltip
-                  label={`Motion process ${motion.pid}`}
-                  withArrow
-                  openDelay={200}
-                  disabled={!motion.pid}
-                  position="bottom"
-                >
-                  <Badge color="green" variant="light">
-                    Recording
-                  </Badge>
-                </Tooltip>
-              ) : desired ? (
-                <Badge color="yellow" variant="light">
-                  Recording down — restarting
-                </Badge>
-              ) : (
-                <Badge color="gray" variant="light">
-                  Stopped
-                </Badge>
-              )}
-            </Group>
-            <Group h={CONTROL_ROW_HEIGHT} align="center" justify="flex-end">
-              {audio?.running ? (
-                <Tooltip
-                  label={`Audio process ${audio.pid}`}
-                  withArrow
-                  openDelay={200}
-                  disabled={!audio.pid}
-                  position="bottom"
-                >
-                  <Badge color="green" variant="light">
-                    Audio on
-                  </Badge>
-                </Tooltip>
-              ) : audio?.enabled ? (
-                <Badge color="yellow" variant="light">
-                  Audio down — restarting
-                </Badge>
-              ) : (
-                <Badge color="gray" variant="light">
-                  Audio stopped
-                </Badge>
-              )}
-            </Group>
-          </Stack>
-          <Button
-            variant="default"
-            leftSection={<PlusIcon />}
-            onClick={startAdd}
-            disabled={loading || adding}
-          >
-            Add Row
-          </Button>
-          <Stack gap="xs" align="flex-end">
-            <Button onClick={apply} loading={applying} disabled={loading}>
-              {running || desired ? 'Restart camera' : 'Start camera'}
-            </Button>
-            <Button variant="default" onClick={toggleAudio} loading={audioBusy} disabled={loading}>
-              {audio?.running ? 'Stop audio' : 'Start audio'}
-            </Button>
-          </Stack>
-          <Button
-            onClick={stop}
-            loading={stopping}
-            disabled={loading || (!running && !desired)}
-            variant="default"
-          >
-            Stop
-          </Button>
+              </Tooltip>
+            ) : audio?.enabled ? (
+              <Badge color="yellow" variant="light">
+                Audio down — restarting
+              </Badge>
+            ) : (
+              <Badge color="gray" variant="light">
+                Audio off
+              </Badge>
+            ))}
         </Group>
       </Group>
 
-      {motion?.error && (running || desired) && (
+      {motion?.error && on && (
         <Alert color="red" variant="light">
           {motion.error}
         </Alert>
@@ -406,6 +388,46 @@ export default function CameraPage({ cameraNumber }) {
         </Alert>
       )}
 
+      {!loading && (
+        <Paper withBorder p="md">
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Stack gap={2}>
+              <Text fw={600}>Monitor this camera</Text>
+              <Text size="sm" c="dimmed">
+                {on
+                  ? 'Recording. If the camera drops, it restarts on its own.'
+                  : 'Stopped. Cameras start again when the monitor restarts.'}
+              </Text>
+            </Stack>
+            <Switch
+              aria-label="Monitor this camera"
+              checked={on}
+              onChange={(event) => setPower(event.currentTarget.checked)}
+              disabled={busy}
+            />
+          </Group>
+
+          <Divider my="md" />
+
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Stack gap={2}>
+              <Text fw={600}>Listen for cries</Text>
+              <Text size="sm" c="dimmed">
+                {on
+                  ? 'Audio alerts need this on. Recording happens either way.'
+                  : 'Turn the camera on to change its audio.'}
+              </Text>
+            </Stack>
+            <Checkbox
+              aria-label="Listen for cries"
+              checked={Boolean(audio?.enabled)}
+              onChange={(event) => setListening(event.currentTarget.checked)}
+              disabled={!on || audioBusy || loading}
+            />
+          </Group>
+        </Paper>
+      )}
+
       {loading && (
         <Center>
           <Loader size="sm" />
@@ -414,6 +436,15 @@ export default function CameraPage({ cameraNumber }) {
 
       {!loading && !adding && parameters.length === 0 && (
         <Text c="dimmed">This camera has no parameters.</Text>
+      )}
+
+      {!loading && (
+        <Group justify="space-between" align="center">
+          <Text fw={600}>Parameters</Text>
+          <Button variant="default" leftSection={<PlusIcon />} onClick={startAdd} disabled={adding}>
+            Add Row
+          </Button>
+        </Group>
       )}
 
       {!loading && (adding || parameters.length > 0) && (
@@ -520,6 +551,42 @@ export default function CameraPage({ cameraNumber }) {
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
+      )}
+
+      {/* T3 keeps the manual audio control reachable: an installer can prove the
+          microphone works without starting the camera. T2 will fold this into
+          the Advanced panel. A native disclosure keeps it keyboard-accessible
+          without an animation that could hide the controls. */}
+      {!loading && (
+        <Paper withBorder p="md" component="details">
+          <Text component="summary" fw={600} style={{ cursor: 'pointer' }}>
+            Diagnostics
+          </Text>
+          <Stack gap="xs" mt="md">
+            <Text size="sm" c="dimmed">
+              Audio can be started on its own to test the microphone. It is not restarted
+              automatically while the camera is stopped.
+            </Text>
+            <Group gap="sm" align="center">
+              <Button
+                variant="default"
+                onClick={() => setListening(!audio?.running)}
+                loading={audioBusy}
+                disabled={loading}
+              >
+                {audio?.running ? 'Stop audio' : 'Start audio'}
+              </Button>
+              <Text size="sm" c="dimmed">
+                {audio?.running
+                  ? `Capture running (pid ${audio.pid ?? 'unknown'})`
+                  : 'Capture not running'}
+              </Text>
+            </Group>
+            <Text size="sm" c="dimmed">
+              Motion process: {running ? `pid ${motion.pid ?? 'unknown'}` : 'not running'}
+            </Text>
+          </Stack>
+        </Paper>
       )}
     </Stack>
   )

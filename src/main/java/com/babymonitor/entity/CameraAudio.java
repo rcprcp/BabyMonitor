@@ -8,12 +8,16 @@ import jakarta.persistence.Table;
 import java.util.List;
 
 /**
- * Per-camera audio capture configuration and desired state.
+ * Per-camera audio capture configuration and preference.
  *
- * <p>When {@code enabled} is true, the app should keep the camera's audio
- * capture process running; {@code device} is the ALSA device passed to the
- * capture binary (e.g. {@code hw:1,7} or {@code plughw:1,0}). One row per
- * camera exists conceptually, keyed by {@code camera_number}.
+ * <p>{@code enabled} is the user's "Listen for cries" preference: when true the
+ * camera's audio capture should run whenever the camera itself is running. It
+ * survives a Stop (so turning the camera back on restores the choice) and is
+ * honoured at boot; {@link com.babymonitor.audio.AudioSupervisor} only restarts
+ * a capture while the camera is meant to be running. {@code device} is the ALSA
+ * device passed to the capture binary (e.g. {@code hw:1,7} or
+ * {@code plughw:1,0}). One row per camera exists conceptually, keyed by
+ * {@code camera_number}.
  */
 @Entity
 @Table(name = "camera_audio", schema = "babymonitor")

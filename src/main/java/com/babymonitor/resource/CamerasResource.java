@@ -187,15 +187,17 @@ public class CamerasResource {
             for (Camera parameter : parameters) {
                 parameter.enabled = true;
             }
-            // Audio follows the camera: starting a camera turns its audio on and
-            // brings the capture up. A failure here must not fail the camera, so
-            // it is logged and left to AudioSupervisor to retry.
+            // Audio follows the camera, but "Listen for cries" is the user's
+            // preference: a camera started with audio off stays silent. A failure
+            // here must not fail the camera, so it is logged and left to
+            // AudioSupervisor to retry.
             CameraAudio audioRow = audioRowFor(cameraNumber);
-            audioRow.enabled = true;
-            try {
-                audio.ensureRunning(cameraNumber, audioRow.deviceOrDefault(audioConfig.device()));
-            } catch (RuntimeException e) {
-                LOG.warnf("Could not start audio for camera %d: %s", cameraNumber, e.getMessage());
+            if (audioRow.enabled) {
+                try {
+                    audio.ensureRunning(cameraNumber, audioRow.deviceOrDefault(audioConfig.device()));
+                } catch (RuntimeException e) {
+                    LOG.warnf("Could not start audio for camera %d: %s", cameraNumber, e.getMessage());
+                }
             }
             return Response.ok(status).build();
         } catch (IllegalArgumentException e) {
@@ -225,10 +227,9 @@ public class CamerasResource {
         for (Camera parameter : parameters) {
             parameter.enabled = false;
         }
-        CameraAudio audioRow = CameraAudio.findByCamera(cameraNumber);
-        if (audioRow != null) {
-            audioRow.enabled = false;
-        }
+        // camera_audio.enabled is the "Listen for cries" preference, not the run
+        // state: stopping the camera must not forget that the user wants audio
+        // when it is on again. Cameras start again at the next boot anyway.
         return Response.ok(status).build();
     }
 
@@ -285,15 +286,17 @@ public class CamerasResource {
     }
 
     /**
-     * The camera's {@code camera_audio} row, created switched off on first use.
-     * The caller sets {@code enabled}, which is the camera's desired state.
+     * The camera's {@code camera_audio} row, created with audio on (the default
+     * preference) on first use. {@code enabled} is the user's "Listen for cries"
+     * preference: it survives a Stop and is applied the next time the camera
+     * starts.
      */
     private static CameraAudio audioRowFor(int cameraNumber) {
         CameraAudio row = CameraAudio.findByCamera(cameraNumber);
         if (row == null) {
             row = new CameraAudio();
             row.cameraNumber = cameraNumber;
-            row.enabled = false;
+            row.enabled = true;
             row.persist();
         }
         return row;
