@@ -649,14 +649,15 @@ React Router routes: `/login`, `/welcome` (setup wizard), `/` (stream),
 `/notifications` (Alerts), `/environment`, `/environment-config` (Environment
 Configuration), `/cameras` (the camera list), `/cameras/1` and `/cameras/2` (the
 shared Camera page, one route per camera), `/audio-alerts` (Audio
-Configuration) and `/settings`. The retired `/profile` and `/more` URLs redirect
-to `/settings`.
+Configuration), `/settings` and `/system-settings` (System Settings). The retired
+`/profile` and `/more` URLs redirect to `/settings`.
 
 On a desktop the sidebar lists every destination: **Monitor** (`/`), **Alerts**
 (`/notifications`), **Environment** (`/environment`), **Cameras** (`/cameras`,
 with the two camera pages below it by name), **Audio Configuration**
-(`/audio-alerts`), **Environment Configuration** (`/environment-config`) and
-**Settings** (`/settings`). On a phone the fixed bottom tab bar keeps four daily
+(`/audio-alerts`), **Environment Configuration** (`/environment-config`),
+**Settings** (`/settings`) and **System Settings** (`/system-settings`) at the
+bottom. On a phone the fixed bottom tab bar keeps four daily
 tabs — Monitor, Alerts, Cameras and Settings — and the Settings page links to
 Environment, Environment Configuration and Audio Configuration. The current
 destination is marked `aria-current="page"` and coloured, and watching is always
@@ -682,14 +683,14 @@ change) and otherwise defaults to the first enabled camera — Camera 1 when it
 is running, else Camera 2. It shows no stream for a stopped camera; cameras are
 started at boot, and can be stopped and restarted from their own Camera pages.
 The title bar text — and the browser tab title — come from the
-`systemName` setting, so renaming the system is just a setting edit. The
-Settings page names the known rows in plain language — `systemName` is
-**Monitor name**, `stream_url` is **Stream address** — and keeps the raw tag
-beside the label, so support still sees what the API calls it. One **Save
-changes** writes either or both, and the stream address is validated first: it
-must be an absolute `http(s)` host with no port, path or credentials, because
-each camera's `stream_port` is appended to it. Anything else in the table still
-gets an editor under **Other settings**.
+`systemName` setting, so renaming the system is just a setting edit. That field
+and `stream_url` live on **System Settings** (`/system-settings`, also linked
+from the Settings header), named in plain language — **Monitor name** and
+**Stream address** — with the raw tag beside the label so support still sees
+what the API calls it. One **Save changes** writes either or both, and the
+stream address is validated first: it must be an absolute `http(s)` host with no
+port, path or credentials, because each camera's `stream_port` is appended to
+it. Anything else in the table still gets an editor under **Other settings**.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
 like `/settings` works on refresh.
 
