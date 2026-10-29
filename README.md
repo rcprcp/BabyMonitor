@@ -6,6 +6,8 @@ baby-monitor live stream, a notification feed and settings.
 - **Backend:** Quarkus REST + Hibernate ORM with Panache + PostgreSQL
 - **Frontend:** React 18 + Vite + React Router (`frontend/`)
 - **API schema:** OpenAPI at `/q/openapi`, Swagger UI at `/q/swagger-ui`
+- **Deployment:** [`DEVOPS.md`](DEVOPS.md) — host prerequisites, PostgreSQL,
+  Motion, SoX, systemd, TLS and troubleshooting
 
 ## Layout
 
@@ -90,14 +92,16 @@ migrations.
     clears them.
     The keys *are* Motion option names: the app writes them, almost verbatim,
     into the camera's generated `motion.config.<n>` (see *Motion* below)
-- `V2__seed_data.sql` — development sample data; a production database would not
-  run it. Every statement is guarded, so applying it on top of existing data
-  neither duplicates a row nor clobbers an edit:
+- `V2__seed_data.sql` — sample data. It is an ordinary migration, so **a fresh
+  database runs it in production too**; delete the demo rows before the monitor
+  is trusted (`DEVOPS.md` §4 and §10). Every statement is guarded, so applying it
+  on top of existing data neither duplicates a row nor clobbers an edit:
   - the `systemName` = `Cindy & Stephen's Baby Monitor` and `stream_url` =
     `http://localhost` settings
   - the four sample accounts `Cindy`, `Marij`, `Stephen`, `Bob`, each with
     password equal to the name (bcrypt hash, `$2a$` prefix — the jbcrypt
-    library rejects `$2b$`)
+    library rejects `$2b$`). Replace them with real accounts before deploying;
+    `DEVOPS.md` has the hash and cleanup commands
   - one environment sample per hour for the previous seven days, following a
     daily rhythm (coolest before dawn, brightest around noon), seeded only while
     the table is empty so it never stacks another week on top. A camera or
@@ -116,8 +120,8 @@ migrations.
 - `V3__add_system_event_type.sql` — adds `System` to the `event_type` enum
 - `V4__add_active_camera.sql` — adds `users.active_camera`, the camera the
   account last viewed, so the Live stream page can restore it
-- `V5__add_camera_audio.sql` — adds `camera_audio`, the per-camera audio desired
-  state and ALSA device
+- `V5__add_camera_audio.sql` — adds `camera_audio`, the per-camera audio
+  preference ("Listen for cries") and ALSA device; boot forces it back on
 - `V6__add_audio_alert_classes.sql` — adds `audio_alert_classes`, one alert
   switch per YAMNet class, seeded with the Speech & Human Sounds group on
 - `V7__extend_default_audio_alerts.sql` — extends the default alert set from
@@ -135,6 +139,11 @@ migrations.
   numbers 1–6 instead of names
 
 ## Build & run
+
+Requires **JDK 25**, Maven 3.9+ and Node.js 20 or 22 with npm (the Maven
+`frontend` profile runs `npm install` and `npm run build`). Production
+installation, PostgreSQL, Motion, SoX, systemd and TLS are covered in
+[`DEVOPS.md`](DEVOPS.md).
 
 ```bash
 mvn package                 # builds the SPA then the Quarkus app

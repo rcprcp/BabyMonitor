@@ -50,20 +50,20 @@ These are the ones where the app looks fine while being wrong.
 
 ## P1 — Security
 
-- [ ] **Serve over TLS.** Everything is plain HTTP: webhooks, the SPA, and the
-      Motion streams. If the SPA is ever served over HTTPS the browser will
-      block the `http` MJPEG feed as mixed content (`StreamPage.jsx` builds the
-      URL directly from `stream_base`). Document and support a TLS terminator,
-      or relay the stream through the app.
+- [~] **Serve over TLS.** Everything is plain HTTP: webhooks, the SPA, and the
+      Motion streams. `DEVOPS.md` now has an nginx terminator recipe, but the
+      MJPEG ports still need their own TLS or a relay: an HTTPS page blocks the
+      `http` feed as mixed content (`StreamPage.jsx` builds the URL directly from
+      `stream_url`). Relaying video through the authenticated app is still open.
 - [ ] **The stream ports are unauthenticated and on the network.**
-      `stream_localhost off` / `webcontrol_localhost off` (`db/init.sql`) expose
+      `stream_localhost off` / `webcontrol_localhost off` (seed `V2`) expose
       8081/8091 to the LAN, bypassing the bearer gate entirely — including
       Motion's **web control** interface. Default them to localhost and relay
       through the authenticated app instead.
 - [ ] **Rate-limit login.** `/api/auth/login` has no throttling or lockout
       (`AuthResource.java`), so bcrypt is the only thing slowing a brute force.
 - [ ] **Kill the default credentials.** DB defaults to `bob/bob/bob` and the
-      seeded accounts use `password == username` (`db/init.sql`). Fine for a
+      seeded accounts use `password == username` (`V2__seed_data.sql`). Fine for a
       demo, unacceptable for a real deployment. Add a first-run setup step that
       forces a real admin password, and refuse to start on the sample accounts
       outside dev.
@@ -86,9 +86,9 @@ These are the ones where the app looks fine while being wrong.
 - [x] **Add CI.** `.github/workflows/ci.yml` runs the backend suite and the
       frontend tests/lint/format check/build on every push and pull request
       (T11 in `USABILITY.md`).
-- [ ] **Package it.** No `Dockerfile`, no compose, no systemd unit. Deployment
-      is documented as `mvn package && java -jar`. Provide a container image and
-      a service unit, including what owns the `motion` children on restart.
+- [~] **Package it.** `DEVOPS.md` documents a systemd unit, the state
+      directories, PostgreSQL, Motion, SoX, upgrades and troubleshooting. There
+      is still no `Dockerfile` or compose file, and no packaged release artifact.
 - [x] **Health and readiness endpoints.** `quarkus-smallrye-health` is in the
       build and `/q/health` (liveness + readiness, with a database check) is
       available. Camera-specific trouble is surfaced on the Camera page/Motion
@@ -98,13 +98,14 @@ These are the ones where the app looks fine while being wrong.
       `MotionProcessManager`). Add Micrometer/Prometheus and JSON logs with
       request correlation.
 - [x] **Introduce real migrations.** Flyway owns the schema: the migrations in
-      `src/main/resources/db/migration` (V1-V7) run at startup, with the baseline
+      `src/main/resources/db/migration` (V1-V13) run at startup, with the baseline
       path for pre-Flyway databases documented. `db/init.sql` is gone.
 - [ ] **Move the session store out of memory.** Tokens vanish on restart, so
       every redeploy logs everyone out (`SessionStore.java`). Move to the DB or
       Redis, add rotation, and support more than one instance.
-- [ ] **Backups and restore.** Not mentioned anywhere. Document a DB dump/restore
-      procedure and what happens to recordings.
+- [x] **Backups and restore.** `DEVOPS.md` documents `pg_dump`/`pg_restore`, the
+      Motion recording directory, and the pre-upgrade snapshot. Automatic
+      rotation is still left to the operator.
 - [ ] **Move `start()` out of the request transaction.** `CamerasResource` is
       class-level `@Transactional`, so `MotionProcessManager.start()` spawns a
       process before the request commits. Harmless today, fragile later.
@@ -155,11 +156,12 @@ These are the ones where the app looks fine while being wrong.
       them for a nap or a night shift, and no way to arm only at night.
 - [x] **Cry / sound detection.** `AudioService` captures an ALSA device,
       `YamNetClassifier` scores it and `CryDetector` raises `Audio`
-      notifications (see *Audio and cry detection* in the README). Audio now
-      follows the camera: a camera's Start/Stop drives it, the Camera page has
-      an Audio Start/Stop button and status chip, a per-camera device lives in
-      `camera_audio` (falling back to `babymonitor.audio.device`), and
-      `AudioSupervisor` restarts a dead capture with backoff and a notification.
+      notifications (see *Audio and cry detection* in the README). One
+      **Monitor this camera** switch drives the camera and its audio; **Listen
+      for cries** is a per-camera preference in `camera_audio.enabled` (with a
+      per-camera device falling back to `babymonitor.audio.device`), boot forces
+      both back on, and `AudioSupervisor` restarts a dead capture with backoff
+      and a notification while the camera is meant to run.
       Which classes may alert is chosen with presets (or per class under
       Custom) on the Audio notifications page, stored in `audio_alert_classes`.
 - [ ] **Snapshots and a timeline.** There is no thumbnail gallery, no scrub
@@ -167,8 +169,10 @@ These are the ones where the app looks fine while being wrong.
 - [ ] **Roles and caregiver accounts.** All accounts are equal; there is no
       owner/member split, no audit of who changed what (e.g. who switched a
       camera off), and no session/activity log.
-- [ ] **Onboarding.** First run drops you on a Live stream page with both
-      cameras off and no guidance on pointing them at a device.
+- [ ] **Onboarding.** First run lands on a running Live stream of the two seeded
+      demo cameras, whose `video_device` values almost certainly are not the
+      host's cameras, with no guidance on naming them, pointing them at a device
+      or calibrating the light sensor (`USABILITY.md` T10).
 
 ## P5 — Frontend experience
 
@@ -188,11 +192,12 @@ These are the ones where the app looks fine while being wrong.
 - [ ] **Parse status before JSON.** `api.js` calls `JSON.parse` before checking
       `response.ok`, so an HTML error page throws `SyntaxError` and hides the
       real status.
-- [ ] **Give every error a retry.** Only the Notifications page has a Refresh
-      button; everywhere else an error is a dead end.
+- [ ] **Give every error a retry.** Only the Alerts page has a Refresh button;
+      everywhere else an error is a dead end.
 - [x] **Harden the title bar for phones.** The Test alert and Play sound buttons
-      were removed; the bar is burger/title/avatar and the title ellipsises
-      (`.bm-title`). Safe-area handling remains in the separate item below.
+      were removed; the bar is title/avatar (navigation moved to a sidebar on
+      desktop and a tab bar on phones) and the title ellipsises (`.bm-title`).
+      Safe-area handling remains in the separate item below.
 - [ ] **Handle `theme-color` and safe areas.** Static `theme-color` that ignores
       the chosen palette, and no `viewport-fit=cover` / `env(safe-area-inset-*)`
       for notched phones.
@@ -218,9 +223,9 @@ These are the ones where the app looks fine while being wrong.
 - [ ] **De-duplicate the palette list.** It is maintained by hand in both
       `frontend/src/theme.js` and `UserResource`.
 - [ ] **Remove dead code.** `api.me()` in `frontend/src/api.js` is unused.
-- [ ] **Write the missing docs.** No `CONTRIBUTING`, `CHANGELOG` or
-      `SECURITY.md`; no deployment/TLS runbook, no troubleshooting guide
-      (orphaned `motion`, frozen stream), no complete config reference.
+- [~] **Write the missing docs.** `DEVOPS.md` now covers deployment, TLS, the
+      config reference, backups/upgrades and a troubleshooting table. Still
+      missing: `CONTRIBUTING`, `CHANGELOG` and `SECURITY.md` (threat model).
 - [x] **Track the open-items list.** This `TODO.md` is tracked; it supersedes
       the git-ignored `docs/agent-sessions/todos.md`.
 - [ ] **Plan the Mantine 9 / React 19 upgrade.** Nothing blocks it; it is just

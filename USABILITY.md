@@ -57,7 +57,7 @@ without hiding anything that matters for trust.
 3. **Phase 2:** T2, T5, T8
 4. **Phase 3:** T6, T9, T10 (T4 decided before T3 ships)
 
-## Snapshot: what the user sees today
+## Snapshot at review time (commit `2394e39`)
 
 | Screen | Interactive controls | Audience today |
 | --- | --- | --- |
@@ -70,12 +70,17 @@ without hiding anything that matters for trust.
 | Personal settings | 13 palette swatches, light/dark/auto, sound popover (7 sounds) | Parent, occasional |
 | Menu (`TitleBar.jsx:65-92`) | 9 destinations | Everyone |
 
-Roughly **640 interactive controls**, of which ~535 are on the Audio Notification
-Config page.
+Roughly **640 interactive controls**, of which ~535 were on the audio-notification
+page.
+
+> This is the baseline the topics below were scoped against. T1, T3, T7 and T12
+> have since replaced the audio checkboxes with presets, the camera power buttons
+> with one switch, the nine-item menu with four destinations and several raw
+> labels with intent-first copy; the **Done** blocks record the current state.
 
 ### Control-count targets
 
-| Surface | Today | Target |
+| Surface | Baseline | Target |
 | --- | --- | --- |
 | Camera page | ~40 | ~8 primary + advanced drawer |
 | Audio alerts | 535 | 4 preset choices + optional custom list |
