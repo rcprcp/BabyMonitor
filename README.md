@@ -86,7 +86,8 @@ migrations.
   - `babymonitor.cameras` (`camera_number`, `key`, `value`, `enabled`) — camera
     parameters, keyed by `(camera_number, key)`. There is no separate camera
     row, so `enabled` (the camera's on/off flag) is repeated on every parameter
-    of that camera: Start/Apply writes it to all of them and Stop clears them.
+    of that camera: starting the camera writes it to all of them and Stop
+    clears them.
     The keys *are* Motion option names: the app writes them, almost verbatim,
     into the camera's generated `motion.config.<n>` (see *Motion* below)
 - `V2__seed_data.sql` — development sample data; a production database would not
@@ -289,9 +290,9 @@ not a notification at all returns `404`. There is no way to dismiss an event for
 the household through the API: nothing deletes notification rows any more.
 
 `DELETE /api/notifications` dismisses **every** notification for the calling
-account in one statement; it is what the page's **Dismiss All** button calls. It
-is idempotent and still per account: other accounts keep their feed, and a
-notification recorded afterwards is visible again.
+account in one statement; it is what the page's **Clear my notifications**
+button calls. It is idempotent and still per account: other accounts keep their
+feed, and a notification recorded afterwards is visible again.
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
@@ -331,8 +332,8 @@ of silently falling back to polling.
 On startup the alert hook first seeds its watermark from the existing feed, so a
 restart does not replay the backlog as a burst of new alerts; only events that
 arrive afterwards (or while that first fetch runs) alert. Alert toasts auto-close
-after 10 seconds, clicking one opens the Notifications page, and **Dismiss All**
-also closes any that are still on screen.
+after 10 seconds, clicking one opens the Notifications page, and
+**Clear my notifications** also closes any that are still on screen.
 
 Because `EventSource` cannot set an `Authorization` header, this one endpoint
 also accepts the session token as a `token` query parameter. That is the only
@@ -367,7 +368,7 @@ camera; systemd is not involved. Everything is driven by the rows in
 ### Generated configuration
 
 Motion has no `include` directive, so each camera's file must be self-contained.
-On every **Apply** the app reads the shared template
+On every start or restart the app reads the shared template
 `src/main/resources/motion/motion.template`, puts it at the top, and appends one
 `key value` line per camera row to form
 `$BABYMONITOR_MOTION_BASE_DIR/motion.config.<n>` (default
@@ -394,15 +395,16 @@ The base directory ends up looking like this:
 
 ### Processes
 
-Apply starts `motion -n -c /home/bob/motion/motion.config.<n>` (non-daemon, a
-plain child of the app) if it is not already running, or sends it `SIGHUP` to
-reload when it is. That `-c …motion.config.<n>` path is what distinguishes the
-two processes in `ps -ef`.
+Starting or restarting a camera launches
+`motion -n -c /home/bob/motion/motion.config.<n>` (non-daemon, a plain child of
+the app) if it is not already running, or sends it `SIGHUP` to reload when it is.
+That `-c …motion.config.<n>` path is what distinguishes the two processes in
+`ps -ef`.
 
 | Action | Effect |
 | --- | --- |
-| Add, save or delete a parameter | stored only; Motion is untouched until Apply |
-| **Start/Apply** | set `enabled`, rebuild the config, then start Motion or `SIGHUP` it |
+| Add, save or delete a parameter | stored only; the camera is untouched until it is started |
+| **Start camera** / **Restart camera** | set `enabled`, rebuild the config, then start Motion or `SIGHUP` it |
 | **Stop** | clear `enabled`, then kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
 
 Once a camera is marked running, the `MotionSupervisor` keeps it alive: a
@@ -412,13 +414,13 @@ records a silent `System` notification so the feed shows the recovery.
 ### Missing video devices
 
 Motion keeps running and retries forever when its `video_device` cannot be
-opened, so a green "Motion running" chip can hide a camera that will never
+opened, so a green "Recording" chip can hide a camera that will never
 produce a frame. The status therefore also checks the configured device:
 `MotionStatusDto` carries `deviceAvailable` and a human-readable `error`, and the
 Camera page shows a red **Camera unavailable** badge plus the reason instead of
-"Motion running". Motion is deliberately left running, so plugging the camera
-back in recovers without another Apply; a camera that is simply stopped still
-shows "Motion stopped".
+"Recording". Motion is deliberately left running, so plugging the camera back in
+recovers without another restart; a camera that is simply stopped still shows
+"Stopped".
 
 ### Startup starts every camera
 
@@ -438,7 +440,7 @@ user starts it from its own page.
 
 The kill matters because a started child outlives the JVM that spawned it: a
 dev-mode recompile would otherwise leave an orphaned `motion` that nothing
-tracks, and the next Apply would start a second one. Each camera's pid is
+tracks, and the next restart would start a second one. Each camera's pid is
 written to `<base>/<n>/motion.pid`, which is how boot finds the leftovers.
 
 There is no master switch: a camera may have no process running, but the app can
@@ -604,7 +606,7 @@ map still lines up with the model's output.
 
 React Router routes: `/login`, `/` (stream), `/notifications`, `/environment`,
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/audio-alerts` (Audio Notification Config), `/settings`, `/profile` (Personal
+`/audio-alerts` (Audio notifications), `/settings`, `/profile` (Personal
 settings). The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
 plays Motion's stream for the chosen one, built from the `stream_url` setting
@@ -614,7 +616,10 @@ changes) and otherwise defaults to the first enabled camera — Camera 1 when it
 is running, else Camera 2. It shows no stream for a stopped camera; cameras are
 started at boot, and can be stopped and restarted from their own Camera pages. A blue title bar with a hamburger menu (upper left)
 links the pages. The title bar text — and the browser tab title — come from the
-`systemName` setting, so renaming the system is just a setting edit.
+`systemName` setting, so renaming the system is just a setting edit. The
+Settings page names the known rows in plain language — `systemName` is
+**Monitor name**, `stream_url` is **Stream address** — and keeps the raw tag
+beside the label, so support still sees what the API calls it.
 `SpaFallbackFilter` serves `index.html` for client-side routes so a deep link
 like `/settings` works on refresh.
 
@@ -652,18 +657,20 @@ the history. Recalibrate after changing the camera or the exposure.
 
 The Camera pages show one camera's
 parameters: each value can be edited in place, a row can be added or deleted,
-and **Start/Apply** rebuilds the config and (re)starts its Motion process while
-**Stop** takes it down. Starting/stopping a camera also starts/stops its audio.
-The audio status chip sits under the Motion chip and the Start/Stop audio button
-under Start/Apply; the chip shows whether the capture is processing, down and
-being retried, or stopped. The Live stream page has a Listen control, a level
+and **Start camera** (or **Restart camera** once it is running) rebuilds the
+config and (re)starts its Motion process while **Stop** takes it down.
+Starting/stopping a camera also starts/stops its audio. The audio status chip
+sits under the camera status chip and the Start/Stop audio button under the
+start/restart button; the chip reads **Audio on**, **Audio down — restarting** or
+**Audio stopped**. The pid stays available in a tooltip on each chip, so nothing
+is lost for support. The Live stream page has a Listen control, a level
 meter and a volume slider that play the selected camera's audio.
 
 The Notifications page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly
-as a fallback, and Refresh forces a full reload. **Dismiss All**, next to
-Refresh, clears the whole feed for the account. Rows that arrive while the page
-is open carry a **New** badge and a blue left accent for ten seconds. A video
+as a fallback, and Refresh forces a full reload. **Clear my notifications**, next
+to Refresh, clears the whole feed for the account. Rows that arrive while the
+page is open carry a **New** badge and a blue left accent for ten seconds. A video
 event links the clip through the app's recordings route; because that route
 needs the bearer token, a plain link could not fetch it, so the page pulls the
 clip with the token and plays it in an in-app player. A link the app does not
@@ -680,13 +687,13 @@ keep hand-written CSS (`frontend/src/styles.css`).
 Each account carries its own preferences in `babymonitor.users`, and the
 Personal settings page writes them straight to the account:
 
-- **Theme Selection** — Mantine's color palette
+- **Accent color** — Mantine's color palette
   (https://mantine.dev/theming/colors/) as clickable swatches. The chosen name
   (`blue`, `grape`, `teal`, …) is stored in `theme_color` with
   `PUT /api/users/me/theme-color` and becomes the Mantine primary color, so
   buttons, links and highlights follow it. `gray` is offered too; Mantine's
   `dark` is not, as it is a surface color rather than an accent.
-- **Light / dark** — `light`, `dark` or `auto` (follow the OS), stored in
+- **Appearance** — `light`, `dark` or `auto` (follow the OS), stored in
   `theme` with `PUT /api/users/me/theme`.
 
 The database is the single source of truth — Mantine is configured with a

@@ -197,7 +197,7 @@ These are the ones where the app looks fine while being wrong.
       the chosen palette, and no `viewport-fit=cover` / `env(safe-area-inset-*)`
       for notched phones.
 - [x] **Catch dismissal failures.** `NotificationsPage` now catches `dismiss`
-      and Dismiss All errors and shows them in the page alert.
+      and **Clear my notifications** errors and shows them in the page alert.
 - [ ] **Offline/reconnecting indicator.** The app already listens for `online`
       but shows the user nothing.
 

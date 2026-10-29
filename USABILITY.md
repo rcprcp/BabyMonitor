@@ -48,7 +48,7 @@ without hiding anything that matters for trust.
 | T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | todo |
 | T10 | First-run onboarding wizard | Medium | L | todo |
 | T11 | Frontend test + lint baseline (enabling work) | High | M | done |
-| T12 | Copy and naming cleanups | Low | S | todo |
+| T12 | Copy and naming cleanups | Low | S | done |
 
 **Suggested sequence**
 
@@ -575,9 +575,44 @@ above would be unverified. Backend tests are hermetic and should stay the model.
 
 **Acceptance criteria**
 
-- No user-facing label names an implementation detail (Motion, pid, luma, tag)
-  on a daily-use screen.
+- No label on the screens this topic touched (Personal settings, Notifications,
+  Camera, Settings, Live stream) names an implementation detail (Motion, pid,
+  tag, `stream_port`).
 - Terminology is consistent between nav, page titles and README.
+- The Environment page's luma/exposure vocabulary and the numbered camera menu
+  entries are explicitly out of scope: T6 and T7 own those screens and already
+  carry the same goal.
+
+**Done (2026-10-28).** The copy in the table is shipped, with two entries
+deliberately handed on.
+
+- **Personal settings.** "Theme Selection" → **Accent color** (helper text no
+  longer explains Mantine), "Light / dark" → **Appearance**, and the **Refresh**
+  button beside Notification sound is gone: it re-read the value the page had
+  just written. Removing it exposed a real bug — the picker's saving flag was
+  only ever cleared by that button, so the control stayed disabled after the
+  first change; `changeAlertSound` now clears it in `finally`.
+- **Notifications.** **Dismiss All** → **Clear my notifications**, with the
+  confirmation reworded to match. The API really is per account
+  (`NotificationService.dismissAll(userId)`), so the possessive is accurate.
+- **Camera.** **Start/Apply** is now **Start camera** or **Restart camera**,
+  depending on the persisted state, and the status chips read **Recording**,
+  **Recording down — restarting**, **Stopped**, **Audio on**, **Audio down —
+  restarting**, **Audio stopped**. The pids moved into a tooltip rather than
+  disappearing, because the Advanced surface that would own them is T2.
+- **Settings.** Known tags get a readable label — `systemName` → **Monitor
+  name**, `stream_url` → **Stream address** — with the raw tag kept beside it in
+  muted type. An unknown tag falls back to itself.
+- **Audio notifications.** The page title was "Audio Notification Config" while
+  the menu said "Audio notifications"; it now says the latter.
+- **Live stream.** The "could not load the stream" help no longer tells the
+  reader to check `stream_port` or press *Apply* — a button that no longer
+  exists. It points at the stream port and **Restart camera**.
+- **Handed to T2.** The **Config written** badge stays for now; hiding it needs
+  the Advanced disclosure that T2 builds.
+- **Handed to T7.** Menu entries still read "Camera1"/"Camera2"; labels fed from
+  `camera_name` are part of the navigation rebuild in T7 (its acceptance
+  criteria already require them).
 
 ---
 
@@ -635,6 +670,8 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T11 | Vitest + Testing Library, ESLint 9 flat config, Prettier 3 | Fits Vite with no second bundler; RTL is the house style for React; ESLint+Prettier split keeps lint about correctness | agent |
 | 2026-10-28 | T11 | Reformat the SPA once instead of dropping `format:check` | T11 lands first, so this is the cheapest moment for a mechanical diff; a check that cannot pass is dead weight | agent |
 | 2026-10-28 | T11 | Two CI jobs (backend, frontend), not one | A frontend failure must not hide a backend one, and the jobs need different toolchains | agent |
+| 2026-10-28 | T12 | Pids move to a tooltip now, not to Advanced | The copy fix stands alone; the Advanced surface that should own them is T2 | agent |
+| 2026-10-28 | T12 | "Clear my notifications" keeps its confirmation | It removes the feed for the account irreversibly; the label should say whose feed it is | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -656,3 +693,4 @@ Fill in as topics are worked. One row per decision.
 | --- | --- |
 | 2026-10-28 | Initial review recorded; no product code changed. |
 | 2026-10-28 | T11 shipped: frontend tests, lint, format and CI baseline. |
+| 2026-10-28 | T12 shipped: intent-first labels across the SPA; camera names and the config badge handed to T7/T2. |
