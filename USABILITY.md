@@ -902,4 +902,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |
 | 2026-10-28 | T2 shipped: a five-field camera form with one save, a restart prompt and an Advanced drawer. |
 | 2026-10-28 | T5 shipped: Settings and Personal settings merged into one validated page. |
-| 2026-10-29 | Follow-ups: centred title, stream camera buttons, Audio Configuration sections with Set to Default, and the sidebar/More merge. |
+| 2026-10-29 | Follow-ups: centred title, stream camera buttons, Audio Configuration sections with Set to Default, the sidebar/More merge, and Environment Configuration split from Environment. |

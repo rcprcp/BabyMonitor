@@ -33,8 +33,10 @@ describe('SideNavigation', () => {
       '/cameras/1',
       '/cameras/2',
       '/audio-alerts',
+      '/environment-config',
       '/settings',
     ])
+    expect(screen.getByRole('link', { name: /Environment Configuration/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 
@@ -51,7 +53,7 @@ describe('SideNavigation', () => {
   it('marks Environment and does not mark Alerts elsewhere', () => {
     renderWithProviders(<SideNavigation />, { route: '/environment' })
 
-    expect(screen.getByRole('link', { name: /Environment/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Environment' })).toHaveAttribute(
       'aria-current',
       'page',
     )

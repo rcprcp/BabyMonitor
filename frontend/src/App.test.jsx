@@ -71,6 +71,9 @@ describe('App shell', () => {
     expect(screen.getAllByRole('link', { name: /Environment/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Cameras/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Audio Configuration/ }).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole('link', { name: /Environment Configuration/ }).length,
+    ).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Settings/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })

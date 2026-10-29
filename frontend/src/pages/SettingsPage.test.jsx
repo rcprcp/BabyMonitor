@@ -69,9 +69,10 @@ describe('SettingsPage', () => {
     expect(screen.getByText('stream_url')).toBeInTheDocument()
     expect(screen.queryByLabelText(/onboardingComplete/)).not.toBeInTheDocument()
 
-    expect(screen.getAllByRole('link', { name: 'Open' })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: 'Open' })).toHaveLength(3)
     expect(screen.getByText('Audio Configuration')).toBeInTheDocument()
     expect(screen.getByText('Environment')).toBeInTheDocument()
+    expect(screen.getByText('Environment Configuration')).toBeInTheDocument()
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Run setup again' })).toBeInTheDocument()

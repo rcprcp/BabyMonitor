@@ -128,14 +128,15 @@ migrations.
 - `V7__extend_default_audio_alerts.sql` — extends the default alert set from
   classes 0-23 to 0-61 (the human-sound start of Singing & Music Genres)
 - `V8__add_environment_thresholds.sql` — adds `environment_thresholds`, the
-  high/low bounds edited on the Environment page
+  high/low bounds edited on the Environment Configuration page
 - `V9__add_environment_event_type.sql` — adds `Environment` to the event enum
 - `V10__add_environment_last_checked.sql` — records the newest environment
   reading the supervisor has already checked
 - `V11__add_camera_light.sql` — adds `camera_light`, the single-row camera
   brightness sensor with its calibration and last sample
 - `V12__add_camera_light_samples.sql` — adds `camera_light_samples`, the probe
-  history behind the Environment page's brightness bands
+  history behind the Environment page's brightness bands (configured on
+  Environment Configuration)
 - `V13__number_brightness_bands.sql` — stores brightness bands as the stable
   numbers 1–6 instead of names
 - `V14__add_onboarding_setting.sql` — adds the `onboardingComplete` setting; a
@@ -645,17 +646,19 @@ map still lines up with the model's output.
 ## SPA
 
 React Router routes: `/login`, `/welcome` (setup wizard), `/` (stream),
-`/notifications` (Alerts), `/environment`, `/cameras` (the camera list),
-`/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/audio-alerts` (Audio Configuration) and `/settings`. The retired `/profile`
-and `/more` URLs redirect to `/settings`.
+`/notifications` (Alerts), `/environment`, `/environment-config` (Environment
+Configuration), `/cameras` (the camera list), `/cameras/1` and `/cameras/2` (the
+shared Camera page, one route per camera), `/audio-alerts` (Audio
+Configuration) and `/settings`. The retired `/profile` and `/more` URLs redirect
+to `/settings`.
 
 On a desktop the sidebar lists every destination: **Monitor** (`/`), **Alerts**
 (`/notifications`), **Environment** (`/environment`), **Cameras** (`/cameras`,
 with the two camera pages below it by name), **Audio Configuration**
-(`/audio-alerts`) and **Settings** (`/settings`). On a phone the fixed bottom tab
-bar keeps four daily tabs — Monitor, Alerts, Cameras and Settings — and the
-Settings page links to Environment and Audio Configuration. The current
+(`/audio-alerts`), **Environment Configuration** (`/environment-config`) and
+**Settings** (`/settings`). On a phone the fixed bottom tab bar keeps four daily
+tabs — Monitor, Alerts, Cameras and Settings — and the Settings page links to
+Environment, Environment Configuration and Audio Configuration. The current
 destination is marked `aria-current="page"` and coloured, and watching is always
 one tap away. **Settings** is also what the account's initial opens, and it
 carries the system settings, alert sound and links, appearance and the account
@@ -694,16 +697,19 @@ The Environment page charts the last 24 hours / 3 / 7 / 14 days of readings and
 lists the raw rows under it. Temperature and humidity share the left axis;
 brightness is the camera light's band on its own right axis, stored as a number
 1–6 (1 = dark, 2 = very dim, 3 = dim, 4 = moderate, 5 = bright, 6 = very
-bright). The page also edits the **alert bounds** for humidity (0-100%, default
-30-75), temperature (32-100°F, default 66-76) and brightness (0-3000 proxy lux,
-default 200-2000). Humidity and temperature outside a bound are red in the table,
-and `EnvironmentSupervisor` records an `Environment` notification (toast +
-feed) when the newest reading is outside them. The brightness bounds drive the
-camera light band alert: each band has a representative lux (1, 10, 50, 300,
-1000 or 3000), so setting a bound to 200-2000, for example, alerts on bands 1-3
-and 6. Temperature is shown in °F throughout the page.
+bright). Its **Environment Configuration** button opens a separate page for the
+installer settings: the **alert bounds** for humidity (0-100%, default 30-75),
+temperature (32-100°F, default 66-76) and brightness (0-3000 proxy lux, default
+200-2000), and the **Camera light** calibration. Humidity and temperature outside
+a bound are red in the Environment table, and `EnvironmentSupervisor` records an
+`Environment` notification (toast + feed) when the newest reading is outside
+them. The brightness bounds drive the camera light band alert: each band has a
+representative lux (1, 10, 50, 300, 1000 or 3000), so setting a bound to
+200-2000, for example, alerts on bands 1-3 and 6. Temperature is shown in °F
+throughout.
 
-The same page has a **Camera light** card for a camera-derived brightness band.
+The **Camera light** card on Environment Configuration calibrates a
+camera-derived brightness band.
 The picker lists the cameras from the camera table and marks a camera that is
 not running; the probe buttons are disabled for it because the probe reads that
 camera's MJPEG stream. Plug in: choose a running camera and a fixed exposure.

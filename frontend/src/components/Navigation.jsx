@@ -11,6 +11,11 @@ export const SIDE_DESTINATIONS = [
   { to: '/environment', label: 'Environment', Icon: EnvironmentIcon },
   { to: '/cameras', label: 'Cameras', Icon: CameraIcon },
   { to: '/audio-alerts', label: 'Audio Configuration', Icon: AudioIcon },
+  {
+    to: '/environment-config',
+    label: 'Environment Configuration',
+    Icon: EnvironmentConfigIcon,
+  },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
@@ -140,6 +145,14 @@ function AudioIcon() {
       <circle cx="9" cy="6" r="2" />
       <circle cx="15" cy="12" r="2" />
       <circle cx="7" cy="18" r="2" />
+    </svg>
+  )
+}
+
+function EnvironmentConfigIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.3-2.3 2.3-2.3z" />
     </svg>
   )
 }

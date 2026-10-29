@@ -484,8 +484,9 @@ container or sysfs setup is the first thing to check (section 11).
    form; `webcontrol_port`, `target_dir`, `log_file` and every other Motion
    option are under that camera's **Advanced**.
 5. On the **Camera** pages, press **Monitor this camera**; on **Audio
-   notifications**, pick a preset; on **Environment**, calibrate the camera light
-   if you use it (needs `v4l2-ctl` and `ffmpeg`).
+   notifications**, pick a preset; on **Environment Configuration**, set the alert
+   bounds and calibrate the camera light if you use it (needs `v4l2-ctl` and
+   `ffmpeg`).
 6. Set `BABYMONITOR_WEBHOOKS_SECRET` and restart so webhook callers must present
    it. Motion's notify script receives the same secret from the app.
 7. Turn Swagger UI off, put the host on a trusted network, and terminate TLS at a
@@ -558,7 +559,7 @@ curl -fsS http://127.0.0.1:8080/q/health/ready
 | No audio alerts | **Listen for cries** on, a preset selected on **Audio Configuration**, YAMNet class enabled for the sound; `/api/cameras/<n>/audio` shows `lastClass`/`lastConfidence` |
 | Clips never appear in the feed | Motion's `on_movie_end` points at the real notify script (section 7); `curl` installed; `BABYMONITOR_MOTION_WEBHOOK_URL` reachable; webhook secret matches |
 | Recordings link 404 | `target_dir` row matches where Motion actually writes; the app user can read it |
-| Temperature/brightness alerts missing | alert bounds on **Environment**; `BABYMONITOR_ENVIRONMENT_CHECK_INTERVAL`; for the light sensor, the camera is running and `v4l2-ctl`/`ffmpeg` paths are right |
+| Temperature/brightness alerts missing | alert bounds on **Environment Configuration**; `BABYMONITOR_ENVIRONMENT_CHECK_INTERVAL`; for the light sensor, the camera is running and `v4l2-ctl`/`ffmpeg` paths are right |
 | Wizard lists no video devices | `/sys/class/video4linux` is readable by the service user; in a container it and `/dev` are bind-mounted (or point `BABYMONITOR_VIDEO_SYSFS_DIR`/`_DEV_DIR` at them); `v4l2-ctl --list-devices` as the same user |
 | Database fills up | notifications and environment readings are never pruned; `TODO.md` P3 tracks retention |
 

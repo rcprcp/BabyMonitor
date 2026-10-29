@@ -19,6 +19,7 @@ import LoginPage from './pages/LoginPage'
 import StreamPage from './pages/StreamPage'
 import NotificationsPage from './pages/NotificationsPage'
 import EnvironmentPage from './pages/EnvironmentPage'
+import EnvironmentConfigPage from './pages/EnvironmentConfigPage'
 import CameraPage from './pages/CameraPage'
 import CamerasPage from './pages/CamerasPage'
 import AudioAlertsPage from './pages/AudioAlertsPage'
@@ -116,6 +117,7 @@ function ThemedApp() {
             <Route path="/" element={<StreamPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/environment" element={<EnvironmentPage />} />
+            <Route path="/environment-config" element={<EnvironmentConfigPage />} />
             <Route path="/cameras" element={<CamerasPage />} />
             <Route path="/cameras/1" element={<CameraPage cameraNumber={1} />} />
             <Route path="/cameras/2" element={<CameraPage cameraNumber={2} />} />
