@@ -361,8 +361,9 @@ binary's name, so `BABYMONITOR_AUDIO_BINARY=/usr/bin/ffmpeg` is enough.
 - Two consecutive windows above `MIN_CONFIDENCE` (0.35) for an enabled class
   raise an `Audio` notification; the camera then stays quiet for
   `COOLDOWN_SECONDS`.
-- Which classes may alert is chosen on the **Audio notifications** page
-  (presets or Custom), stored in `babymonitor.audio_alert_classes`.
+- Which classes may alert is chosen on the **Audio Configuration** page
+  (presets plus the collapsible sound sections), stored in
+  `babymonitor.audio_alert_classes`.
 - **Listen for cries** per camera is a preference in
   `babymonitor.camera_audio.enabled`. It survives a Stop; boot forces every
   camera and its audio back on, so a muted monitor cannot come back deaf.
@@ -554,7 +555,7 @@ curl -fsS http://127.0.0.1:8080/q/health/ready
 | Stream does not play | `stream_localhost`/`stream_port`; `stream_url` in Settings is the host the *browser* resolves; the port is open; `curl <url>:<port>` returns MJPEG |
 | Motion does not start | `BABYMONITOR_MOTION_BINARY`, `<motion base>/<n>/logs/motion.log`, generated config not empty, `target_dir` exists |
 | **Audio down** | `<audio base>/<n>/audio.err`; `sox` works from the shell **as the `babymonitor` user**; the user is in `audio`; the ALSA device name is right |
-| No audio alerts | **Listen for cries** on, a preset selected on **Audio notifications**, YAMNet class enabled for the sound; `/api/cameras/<n>/audio` shows `lastClass`/`lastConfidence` |
+| No audio alerts | **Listen for cries** on, a preset selected on **Audio Configuration**, YAMNet class enabled for the sound; `/api/cameras/<n>/audio` shows `lastClass`/`lastConfidence` |
 | Clips never appear in the feed | Motion's `on_movie_end` points at the real notify script (section 7); `curl` installed; `BABYMONITOR_MOTION_WEBHOOK_URL` reachable; webhook secret matches |
 | Recordings link 404 | `target_dir` row matches where Motion actually writes; the app user can read it |
 | Temperature/brightness alerts missing | alert bounds on **Environment**; `BABYMONITOR_ENVIRONMENT_CHECK_INTERVAL`; for the light sensor, the camera is running and `v4l2-ctl`/`ffmpeg` paths are right |

@@ -177,6 +177,11 @@ shared constants module. `README.md`.
   the Custom disclosure, an unmatched set, the empty-set warning and the error
   state (29 frontend tests in total). The two-page backend suite is untouched
   because no backend or schema changed.
+- **Follow-up (2026-10-29):** the separate Custom card is gone. The six AudioSet
+  sections are always listed (all closed), so a preset can be tuned in place;
+  **Set to Default** restores the preset the user chose (or the shipped Human
+  sounds set when the saved set matched none). The page is now titled **Audio
+  Configuration**.
 
 ---
 
@@ -546,10 +551,15 @@ click below Cameras.
   notifications are unchanged. The alert sound did not become a second Alerts
   entry; it stayed with the account preferences, which T5 has since collected
   into Settings.
-- **Tests.** 12 files, 40 tests: an App shell test (the four destinations and a
+- **Tests.** 12 files, 40 tests: an App shell test (the destinations and a
   `/cameras` deep link), Navigation (destinations, active state, camera names
   and the number fallback), CamerasPage (names, fallback, error) and MorePage
   (links, sign out).
+- **Follow-up (2026-10-29):** the More hub was removed. The desktop sidebar
+  lists Monitor, Alerts, Environment, Cameras (with the named cameras), Audio
+  Configuration and Settings; the phone tab bar keeps Monitor, Alerts, Cameras
+  and Settings, and Settings links to the other two. `/more` redirects to
+  `/settings`.
 
 ---
 
@@ -892,3 +902,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |
 | 2026-10-28 | T2 shipped: a five-field camera form with one save, a restart prompt and an Advanced drawer. |
 | 2026-10-28 | T5 shipped: Settings and Personal settings merged into one validated page. |
+| 2026-10-29 | Follow-ups: centred title, stream camera buttons, Audio Configuration sections with Set to Default, and the sidebar/More merge. |

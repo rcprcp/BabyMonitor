@@ -553,7 +553,7 @@ object that is not thread-safe — two cameras classifying at once used to
 segfault the JVM.
 
 YAMNet scores all 521 classes, and the whole ranked list is kept. Which of them
-may raise an alert is not hard-coded: the Audio notifications page stores a
+may raise an alert is not hard-coded: the **Audio Configuration** page stores a
 switch per class in `babymonitor.audio_alert_classes`, grouped into the six
 AudioSet categories. A fresh install starts on the **Human sounds** preset
 (classes 0-61: Speech & Human Sounds plus the human-sound start of Singing &
@@ -583,28 +583,27 @@ sounds** preset (0-61), so for cry-only alerts choose the **Cry only** preset
 
 ### Configuring alerts
 
-The **Audio notifications** page (menu: *Audio notifications*) offers presets
-that replace the whole set in one call and save immediately:
+The **Audio Configuration** page offers three presets that replace the whole set
+in one call and save immediately:
 
 | Preset | Classes | What it covers |
 | --- | --- | --- |
 | **Cry only** | 11, 19, 20, 21 | Screaming, crying, baby cry and whimper |
 | **Voices and cries** | 0-23 | Speech and laughter as well as the cry sounds |
 | **Human sounds** (default) | 0-61 | Adds singing, breathing, coughing and footsteps |
-| **Custom** | anything else | The full 521-class list |
 
-**Custom** is the old tuning screen and still has everything: a filter, a
-checkbox per class and **Enable all** / **Disable all** per category. It is
-collapsed until it is chosen, and it opens by itself when the saved set matches
-no preset, so the page never hides which sounds are on. The active preset is
-derived from the saved switches rather than stored beside them, so editing a
-class flips the page to Custom immediately and the two cannot drift.
+Below the presets, the six AudioSet sections are always listed with every
+section **closed**. Opening one exposes its classes, a filter and **Enable
+all** / **Disable all**, so a preset is a starting point rather than a locked
+choice. The active preset is derived from the saved switches, not stored beside
+them; editing a class shows a **Custom** badge and the two cannot drift.
 
-A change takes effect on the next analysis window without restarting a capture,
-because `CryDetector` reads the live enabled set. **Reset to default** restores
-the shipped state: classes 0-61 on, everything else off. The switches live in
-`babymonitor.audio_alert_classes` (migrations `V6` and `V7`), so a preset choice
-survives a restart.
+**Set to Default** sits above the sections and restores the preset the page
+started from (or the shipped **Human sounds** preset when the saved set matched
+none), so a tune-and-reset cycle is one button. A change takes effect on the
+next analysis window without restarting a capture, because `CryDetector` reads
+the live enabled set. The switches live in `babymonitor.audio_alert_classes`
+(migrations `V6` and `V7`), so the choice survives a restart.
 
 ### Listening
 
@@ -648,19 +647,20 @@ map still lines up with the model's output.
 React Router routes: `/login`, `/welcome` (setup wizard), `/` (stream),
 `/notifications` (Alerts), `/environment`, `/cameras` (the camera list),
 `/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
-`/audio-alerts` (Audio notifications), `/settings` and `/more`. The retired
-`/profile` URL redirects to `/settings`.
+`/audio-alerts` (Audio Configuration) and `/settings`. The retired `/profile`
+and `/more` URLs redirect to `/settings`.
 
-Navigation has four destinations, the same on every screen: **Monitor** (`/`),
-**Alerts** (`/notifications`), **Cameras** (`/cameras`) and **More** (`/more`).
-On a desktop the destinations are a persistent sidebar, with the two cameras
-listed under Cameras by name; on a phone they are a fixed bottom tab bar, and
-the Cameras tab opens the same named list. The current destination is marked
-`aria-current="page"` and coloured, and watching is always one tap away. More
-holds Environment, Audio notifications, Settings and Sign out; **Settings** is
-also what the account's initial opens, and it carries the system settings, alert
-sound and links, appearance and the account card. The blue title bar keeps only
-the system name and the account's initial; it is not a menu.
+On a desktop the sidebar lists every destination: **Monitor** (`/`), **Alerts**
+(`/notifications`), **Environment** (`/environment`), **Cameras** (`/cameras`,
+with the two camera pages below it by name), **Audio Configuration**
+(`/audio-alerts`) and **Settings** (`/settings`). On a phone the fixed bottom tab
+bar keeps four daily tabs — Monitor, Alerts, Cameras and Settings — and the
+Settings page links to Environment and Audio Configuration. The current
+destination is marked `aria-current="page"` and coloured, and watching is always
+one tap away. **Settings** is also what the account's initial opens, and it
+carries the system settings, alert sound and links, appearance and the account
+card. The blue title bar keeps only the centred system name and the account's
+initial; it is not a menu.
 
 On a fresh install the app opens **Set up your monitor** (`/welcome`): name the
 monitor, point each camera at one of the host's `/dev/video*` nodes, then check a
@@ -670,11 +670,12 @@ again** on the Settings page reopens it at any time. The wizard writes the same
 afterwards.
 
 The app boots into the Live stream
-page, which has a camera drop-down: both cameras are always selectable, and it
-plays Motion's stream for the chosen one, built from the `stream_url` setting
-and that camera's `stream_port` row. It restores the account's last-viewed
-camera from the profile (`users.active_camera`, saved whenever the drop-down
-changes) and otherwise defaults to the first enabled camera — Camera 1 when it
+page, which has one button per camera on the right of the heading, labelled
+`<name> Camera<n>`: both cameras are always selectable, and it plays Motion's
+stream for the chosen one, built from the `stream_url` setting and that camera's
+`stream_port` row. It restores the account's last-viewed
+camera from the profile (`users.active_camera`, saved whenever the buttons
+change) and otherwise defaults to the first enabled camera — Camera 1 when it
 is running, else Camera 2. It shows no stream for a stopped camera; cameras are
 started at boot, and can be stopped and restarted from their own Camera pages.
 The title bar text — and the browser tab title — come from the

@@ -163,7 +163,7 @@ These are the ones where the app looks fine while being wrong.
       both back on, and `AudioSupervisor` restarts a dead capture with backoff
       and a notification while the camera is meant to run.
       Which classes may alert is chosen with presets (or per class under
-      Custom) on the Audio notifications page, stored in `audio_alert_classes`.
+      sections) on the Audio Configuration page, stored in `audio_alert_classes`.
 - [ ] **Snapshots and a timeline.** There is no thumbnail gallery, no scrub
       across a night, and no "jump to the moment" from a notification.
 - [ ] **Roles and caregiver accounts.** All accounts are equal; there is no
