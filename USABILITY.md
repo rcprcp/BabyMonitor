@@ -37,7 +37,7 @@ without hiding anything that matters for trust.
 
 | # | Topic | Priority | Size | Status |
 | --- | --- | --- | --- | --- |
-| T1 | Audio-alert presets instead of 521 checkboxes | High | S | todo |
+| T1 | Audio-alert presets instead of 521 checkboxes | High | S | done |
 | T2 | Camera page: simple form + advanced Motion options | High | M | todo |
 | T3 | One camera power control; audio as a preference | High | S–M | todo |
 | T4 | Make "Stop" honest about boot behaviour | High | S | decision |
@@ -145,11 +145,33 @@ shared constants module. `README.md`.
 - Every one of the 521 classes is still reachable under Custom.
 - The page no longer renders 521 checkboxes by default.
 
-**Open questions**
+**Done (2026-10-28).** Presets shipped; the default did not change.
 
-- Is "Voices and cries" (0–23) the right middle preset, or should the default
-  simply become "Cry only"?
-- Should the chosen preset name be stored, or derived from the index set?
+- **Three presets plus Custom.** **Cry only** (11, 19, 20, 21), **Voices and
+  cries** (0–23), **Human sounds** (0–61, marked *Default*), and **Custom**,
+  which is the old screen: filter, per-category Enable/Disable all, one checkbox
+  per class.
+- **The name is derived, not stored.** `frontend/src/audioPresets.js` holds the
+  index sets and `matchPreset()` compares them with the enabled classes from the
+  API. Editing one class under Custom flips the page to Custom on the next
+  render, and nothing can drift from the switches in
+  `babymonitor.audio_alert_classes`.
+- **The default stays 0–61.** A fresh install and **Reset to default** land on
+  Human sounds, so alerting behaviour is unchanged and no migration is needed.
+  (A 0–16 default was considered and rejected: index 17+ starts with belly
+  laugh, chuckle and then the cry classes 19–21, so 0–16 would alert on laughter
+  but not on a cry.)
+- **Custom is collapsed by default**, so the page no longer mounts 521
+  checkboxes. It opens by itself when the saved set matches no preset, so a
+  hand-picked set is never hidden.
+- **Nothing can go silently dark.** With zero sounds enabled the page shows a
+  yellow "No sounds are enabled" alert above the presets.
+- **Reset is not prominent**: a subtle button at the bottom, not a header
+  action.
+- **Tests.** Six page tests cover preset derivation, saving the whole set,
+  the Custom disclosure, an unmatched set, the empty-set warning and the error
+  state (29 frontend tests in total). The two-page backend suite is untouched
+  because no backend or schema changed.
 
 ---
 
@@ -672,6 +694,9 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T11 | Two CI jobs (backend, frontend), not one | A frontend failure must not hide a backend one, and the jobs need different toolchains | agent |
 | 2026-10-28 | T12 | Pids move to a tooltip now, not to Advanced | The copy fix stands alone; the Advanced surface that should own them is T2 | agent |
 | 2026-10-28 | T12 | "Clear my notifications" keeps its confirmation | It removes the feed for the account irreversibly; the label should say whose feed it is | agent |
+| 2026-10-28 | T1 | Presets: Cry only (11,19,20,21), Voices and cries (0–23), Human sounds (0–61, default), Custom | Three steps of sensitivity; the default keeps today's behaviour and the middle step is the documented Speech & Human Sounds group | agent |
+| 2026-10-28 | T1 | Derive the active preset from the enabled set instead of storing a name | One source of truth (the switches), so an edit can never leave a stale label; no schema change | agent |
+| 2026-10-28 | T1 | Keep 0–61 as the shipped default; no migration | It already is the default, and 0–16 (considered) would have excluded the cry classes | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -681,11 +706,10 @@ Fill in as topics are worked. One row per decision.
 ## Open decisions (blocking)
 
 1. **T4** — Does Stop persist across restarts, or is it relabelled?
-2. **T1** — Which presets ship, and which is the default?
-3. **T6** — Are brightness bounds expressed in bands or proxy lux?
-4. **T8** — Autosave, or an explicit save bar?
-5. **T7** — Four destinations as proposed, or three?
-6. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
+2. **T6** — Are brightness bounds expressed in bands or proxy lux?
+3. **T8** — Autosave, or an explicit save bar?
+4. **T7** — Four destinations as proposed, or three?
+5. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
 
 ## Changelog
 
@@ -694,3 +718,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | Initial review recorded; no product code changed. |
 | 2026-10-28 | T11 shipped: frontend tests, lint, format and CI baseline. |
 | 2026-10-28 | T12 shipped: intent-first labels across the SPA; camera names and the config badge handed to T7/T2. |
+| 2026-10-28 | T1 shipped: three audio-alert presets plus Custom; 0–61 remains the default. |

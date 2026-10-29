@@ -526,11 +526,11 @@ object that is not thread-safe — two cameras classifying at once used to
 segfault the JVM.
 
 YAMNet scores all 521 classes, and the whole ranked list is kept. Which of them
-may raise an alert is not hard-coded: the Audio Notification Config page stores
-a switch per class in `babymonitor.audio_alert_classes`, grouped into the six
-AudioSet categories. A fresh install starts with classes 0-61 on (Speech & Human
-Sounds plus the human-sound start of Singing & Music Genres) and everything else
-off.
+may raise an alert is not hard-coded: the Audio notifications page stores a
+switch per class in `babymonitor.audio_alert_classes`, grouped into the six
+AudioSet categories. A fresh install starts on the **Human sounds** preset
+(classes 0-61: Speech & Human Sounds plus the human-sound start of Singing &
+Music Genres) with everything else off.
 
 ### When an alert fires
 
@@ -550,20 +550,34 @@ Tuning notes from validating the model against ESC-50 clips: `19 Crying,
 sobbing` is the most reliable single class (`20 Baby cry, infant cry` tracks it
 at roughly half the confidence), a genuine cry peaked at 0.50 while ambient
 noise, a cat, a dog and a vacuum cleaner all stayed at 0.00, and laughter —
-`13` — can outscore crying on a mixed clip. The shipped default enables classes
-0-61, so for cry-only alerts keep just `11 Screaming`, `19 Crying`, `20 Baby cry`
-and `21 Whimper` checked on the Audio Notification Config page.
+`13` — can outscore crying on a mixed clip. The shipped default is the **Human
+sounds** preset (0-61), so for cry-only alerts choose the **Cry only** preset
+(`11 Screaming`, `19 Crying`, `20 Baby cry`, `21 Whimper`).
 
 ### Configuring alerts
 
-The **Audio Notification Config** page (menu: *Audio notifications*) lists every
-class in its six categories, with a checkbox per class and **Enable all** /
-**Disable all** buttons per category. A change takes effect on the next analysis
-window without restarting a capture, because `CryDetector` reads the live enabled
-set. **Reset to default** restores the shipped state: classes 0-61 on,
-everything else off. The switches live in
-`babymonitor.audio_alert_classes` (migrations `V6` and `V7`), so they survive
-restarts.
+The **Audio notifications** page (menu: *Audio notifications*) offers presets
+that replace the whole set in one call and save immediately:
+
+| Preset | Classes | What it covers |
+| --- | --- | --- |
+| **Cry only** | 11, 19, 20, 21 | Screaming, crying, baby cry and whimper |
+| **Voices and cries** | 0-23 | Speech and laughter as well as the cry sounds |
+| **Human sounds** (default) | 0-61 | Adds singing, breathing, coughing and footsteps |
+| **Custom** | anything else | The full 521-class list |
+
+**Custom** is the old tuning screen and still has everything: a filter, a
+checkbox per class and **Enable all** / **Disable all** per category. It is
+collapsed until it is chosen, and it opens by itself when the saved set matches
+no preset, so the page never hides which sounds are on. The active preset is
+derived from the saved switches rather than stored beside them, so editing a
+class flips the page to Custom immediately and the two cannot drift.
+
+A change takes effect on the next analysis window without restarting a capture,
+because `CryDetector` reads the live enabled set. **Reset to default** restores
+the shipped state: classes 0-61 on, everything else off. The switches live in
+`babymonitor.audio_alert_classes` (migrations `V6` and `V7`), so a preset choice
+survives a restart.
 
 ### Listening
 
