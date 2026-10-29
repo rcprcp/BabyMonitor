@@ -75,6 +75,7 @@ describe('App shell', () => {
       screen.getAllByRole('link', { name: /Environment Configuration/ }).length,
     ).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /Settings/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /System Settings/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 

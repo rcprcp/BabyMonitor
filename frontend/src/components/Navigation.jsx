@@ -17,6 +17,7 @@ export const SIDE_DESTINATIONS = [
     Icon: EnvironmentConfigIcon,
   },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
+  { to: '/system-settings', label: 'System Settings', Icon: SystemSettingsIcon },
 ]
 
 export const MOBILE_DESTINATIONS = [
@@ -153,6 +154,16 @@ function EnvironmentConfigIcon() {
   return (
     <svg {...iconProps}>
       <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.3-2.3 2.3-2.3z" />
+    </svg>
+  )
+}
+
+function SystemSettingsIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="3" y="4" width="18" height="6" rx="2" />
+      <rect x="3" y="14" width="18" height="6" rx="2" />
+      <path d="M7 7h.01M7 17h.01" />
     </svg>
   )
 }

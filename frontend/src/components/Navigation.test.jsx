@@ -35,8 +35,10 @@ describe('SideNavigation', () => {
       '/audio-alerts',
       '/environment-config',
       '/settings',
+      '/system-settings',
     ])
     expect(screen.getByRole('link', { name: /Environment Configuration/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'System Settings' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
   })
 
