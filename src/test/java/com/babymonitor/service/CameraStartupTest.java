@@ -1,6 +1,5 @@
 package com.babymonitor.service;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.babymonitor.AudioTestResource;
@@ -17,8 +16,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Every camera comes up at boot even when it was stopped before; audio follows
- * its "Listen for cries" preference.
+ * Every camera and its audio come up at boot even when they were stopped or
+ * muted before; boot overrules the audio preference.
  */
 @QuarkusTest
 @QuarkusTestResource(MotionTestResource.class)
@@ -72,24 +71,30 @@ class CameraStartupTest {
     }
 
     @Test
-    void leavesAudioOffWhenThePreferenceIsOff() {
+    void turnsAudioBackOnAtBootEvenWhenItWasSwitchedOff() {
         try {
             for (int cameraNumber : CAMERAS) {
                 motion.stop(cameraNumber);
                 audio.stop(cameraNumber);
                 setCameraEnabled(cameraNumber, false);
             }
-            // Camera 1 listens; camera 2 was deliberately muted.
+            // Camera 2 was deliberately muted before the restart.
             setAudioEnabled(1, true);
             setAudioEnabled(2, false);
 
             startup.startAll();
 
-            assertTrue(motion.status(1).running(), "camera 1 should still start");
-            assertTrue(audio.status(1).running(), "camera 1 wants audio");
-            assertTrue(motion.status(2).running(), "camera 2 should still start");
-            assertFalse(audio.status(2).running(), "camera 2's audio preference is off");
-            assertFalse(audioEnabled(2), "boot must not overrule the audio preference");
+            for (int cameraNumber : CAMERAS) {
+                assertTrue(
+                        motion.status(cameraNumber).running(),
+                        "camera " + cameraNumber + " should start at boot");
+                assertTrue(
+                        audio.status(cameraNumber).running(),
+                        "camera " + cameraNumber + " should listen at boot");
+                assertTrue(
+                        audioEnabled(cameraNumber),
+                        "boot marks the audio preference on again");
+            }
         } finally {
             for (int cameraNumber : CAMERAS) {
                 motion.stop(cameraNumber);

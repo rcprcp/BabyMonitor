@@ -21,20 +21,21 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
- * Starts every camera when the application boots, and the audio capture of
- * every camera whose "Listen for cries" preference is on.
+ * Starts every camera and its audio capture when the application boots.
  *
  * <p>The app runs as a baby monitor, so a reboot must not leave it silently
- * watching nothing. This observer runs after the Motion and audio cold-start
- * resets ({@link MotionService#resetOnStartup} and
+ * watching and listening to nothing. This observer runs after the Motion and
+ * audio cold-start resets ({@link MotionService#resetOnStartup} and
  * {@link AudioService#resetOnStartup}), which kill leftover child processes,
- * then marks every camera as on and brings it up. A Stop is therefore "until
- * the next boot": that is deliberate, and the Camera page says so.</p>
+ * then marks every camera and every audio row on and brings them up. A Stop,
+ * and an audio-off preference, therefore last until the next boot: that is
+ * deliberate, and the Camera page says so.</p>
  *
- * <p>Audio is different: {@code camera_audio.enabled} is the user's preference,
- * so a camera whose audio was switched off stays silent across a reboot. This
- * observer only fills in a missing row (default on) and starts the captures
- * whose preference is on.</p>
+ * <p>During a run the audio preference still matters:
+ * {@code camera_audio.enabled} decides whether starting a camera brings its
+ * capture up, and {@link com.babymonitor.audio.AudioSupervisor} only restarts a
+ * capture while the camera itself is meant to be running. Boot is the one place
+ * that overrules it, because a monitor that comes back deaf is not a monitor.</p>
  *
  * <p>Set {@code babymonitor.start-cameras-on-boot=false} to restore the older
  * cold start, where nothing runs until the user starts a camera from its
@@ -64,7 +65,7 @@ public class CameraStartup {
         }
     }
 
-    /** Starts every camera, whatever the persisted state said, plus its wanted audio. */
+    /** Starts every camera and its audio, whatever the persisted state said. */
     void startAll() {
         Map<Integer, List<Camera>> cameras = readCameras();
         if (cameras.isEmpty()) {
@@ -88,7 +89,7 @@ public class CameraStartup {
             }
         }
 
-        Map<Integer, String> devices = wantedAudio(cameras.keySet());
+        Map<Integer, String> devices = markAudioOn(cameras.keySet());
         for (Map.Entry<Integer, String> device : devices.entrySet()) {
             int cameraNumber = device.getKey();
             try {
@@ -114,12 +115,12 @@ public class CameraStartup {
     }
 
     /**
-     * Creates a switched-on audio row for every camera that has none and returns
-     * the ALSA device of every camera whose audio preference is on. Existing
-     * rows are left alone: audio is the one part of the camera state that is a
-     * preference rather than a run state.
+     * Creates a switched-on audio row for every camera that has none, marks the
+     * rest on, and returns the ALSA device each should capture from. Boot is the
+     * one place that overrules the "Listen for cries" preference: a monitor that
+     * comes back deaf is not a monitor.
      */
-    private Map<Integer, String> wantedAudio(Set<Integer> cameraNumbers) {
+    private Map<Integer, String> markAudioOn(Set<Integer> cameraNumbers) {
         return QuarkusTransaction.requiringNew().call(() -> {
             Map<Integer, String> devices = new LinkedHashMap<>();
             for (Integer cameraNumber : cameraNumbers) {
@@ -127,12 +128,10 @@ public class CameraStartup {
                 if (row == null) {
                     row = new CameraAudio();
                     row.cameraNumber = cameraNumber;
-                    row.enabled = true;
                     row.persist();
                 }
-                if (row.enabled) {
-                    devices.put(cameraNumber, row.deviceOrDefault(audioConfig.device()));
-                }
+                row.enabled = true;
+                devices.put(cameraNumber, row.deviceOrDefault(audioConfig.device()));
             }
             return devices;
         });

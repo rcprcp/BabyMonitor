@@ -413,9 +413,11 @@ export default function CameraPage({ cameraNumber }) {
             <Stack gap={2}>
               <Text fw={600}>Listen for cries</Text>
               <Text size="sm" c="dimmed">
-                {on
-                  ? 'Audio alerts need this on. Recording happens either way.'
-                  : 'Turn the camera on to change its audio.'}
+                {!on
+                  ? 'Turn the camera on to change its audio.'
+                  : audio?.enabled
+                    ? 'Audio alerts need this on. Recording happens either way.'
+                    : 'Recording happens either way. Listening starts again when the monitor restarts.'}
               </Text>
             </Stack>
             <Checkbox

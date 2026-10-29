@@ -93,6 +93,10 @@ describe('CameraPage', () => {
     await user.click(listen)
 
     expect(api.stopCameraAudio).toHaveBeenCalledWith(1)
+    // A muted camera listens again after a restart, so the page says so.
+    expect(
+      await screen.findByText(/Listening starts again when the monitor restarts/),
+    ).toBeInTheDocument()
   })
 
   it('disables the audio preference while the camera is stopped', async () => {
