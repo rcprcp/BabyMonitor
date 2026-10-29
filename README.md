@@ -225,8 +225,8 @@ webhooks.
 | POST        | `/api/cameras/{n}/motion/apply`        | rebuild the config and (re)start Motion |
 | POST        | `/api/cameras/{n}/motion/stop`         | stop the camera's Motion       |
 | GET         | `/api/cameras/{n}/audio`               | audio capture state and last classification |
-| POST        | `/api/cameras/{n}/audio/start`         | start the camera's audio capture |
-| POST        | `/api/cameras/{n}/audio/stop`          | stop the camera's audio capture |
+| POST        | `/api/cameras/{n}/audio/start`         | turn **Listen for cries** on and start the capture |
+| POST        | `/api/cameras/{n}/audio/stop`          | turn **Listen for cries** off and stop the capture |
 | GET         | `/api/cameras/{n}/audio/stream`        | endless PCM (s16le mono) for live listening |
 | GET         | `/api/audio/alert-classes`             | every YAMNet class, its group and switch |
 | PUT         | `/api/audio/alert-classes/{index}`     | `{ "enabled" }`: toggle one class |
@@ -404,8 +404,8 @@ That `-c …motion.config.<n>` path is what distinguishes the two processes in
 | Action | Effect |
 | --- | --- |
 | Add, save or delete a parameter | stored only; the camera is untouched until it is started |
-| **Start camera** / **Restart camera** | set `enabled`, rebuild the config, then start Motion or `SIGHUP` it |
-| **Stop** | clear `enabled`, then kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) |
+| **Monitor this camera** on | set `enabled`, rebuild the config, then start Motion or `SIGHUP` it; audio follows the **Listen for cries** preference |
+| **Monitor this camera** off | clear `enabled`, then kill Motion (`SIGTERM`, then `SIGKILL` if it lingers) and its audio |
 
 Once a camera is marked running, the `MotionSupervisor` keeps it alive: a
 background check restarts a camera whose process has died (with backoff) and
@@ -425,18 +425,25 @@ recovers without another restart; a camera that is simply stopped still shows
 ### Startup starts every camera
 
 With `babymonitor.start-cameras-on-boot` on (the default), boot starts every
-camera and its audio capture, even when both were stopped the last time the app
-shut down. A camera can still be stopped and restarted from its page while the
-app runs; that state is deliberately discarded at the next boot, so a reboot
-never leaves the monitor watching nothing.
+camera, even when it was stopped the last time the app shut down. A camera can
+still be stopped and restarted from its page while the app runs; that state is
+deliberately discarded at the next boot, so a reboot never leaves the monitor
+watching nothing. The Camera page says so: a stopped camera reads "Stopped.
+Cameras start again when the monitor restarts."
+
+Audio is the exception, because **Listen for cries** is a preference rather than
+a run state: boot creates a missing `camera_audio` row switched on (the default)
+but never changes an existing one, and it starts only the captures whose
+preference is on. Turning audio off therefore survives a reboot; turning the
+camera off does not.
 
 The reset still runs first: with `babymonitor.motion.reset-on-start` on (the
 default), boot kills any `motion` left over from a previous run and marks every
 camera not enabled — see `MotionService.resetOnStartup`. `CameraStartup` then
-marks every camera and audio row on and brings them up, and the supervisors
-retry anything that could not start. Set `babymonitor.start-cameras-on-boot` to
-`false` to restore the older cold start, where a camera only comes up when the
-user starts it from its own page.
+marks every camera on and brings it, and its wanted audio, up; the supervisors
+retry anything that could not start. Set
+`babymonitor.start-cameras-on-boot` to `false` to restore the older cold start,
+where a camera only comes up when the user starts it from its own page.
 
 The kill matters because a started child outlives the JVM that spawned it: a
 dev-mode recompile would otherwise leave an orphaned `motion` that nothing
@@ -494,12 +501,18 @@ is also what keeps its GPL away from this Apache-2.0 application. The child's
 stdout *is* the PCM feed, so unlike Motion its diagnostics go to
 `<base>/<n>/audio.err` and its pid to `<base>/<n>/audio.pid`.
 
-Audio follows the camera. Starting a camera from its page turns its audio on and
-brings the capture up; Stop takes both down. The Camera page also has an Audio
-Start/Stop button for the capture on its own, plus a chip that shows whether it
-is processing (green), down and being retried (yellow) or stopped (grey). A
-camera captures from its own `camera_audio.device` when one is set, otherwise the
-configured `babymonitor.audio.device` (`default`, the ALSA default input). The
+Audio follows the camera, with one preference on top: **Listen for cries**. It is
+stored in `camera_audio.enabled`, applied whenever the camera starts and
+remembered across a Stop, so a camera deliberately kept silent stays silent when
+it is switched back on. A running camera shows whether its capture is processing
+(green), down and being retried (yellow) or off (grey); a stopped camera shows
+no audio chip at all, because the two states cannot contradict each other. The
+capture can also be started on its own under the Camera page's **Diagnostics**
+disclosure, for testing the microphone. `AudioSupervisor` only restarts captures
+while the camera itself is meant to be running, so audio never resurrects a
+camera the parent stopped. A camera captures from its own
+`camera_audio.device` when one is set, otherwise the configured
+`babymonitor.audio.device` (`default`, the ALSA default input). The
 device line is asked for 16 kHz mono signed 16-bit PCM; `PcmFramer` slices that
 into overlapping windows of 15600 samples (0.975 s) every 7680 (0.48 s), which
 is exactly YAMNet's input length and hop.
@@ -682,15 +695,18 @@ exposure, and is specific to UVC cameras. Calibration captures are not added to
 the history. Recalibrate after changing the camera or the exposure.
 
 The Camera pages show one camera's
-parameters: each value can be edited in place, a row can be added or deleted,
-and **Start camera** (or **Restart camera** once it is running) rebuilds the
-config and (re)starts its Motion process while **Stop** takes it down.
-Starting/stopping a camera also starts/stops its audio. The audio status chip
-sits under the camera status chip and the Start/Stop audio button under the
-start/restart button; the chip reads **Audio on**, **Audio down — restarting** or
-**Audio stopped**. The pid stays available in a tooltip on each chip, so nothing
-is lost for support. The Live stream page has a Listen control, a level
-meter and a volume slider that play the selected camera's audio.
+parameters under one power control. **Monitor this camera** switches the camera
+and its audio together: on rebuilds the config and starts (or reloads) Motion,
+off kills both processes. **Listen for cries** is the audio preference — the
+camera records either way, and the choice is remembered for the next start. A
+stopped camera cannot be shown listening, so its audio chip disappears. The
+status chips read **Recording** / **Recording down — restarting** / **Stopped**,
+and while recording **Audio on** / **Audio down — restarting** / **Audio off**;
+each pid stays available in a tooltip. The raw parameter table is below, with
+**Add Row** and a per-row Save/Delete, and **Diagnostics** keeps the manual
+audio-only start and the process pids for support. The Live stream page has a
+Listen control, a level meter and a volume slider that play the selected
+camera's audio.
 
 The Alerts page lists the feed the webhooks write. It updates live as
 events arrive, prepending new rows at the top; a visible page also polls lightly

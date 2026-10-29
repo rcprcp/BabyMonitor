@@ -39,8 +39,8 @@ without hiding anything that matters for trust.
 | --- | --- | --- | --- | --- |
 | T1 | Audio-alert presets instead of 521 checkboxes | High | S | done |
 | T2 | Camera page: simple form + advanced Motion options | High | M | todo |
-| T3 | One camera power control; audio as a preference | High | S–M | todo |
-| T4 | Make "Stop" honest about boot behaviour | High | S | decision |
+| T3 | One camera power control; audio as a preference | High | S–M | done |
+| T4 | Make "Stop" honest about boot behaviour | High | S | done |
 | T5 | One Settings area; label and validate raw tags | High | S | todo |
 | T6 | Environment: monitoring first, setup behind a disclosure | Medium | M | todo |
 | T7 | Navigation: 4 destinations, camera names | Medium | S | done |
@@ -265,7 +265,29 @@ refuse when Motion is stopped, but the UI should not need it.
 - Do we ever need video without audio? (Yes: privacy/bandwidth. The preference
   covers it, but confirm the default.)
 
----
+**Done (2026-10-28).** One switch and one preference, with the manual control
+kept for support.
+
+- **Monitor this camera** is the only power control: on rebuilds the config and
+  starts (or reloads) Motion and the wanted audio, off kills both processes. The
+  old **Start/Apply**, **Stop** and **Start/Stop audio** buttons are gone.
+- **Listen for cries** is the preference, stored in `camera_audio.enabled`. It is
+  applied when the camera starts and survives a Stop, so a camera deliberately
+  kept silent stays silent when switched back on. Video records either way.
+- **No contradictory state.** The audio chip only exists while the camera is
+  recording, and the preference checkbox is disabled while it is stopped. The
+  header reads **Audio on**, **Audio down — restarting** or **Audio off**.
+- **Diagnostics** (a native `<details>` disclosure at the bottom) keeps a manual
+  audio-only start and the process pids for support. Extra backend work was
+  needed after all: `motion/apply` and the boot observer must honour the
+  preference instead of forcing audio on, `motion/stop` must not clear it, and
+  `AudioSupervisor` must not restart audio for a camera that is stopped.
+- **Default:** audio on for a camera that has no preference row yet. Video
+  without audio is reachable by turning **Listen for cries** off; recording
+  continues.
+- **Tests.** Six camera-page tests (switch, preference, disabled-while-stopped,
+  no audio chip when stopped, Diagnostics, error), plus updated API, startup and
+  supervisor tests for the preference semantics (`mvn` suite: 176 tests).
 
 ## T4 — Make "Stop" honest about boot behaviour
 
@@ -296,6 +318,17 @@ A needs a durable "stopped by user" flag plus an explicit resume affordance.
 
 - The UI never claims a stop persists when it does not.
 - The behaviour matches `README.md` and the label exactly.
+
+**Decided (2026-10-28): B, keep auto-start and say so.** Every camera starts at
+boot regardless of its previous state, so a reboot can never leave the monitor
+watching nothing. The switch is labelled **Monitor this camera** and, when it is
+off, the helper text reads "Stopped. Cameras start again when the monitor
+restarts."
+
+Audio follows the preference rather than the power state: a camera whose
+**Listen for cries** was turned off stays silent across a reboot, because that
+is a setting rather than a Stop. Nothing else persists a Stop, and the README
+describes exactly this asymmetry.
 
 ---
 
@@ -734,6 +767,10 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T7 | Desktop sidebar + phone tab bar, title bar loses the hamburger | Wayfinding belongs in persistent navigation, not behind a menu; the title bar keeps identity only | agent |
 | 2026-10-28 | T7 | Cameras destination is a list page, camera pages stay at `/cameras/N` | A tab bar cannot show two nested entries, and keeping the old routes preserves every deep link | agent |
 | 2026-10-28 | T7 | Alert sound stays in Personal settings | The avatar is always visible and More links to it; a second Alerts entry would duplicate the same control | agent |
+| 2026-10-28 | T3 | One "Monitor this camera" switch; "Listen for cries" is a preference | Two power affordances for two processes were the source of every contradictory state; video without audio is a real choice | agent |
+| 2026-10-28 | T3 | Stopping the camera keeps the audio preference; `AudioSupervisor` gates on the camera | The preference must survive a Stop, but audio must never resurrect a camera the parent turned off | agent |
+| 2026-10-28 | T3 | Manual audio start stays under Diagnostics | T2 will fold it into Advanced; until then support still needs to test a microphone | agent |
+| 2026-10-28 | T4 | Keep auto-start at boot (option B) and say it in the UI | A baby monitor must not boot watching nothing; the copy admits the stop lasts until the next restart | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -742,10 +779,9 @@ Fill in as topics are worked. One row per decision.
 
 ## Open decisions (blocking)
 
-1. **T4** — Does Stop persist across restarts, or is it relabelled?
-2. **T6** — Are brightness bounds expressed in bands or proxy lux?
-3. **T8** — Autosave, or an explicit save bar?
-4. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
+1. **T6** — Are brightness bounds expressed in bands or proxy lux?
+2. **T8** — Autosave, or an explicit save bar?
+3. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
 
 ## Changelog
 
@@ -756,3 +792,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T12 shipped: intent-first labels across the SPA; camera names and the config badge handed to T7/T2. |
 | 2026-10-28 | T1 shipped: three audio-alert presets plus Custom; 0–61 remains the default. |
 | 2026-10-28 | T7 shipped: Monitor/Alerts/Cameras/More with a sidebar or tab bar, camera names and a More page. |
+| 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and says so. |
