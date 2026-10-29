@@ -239,6 +239,8 @@ Frequently used keys (defaults in brackets):
 | `BABYMONITOR_LIGHT_V4L2_CTL` | `/usr/bin/v4l2-ctl` | camera-light probe |
 | `BABYMONITOR_LIGHT_FFMPEG` | `/usr/bin/ffmpeg` | camera-light probe |
 | `BABYMONITOR_WEBHOOKS_SECRET` | unset | when set, webhooks need `X-Webhook-Secret` |
+| `BABYMONITOR_VIDEO_SYSFS_DIR` | `/sys/class/video4linux` | where the setup wizard lists camera nodes |
+| `BABYMONITOR_VIDEO_DEV_DIR` | `/dev` | where it checks the nodes exist |
 | `BABYMONITOR_AUTH_SESSION_TTL` | `PT12H` | token lifetime; tokens are in memory, so a restart signs everyone out |
 | `TZ` | system | timestamps are stored in UTC and rendered in the browser's zone |
 
@@ -440,6 +442,13 @@ Notes:
 
 ## 10. First run and hardening
 
+On a fresh database, signing in opens **Set up your monitor** (`/welcome`): name
+the monitor, point each camera at one of the host's `/dev/video*` nodes, then
+preview the stream and play the alert tone. The wizard writes the same settings
+and camera rows as the normal pages; **Skip for now** marks it done, and
+**Run setup again** on the Settings page reopens it. If it finds no devices, the
+container or sysfs setup is the first thing to check (section 11).
+
 1. Open `http://<host>:8080` and sign in with a demo account (`Bob` / `Bob`).
 2. **Create a real account before deleting the demo ones.** There is no signup
    or password-change endpoint; accounts are rows. Generate a bcrypt hash with a
@@ -548,6 +557,7 @@ curl -fsS http://127.0.0.1:8080/q/health/ready
 | Clips never appear in the feed | Motion's `on_movie_end` points at the real notify script (section 7); `curl` installed; `BABYMONITOR_MOTION_WEBHOOK_URL` reachable; webhook secret matches |
 | Recordings link 404 | `target_dir` row matches where Motion actually writes; the app user can read it |
 | Temperature/brightness alerts missing | alert bounds on **Environment**; `BABYMONITOR_ENVIRONMENT_CHECK_INTERVAL`; for the light sensor, the camera is running and `v4l2-ctl`/`ffmpeg` paths are right |
+| Wizard lists no video devices | `/sys/class/video4linux` is readable by the service user; in a container it and `/dev` are bind-mounted (or point `BABYMONITOR_VIDEO_SYSFS_DIR`/`_DEV_DIR` at them); `v4l2-ctl --list-devices` as the same user |
 | Database fills up | notifications and environment readings are never pruned; `TODO.md` P3 tracks retention |
 
 ---

@@ -46,7 +46,7 @@ without hiding anything that matters for trust.
 | T7 | Navigation: 4 destinations, camera names | Medium | S | done |
 | T8 | One save action per page, less badge noise | Medium | S–M | decision |
 | T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | todo |
-| T10 | First-run onboarding wizard | Medium | L | todo |
+| T10 | First-run onboarding wizard | Medium | L | done |
 | T11 | Frontend test + lint baseline (enabling work) | High | M | done |
 | T12 | Copy and naming cleanups | Low | S | done |
 
@@ -594,6 +594,32 @@ the natural home for the controls T2 hides.
 - The wizard is skippable and re-runnable from Settings.
 - No sample data is duplicated by re-running it.
 
+**Done (2026-10-28).** Three steps at `/welcome`, backed by a derived marker.
+
+- **Name → Cameras → Test.** The first step writes `systemName`; the second
+  edits each camera's `camera_name` and `video_device` (the same rows the Camera
+  page edits, through the existing parameter endpoint) and restarts a camera
+  whose device changed; the third plays a live MJPEG preview and the alert tone.
+- **First-run detection** is a `settings` row, `onboardingComplete`, added by
+  V14. A fresh install (seed untouched) gets `false`; a deployment that already
+  has a real account, a changed device, name or stream host gets `true`, so the
+  upgrade does not interrupt a working monitor.
+- **Device picker.** `GET /api/video-devices` reads `/sys/class/video4linux`
+  and the `/dev` entries rather than spawning `v4l2-ctl`, so the wizard can offer
+  the host's nodes without a process per request. Both paths are configurable
+  for tests. An empty list falls back to typing the path.
+- **Re-runnable.** Settings has **Run setup again**, which flips the row back to
+  `false` and reopens the wizard; **Skip for now** finishes it from anywhere.
+- **No special case afterwards.** The wizard changes the same settings and camera
+  rows as the normal pages, so nothing downstream knows it ran. Re-running it
+  updates rows rather than inserting duplicates.
+- **Demo-account warning.** Step 1 warns when the signed-in account is one of the
+  four seeded ones, pointing at the DEVOPS cleanup commands.
+- **Tests.** Five wizard tests (name save, device save + restart, finish, skip,
+  error), an App shell test for the first-run redirect, a Settings test for the
+  re-run control, a backend test for the marker and the device endpoint, and a
+  unit test for the sysfs scanner.
+
 ---
 
 ## T11 — Frontend test + lint baseline (enabling work)
@@ -778,6 +804,9 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T3 | Manual audio start stays under Diagnostics | T2 will fold it into Advanced; until then support still needs to test a microphone | agent |
 | 2026-10-28 | T4 | Keep auto-start at boot (option B) and say it in the UI | A baby monitor must not boot watching nothing; the copy admits the stop lasts until the next restart | agent |
 | 2026-10-28 | T4 | Boot forces audio on as well, not just the camera | A monitor that comes back deaf is no better than one that comes back blind; the preference only rules within a run | agent |
+| 2026-10-28 | T10 | `onboardingComplete` is a settings row seeded by a "still looks untouched" check | Fresh installs see the wizard; existing deployments are not interrupted, and re-running is one row flip | agent |
+| 2026-10-28 | T10 | List devices from sysfs instead of running `v4l2-ctl` | No process per request, works without v4l-utils, and the wizard only needs node names | agent |
+| 2026-10-28 | T10 | The wizard edits the normal settings/camera rows | Keeps one source of truth and makes re-running idempotent by construction | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
@@ -788,7 +817,6 @@ Fill in as topics are worked. One row per decision.
 
 1. **T6** — Are brightness bounds expressed in bands or proxy lux?
 2. **T8** — Autosave, or an explicit save bar?
-3. **T10** — How is "first run" detected, and is scanning `/dev/video*` in scope?
 
 ## Changelog
 
@@ -800,3 +828,4 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T1 shipped: three audio-alert presets plus Custom; 0–61 remains the default. |
 | 2026-10-28 | T7 shipped: Monitor/Alerts/Cameras/More with a sidebar or tab bar, camera names and a More page. |
 | 2026-10-28 | T3/T4 shipped: one camera switch plus an audio preference; boot restarts cameras and audio, and says so. |
+| 2026-10-28 | T10 shipped: a three-step first-run wizard, re-runnable from Settings. |

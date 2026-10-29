@@ -169,10 +169,11 @@ These are the ones where the app looks fine while being wrong.
 - [ ] **Roles and caregiver accounts.** All accounts are equal; there is no
       owner/member split, no audit of who changed what (e.g. who switched a
       camera off), and no session/activity log.
-- [ ] **Onboarding.** First run lands on a running Live stream of the two seeded
-      demo cameras, whose `video_device` values almost certainly are not the
-      host's cameras, with no guidance on naming them, pointing them at a device
-      or calibrating the light sensor (`USABILITY.md` T10).
+- [x] **Onboarding.** First run opens a three-step wizard (`/welcome`): name the
+      monitor, point each camera at a `/dev/video*` node (listed by the backend),
+      then preview the stream and play the alert tone. It is skippable, marks
+      `onboardingComplete`, and Settings can re-run it (`USABILITY.md` T10).
+      Light-sensor calibration is still manual on the Environment page.
 
 ## P5 — Frontend experience
 

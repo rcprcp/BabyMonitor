@@ -51,8 +51,9 @@ migrations.
 
 - `V1__initial_schema.sql` — schema only:
   - `babymonitor.settings` (`tag`/`value`) — application settings, including
-    `systemName` (the title shown by the SPA) and `stream_url`, the host base of
-    the box running Motion. The Live stream page plays
+    `systemName` (the title shown by the SPA), `stream_url`, the host base of the
+    box running Motion, and `onboardingComplete` (whether the setup wizard has
+    been finished or skipped). The Live stream page plays
     `<stream_url>:<camera's stream_port>` (see *Motion* below)
   - `babymonitor.users` (`id`, `name`, `password_hash`, `theme`, `theme_color`,
     `prompt_sound`) — login accounts. `theme` holds the account's UI preference
@@ -137,6 +138,8 @@ migrations.
   history behind the Environment page's brightness bands
 - `V13__number_brightness_bands.sql` — stores brightness bands as the stable
   numbers 1–6 instead of names
+- `V14__add_onboarding_setting.sql` — adds the `onboardingComplete` setting; a
+  fresh install starts `false`, an existing configured one `true`
 
 ## Build & run
 
@@ -226,6 +229,7 @@ webhooks.
 | PUT         | `/api/environment/light`               | `{ cameraNumber, exposureMs, enabled, six lumas }` |
 | POST        | `/api/environment/light/sample`        | one fixed-exposure probe; optional `?cameraNumber=&exposureMs=`; `?record=false` for calibration; 409 when the camera is down |
 | GET         | `/api/cameras`                         | every camera parameter         |
+| GET         | `/api/video-devices`                   | the host's `/dev/video*` nodes, for the setup wizard |
 | GET         | `/api/cameras/{n}`                     | one camera's parameters        |
 | POST        | `/api/cameras/{n}/parameters`          | `{ "key", "value" }`: add a parameter |
 | PUT         | `/api/cameras/{n}/parameters/{key}`    | `{ "value" }`: edit a parameter |
@@ -640,10 +644,11 @@ map still lines up with the model's output.
 
 ## SPA
 
-React Router routes: `/login`, `/` (stream), `/notifications` (Alerts),
-`/environment`, `/cameras` (the camera list), `/cameras/1` and `/cameras/2` (the
-shared Camera page, one route per camera), `/audio-alerts` (Audio
-notifications), `/settings`, `/profile` (Personal settings) and `/more`.
+React Router routes: `/login`, `/welcome` (setup wizard), `/` (stream),
+`/notifications` (Alerts), `/environment`, `/cameras` (the camera list),
+`/cameras/1` and `/cameras/2` (the shared Camera page, one route per camera),
+`/audio-alerts` (Audio notifications), `/settings`, `/profile` (Personal
+settings) and `/more`.
 
 Navigation has four destinations, the same on every screen: **Monitor** (`/`),
 **Alerts** (`/notifications`), **Cameras** (`/cameras`) and **More** (`/more`).
@@ -654,6 +659,13 @@ the Cameras tab opens the same named list. The current destination is marked
 holds Environment, Audio notifications, Settings and Personal settings (where
 the alert sound lives) plus Sign out. The blue title bar keeps only the system
 name and the account's initial; it is not a menu.
+
+On a fresh install the app opens **Set up your monitor** (`/welcome`): name the
+monitor, point each camera at one of the host's `/dev/video*` nodes, then check a
+live preview and hear the alert tone. **Skip for now** finishes it; **Run setup
+again** on the Settings page reopens it at any time. The wizard writes the same
+`settings` and `cameras` rows as the normal pages, so nothing is special-cased
+afterwards.
 
 The app boots into the Live stream
 page, which has a camera drop-down: both cameras are always selectable, and it
