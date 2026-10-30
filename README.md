@@ -462,7 +462,10 @@ where a camera only comes up when the user starts it from its own page.
 The kill matters because a started child outlives the JVM that spawned it: a
 dev-mode recompile would otherwise leave an orphaned `motion` that nothing
 tracks, and the next restart would start a second one. Each camera's pid is
-written to `<base>/<n>/motion.pid`, which is how boot finds the leftovers.
+written to `<base>/<n>/motion.pid`, which is how boot finds the leftovers. Boot
+waits for each old process to exit (`SIGTERM`, then `SIGKILL` if it lingers)
+before starting its replacement: Motion does not retry a failed port bind, so a
+replacement that raced the dying process could run with no stream at all.
 
 There is no master switch: a camera may have no process running, but the app can
 always write its config and start or stop its process. Development therefore

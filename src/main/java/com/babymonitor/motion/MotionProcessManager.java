@@ -10,7 +10,9 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -32,6 +34,12 @@ public class MotionProcessManager {
 
     private static final Logger LOG = Logger.getLogger(MotionProcessManager.class);
     private static final Duration STOP_GRACE = Duration.ofSeconds(5);
+
+    /**
+     * How long to wait for Motion to exit before escalating to SIGKILL, and
+     * again after it. Package-private so a test can use a short grace.
+     */
+    Duration stopGrace = STOP_GRACE;
 
     @Inject
     MotionConfig config;
@@ -90,23 +98,52 @@ public class MotionProcessManager {
     public boolean stop(int cameraNumber) {
         Long pid = pidOf(cameraNumber);
         started.remove(cameraNumber);
-        deletePidFile(cameraNumber);
         if (pid == null) {
+            deletePidFile(cameraNumber);
             return false;
         }
         Optional<ProcessHandle> handle = ProcessHandle.of(pid);
         if (handle.isEmpty()) {
+            deletePidFile(cameraNumber);
             return false;
         }
         ProcessHandle process = handle.get();
         process.destroy();
-        try {
-            process.onExit().get(STOP_GRACE.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (Exception e) {
+        boolean exited = awaitExit(process, stopGrace);
+        if (!exited) {
+            LOG.warnf(
+                    "Motion for camera %d (pid %d) did not stop within %s; killing it",
+                    cameraNumber, pid, stopGrace);
             process.destroyForcibly();
+            exited = awaitExit(process, stopGrace);
         }
+        if (!exited) {
+            // Keep the pid file: an unkillable process must stay tracked, or the
+            // next start would spawn a duplicate and fight it for the ports.
+            LOG.errorf(
+                    "Motion for camera %d (pid %d) is still running after SIGKILL",
+                    cameraNumber, pid);
+            return true;
+        }
+        // Only drop the pid file once the process is gone. Motion releases its
+        // stream and web-control ports as it exits, so returning before that
+        // lets the replacement start too early and fail to bind them.
+        deletePidFile(cameraNumber);
         LOG.infof("Stopped Motion for camera %d (pid %d)", cameraNumber, pid);
         return true;
+    }
+
+    /** Waits for a process to exit, returning whether it is gone within the grace. */
+    private static boolean awaitExit(ProcessHandle process, Duration timeout) {
+        try {
+            process.onExit().get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return !process.isAlive();
+        } catch (ExecutionException | TimeoutException e) {
+            return !process.isAlive();
+        }
     }
 
     private boolean signal(String name, long pid) {
