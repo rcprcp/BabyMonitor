@@ -53,6 +53,7 @@
 
 /* Black letterbox for the stream, whatever shape the camera sends. */
 .stream-frame {
+  position: relative;
   background: #000;
   border-radius: var(--mantine-radius-md);
   overflow: hidden;
@@ -60,6 +61,18 @@
   align-items: center;
   justify-content: center;
   min-height: 45vh;
+}
+
+/* A stale or not-yet-started frame must never be mistaken for a live picture:
+   the status overlay sits on top until a new frame actually arrives. */
+.stream-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-md);
+  background: rgba(0, 0, 0, 0.68);
 }
 
 .stream-media {

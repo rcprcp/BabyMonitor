@@ -22,16 +22,18 @@ These are the ones where the app looks fine while being wrong.
       back to the pid file and only checks that the pid is alive, so a reused pid
       can make a dead camera look alive. Verify the process's command line (or
       config path) before treating it as ours.
-- [ ] **Detect a frozen stream.** MJPEG in an `<img>`
+- [x] **Detect a frozen stream.** MJPEG in an `<img>`
       (`frontend/src/components/StreamPlayer.jsx`) can stop updating without
       firing `onError`, so the parent sees a still image that *looks* live. The
-      `<img>` retries on an error, but a silent stall still looks live: show a
-      last-frame timestamp / stall indicator and reconnect on it. "Looks live but
-      is frozen" is the worst possible failure here.
-- [~] **Reconnect the stream instead of dying.** MJPEG now retries with bounded
-      backoff (0/1/2/3/5 s) before showing the error, but the HLS path still has
-      no retry and neither path has a manual Retry button
-      (`StreamPlayer.jsx`). Add the HLS retry and a Retry control.
+      player now shows a Live/Connecting/Stream stalled/Stream error badge, the
+      last-frame time and age, and an overlay after 15 s without a frame. The
+      watchdog reconnects on the same 15 s interval. Firefox reports each MJPEG
+      frame; Chromium reports only the first, so there the 15 s reload is the
+      liveness signal the `<img>` API exposes.
+- [x] **Reconnect the stream instead of dying.** MJPEG keeps the quick bounded
+      retries (1/2/3/5 s) before the error state, then retries every 15 s; HLS
+      remounts instead of giving up. Both paths have a manual **Retry**, and the
+      stale/error state keeps trying automatically (`StreamPlayer.jsx`).
 - [x] **Environment threshold alerting.** The Environment page stores high/low
       bounds for humidity (0-100%, default 30-75), temperature (32-100°F, default
       66-76) and brightness (0-3000 lux, default 200-2000); readings outside them
@@ -138,7 +140,7 @@ These are the ones where the app looks fine while being wrong.
       their own calibration before this is truly plug-and-play.
 - [x] **Audio.** The HLS player was hardcoded `muted` and MJPEG carried no
       audio, so you could watch your baby but not *hear* them. The Live stream
-      page now has a Listen control and volume slider: the selected camera's
+      page now has a Sound switch and volume slider: the selected camera's
       captured PCM is streamed to the browser and played through the Web Audio
       API, with a hybrid level meter (server RMS when idle, analyser while
       listening).

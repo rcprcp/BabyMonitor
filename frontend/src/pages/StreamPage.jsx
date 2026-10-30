@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core'
+import { Alert, Button, Center, Group, Loader, Stack, Text, Title } from '@mantine/core'
+import { Link as RouterLink } from 'react-router-dom'
 import StreamPlayer from '../components/StreamPlayer'
 import AudioListener from '../components/AudioListener'
 import { api } from '../api'
@@ -7,10 +8,9 @@ import { api } from '../api'
 // The landing page. It plays Motion's published stream for the selected camera:
 // the host comes from the `stream_url` setting and the port from that camera's
 // `stream_port` row (8081 for Camera 1, 8082 for Camera 2), so the feed shown is
-// the one Motion is producing and recording. Both cameras are always selectable;
-// the default is the first enabled one (Camera 1, else Camera 2). A stopped
-// camera has no process, so the player shows its "no stream" state; start it
-// back on from that camera's page.
+// the one Motion is producing and recording. The default is the first enabled
+// camera (Camera 1, else Camera 2). A stopped camera's button is disabled and
+// labelled as stopped; its page is where it can be started again.
 const DEFAULT_CAMERA = 1
 
 export default function StreamPage() {
@@ -88,11 +88,12 @@ export default function StreamPage() {
   }, [parameters])
 
   // The default is Camera 1 if it is marked running/should-be-running, otherwise
-  // Camera 2 when that one is marked running, and otherwise Camera 1. A stopped
-  // camera has no process, so the player shows its "no stream" state; start it
-  // from that camera's page.
+  // the first available camera (even if stopped, so the page can explain how to
+  // start it), and otherwise Camera 1.
   const defaultCameraNumber =
-    cameras.find((camera) => camera.enabled)?.cameraNumber ?? DEFAULT_CAMERA
+    cameras.find((camera) => camera.enabled)?.cameraNumber ??
+    cameras[0]?.cameraNumber ??
+    DEFAULT_CAMERA
 
   useEffect(() => {
     if (selected === null && cameras.length > 0) {
@@ -100,16 +101,22 @@ export default function StreamPage() {
     }
   }, [selected, cameras.length, defaultCameraNumber])
 
-  // Every camera is offered, enabled or not: picking a stopped one just shows
-  // the player's "no stream" state; it can be started from that camera's page.
+  // Stopped cameras stay visible in the picker but cannot be selected; their
+  // grayed button says so, and the selected-camera notice links to the page
+  // where it can be started.
   const chooseCamera = (value) => {
     setSelected(value)
     api.updateActiveCamera(value).catch(() => {}) // save; non-fatal
   }
 
   const selectedCamera = cameras.find((camera) => String(camera.cameraNumber) === selected)
-  // A stopped camera, or one with no host/port, has nothing to play. The page
-  // still renders the selector and player so the user can start it.
+  const selectedName = selectedCamera?.name?.trim()
+    ? selectedCamera.name.trim()
+    : selectedCamera
+      ? `Camera ${selectedCamera.cameraNumber}`
+      : null
+  // A stopped camera, or one with no host/port, has nothing to play. A stopped
+  // camera gets an explanation and a link to its page instead of a black frame.
   const url =
     selectedCamera?.enabled && streamBase && selectedCamera.streamPort
       ? `${streamBase}:${selectedCamera.streamPort}`
@@ -138,28 +145,32 @@ export default function StreamPage() {
   return (
     <Stack>
       <Group justify="space-between" align="center">
-        <Title order={2}>Live stream</Title>
+        <Title order={2}>{selectedName ? `Live stream — ${selectedName}` : 'Live stream'}</Title>
         <Group gap={0} justify="flex-end" align="center">
-          {cameras.map((camera, position) => (
-            <Fragment key={camera.cameraNumber}>
-              {position > 0 && (
-                <Text c="dimmed" mx="sm" aria-hidden="true">
-                  -
-                </Text>
-              )}
-              <Button
-                size="sm"
-                variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
-                aria-pressed={String(camera.cameraNumber) === selected}
-                onClick={() => chooseCamera(String(camera.cameraNumber))}
-                disabled={loading}
-              >
-                {camera.name
-                  ? `${camera.name} (Camera${camera.cameraNumber})`
-                  : `(Camera${camera.cameraNumber})`}
-              </Button>
-            </Fragment>
-          ))}
+          {cameras.map((camera, position) => {
+            const label = camera.name
+              ? `${camera.name} (Camera${camera.cameraNumber})`
+              : `(Camera${camera.cameraNumber})`
+            return (
+              <Fragment key={camera.cameraNumber}>
+                {position > 0 && (
+                  <Text c="dimmed" mx="sm" aria-hidden="true">
+                    -
+                  </Text>
+                )}
+                <Button
+                  size="sm"
+                  variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
+                  aria-pressed={String(camera.cameraNumber) === selected}
+                  onClick={() => chooseCamera(String(camera.cameraNumber))}
+                  disabled={loading || !camera.enabled}
+                  title={camera.enabled ? undefined : 'This camera is stopped'}
+                >
+                  {camera.enabled ? label : `${label} · stopped`}
+                </Button>
+              </Fragment>
+            )
+          })}
         </Group>
       </Group>
 
@@ -169,15 +180,30 @@ export default function StreamPage() {
         </Alert>
       )}
 
-      <Box className="stream-frame">
-        {loading ? (
-          <Center>
-            <Loader size="sm" />
-          </Center>
-        ) : (
-          <StreamPlayer url={url} reloadKey={reloadKey} />
-        )}
-      </Box>
+      {loading ? (
+        <Center>
+          <Loader size="sm" />
+        </Center>
+      ) : selectedCamera && !selectedCamera.enabled ? (
+        <Alert color="yellow" variant="light" title={`${selectedName} is stopped`}>
+          <Stack gap="xs" align="flex-start">
+            <Text size="sm">
+              There is no live picture while the camera is stopped. Start it from its camera page,
+              and check the stream port there if it does not come back.
+            </Text>
+            <Button
+              component={RouterLink}
+              to={`/cameras/${selectedCamera.cameraNumber}`}
+              size="xs"
+              variant="light"
+            >
+              Open camera settings
+            </Button>
+          </Stack>
+        </Alert>
+      ) : (
+        <StreamPlayer url={url} reloadKey={reloadKey} />
+      )}
 
       {selectedCamera && <AudioListener cameraNumber={selectedCamera.cameraNumber} />}
     </Stack>

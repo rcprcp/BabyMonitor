@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Badge, Button, Group, Slider, Text } from '@mantine/core'
+import { Badge, Group, Slider, Switch, Text } from '@mantine/core'
 import LevelMeter from './LevelMeter'
 import { api } from '../api'
 
@@ -56,6 +56,18 @@ export default function AudioListener({ cameraNumber }) {
     return contextRef.current
   }, [])
 
+  // Closing the context releases the output device; the next Sound-on creates
+  // a fresh one (and is still a user gesture, as browsers require).
+  const closeAudio = useCallback(() => {
+    if (contextRef.current) {
+      contextRef.current.close().catch(() => {})
+      contextRef.current = null
+      gainRef.current = null
+      analyserRef.current = null
+      setAnalyser(null)
+    }
+  }, [])
+
   // Whether the selected camera is actually capturing: a stopped camera has no
   // audio to play, and the supervisor may bring one back.
   useEffect(() => {
@@ -102,8 +114,18 @@ export default function AudioListener({ cameraNumber }) {
 
   // The streaming loop: fetch the endless PCM response and schedule it.
   useEffect(() => {
-    if (!listening || !captureRunning) {
-      setStatus(captureRunning ? 'idle' : 'off')
+    if (!captureRunning) {
+      // A stopped camera has no audio to listen to. Do not leave the switch on
+      // (and the status badge would otherwise disagree with it).
+      setStatus('off')
+      if (listening) {
+        setListening(false)
+        closeAudio()
+      }
+      return undefined
+    }
+    if (!listening) {
+      setStatus('idle')
       return undefined
     }
 
@@ -197,21 +219,15 @@ export default function AudioListener({ cameraNumber }) {
       cancelled = true
       controller.abort()
     }
-  }, [cameraNumber, captureRunning, listening, ensureAudio])
+  }, [cameraNumber, captureRunning, listening, ensureAudio, closeAudio])
 
-  const toggle = () => {
-    if (listening) {
-      setListening(false)
-      if (contextRef.current) {
-        contextRef.current.close().catch(() => {})
-        contextRef.current = null
-        gainRef.current = null
-        analyserRef.current = null
-        setAnalyser(null)
-      }
-    } else {
+  const toggle = (event) => {
+    if (event.currentTarget.checked) {
       ensureAudio() // the click is the gesture browsers require
       setListening(true)
+    } else {
+      setListening(false)
+      closeAudio()
     }
   }
 
@@ -229,17 +245,17 @@ export default function AudioListener({ cameraNumber }) {
         ? 'Reconnecting…'
         : status === 'connecting'
           ? 'Connecting…'
-          : 'Paused'
+          : 'Sound off'
 
   return (
     <Group gap="sm" align="center" onClick={resume} wrap="wrap">
-      <Button
-        variant={listening ? 'filled' : 'default'}
-        onClick={toggle}
-        disabled={!listening && !captureRunning}
-      >
-        {listening ? 'Stop listening' : 'Start listening'}
-      </Button>
+      <Switch
+        checked={listening}
+        onChange={toggle}
+        disabled={!captureRunning}
+        label="Sound"
+        size="md"
+      />
       <Badge
         color={status === 'playing' ? 'green' : captureRunning ? 'yellow' : 'gray'}
         variant="light"
@@ -252,13 +268,16 @@ export default function AudioListener({ cameraNumber }) {
       </Text>
       <Slider
         aria-label="Volume"
+        thumbLabel="Volume"
         value={Math.round(volume * 100)}
         onChange={(value) => setVolume(value / 100)}
         min={0}
         max={100}
         w={140}
-        disabled={!listening}
       />
+      <Text size="sm" c="dimmed" w={40} ta="right">
+        {Math.round(volume * 100)}%
+      </Text>
     </Group>
   )
 }

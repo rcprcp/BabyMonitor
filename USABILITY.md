@@ -45,7 +45,7 @@ without hiding anything that matters for trust.
 | T6 | Environment: monitoring first, setup behind a disclosure | Medium | M | todo |
 | T7 | Navigation: 4 destinations, camera names | Medium | S | done |
 | T8 | One save action per page, less badge noise | Medium | S–M | decision |
-| T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | todo |
+| T9 | Live stream polish (stopped label, volume, mute, stall) | Medium | S | done |
 | T10 | First-run onboarding wizard | Medium | L | done |
 | T11 | Frontend test + lint baseline (enabling work) | High | M | done |
 | T12 | Copy and naming cleanups | Low | S | done |
@@ -629,6 +629,38 @@ the picture has silently frozen — the worst failure mode for a monitor.
 - A frozen stream becomes visibly stale and recoverable within a bounded time.
 - Sound state is obvious at a glance.
 
+**Done (2026-10-30).** The live page now states what is happening instead of
+leaving the parent to guess.
+
+- **Camera picker.** The buttons are still the selector, but a stopped camera's
+  button is disabled, grayed and labelled `· stopped`; a small notice replaces
+  the black frame with an explanation and **Open camera settings** link. The
+  default is the first running camera, falling back to the first camera so the
+  stopped notice is reachable.
+- **Heading.** Reads **Live stream — Nursery** (or the camera-number fallback),
+  so the selected camera is named in the page heading.
+- **One sound control.** The Listen/Stop pair is a **Sound** switch plus the
+  volume slider. Volume is enabled before sound is on, remains available while
+  the camera is stopped, and is stored in `localStorage`
+  (`babymonitor.listen.volume`). Turning sound on is still the user gesture that
+  creates the audio context; when the camera stops, the switch turns off rather
+  than showing sound on with nothing to hear.
+- **Stall detection.** `StreamPlayer` shows a status badge (Live, Connecting,
+  Stream stalled, Stream error), the timestamp/age of the last frame, and an
+  overlay over a stale frame. The watchdog treats 15 s without a frame as
+  stalled and reconnects; it keeps retrying every 15 s while the feed stays
+  frozen. MJPEG failures get the existing quick 1–5 s retries first, then the
+  same 15 s automatic retry. HLS now retries by remounting the player instead
+  of dying, and every path has a manual **Retry**.
+- **Browser note.** Firefox fires an `<img>` load event for each MJPEG frame;
+  Chromium fires it only for the first frame of a multipart stream. In Chromium
+  the watchdog therefore reloads on the 15 s cadence instead of per-frame
+  freshness, which is the best signal the `<img>` API exposes.
+- **Tests.** Three `StreamPlayer` tests (live status, manual retry, 15 s stall and
+  recovery) and the updated `StreamPage` tests (named heading, grayed stopped
+  button, stopped notice/link, sound switch, volume before listening and
+  persistence).
+
 ---
 
 ## T10 — First-run onboarding wizard
@@ -812,7 +844,8 @@ deliberately handed on.
 - **Camera unavailable**, **Motion down — restarting**, **Audio down** and
   **stream frozen** must remain prominent and specific.
 - Per-class alert tuning must stay reachable (under Custom/Advanced).
-- Both cameras stay selectable and the last-viewed camera still persists.
+- Both cameras stay visible in the picker and the last-viewed camera still
+  persists; a stopped one is marked and links to its page.
 - Dismissal stays per account; do not turn it into a global delete.
 - Alerts must not become silent by accident; any preset change shows what is on.
 
@@ -845,7 +878,7 @@ Track these before/after per topic:
 
 Do not duplicate these; link to them instead:
 
-- `TODO.md` P0 — frozen stream / manual retry (T9)
+- `TODO.md` P0 — frozen stream / manual retry (addressed by T9)
 - `TODO.md` P4 — onboarding (T10)
 - `TODO.md` P5 — error boundary, fetch timeouts, retry everywhere
 - `TODO.md` P6 — frontend tests, lint, CI (T11)
@@ -882,6 +915,9 @@ Fill in as topics are worked. One row per decision.
 | 2026-10-28 | T5 | Merge Personal settings into Settings; keep `/profile` as a redirect | Two "settings" destinations with overlapping names were the problem; a redirect keeps old links working | agent |
 | 2026-10-28 | T5 | Validate the stream host as an absolute http(s) origin, no port/path/credentials | That is exactly how StreamPage consumes it, so anything else is a broken stream waiting to happen | agent |
 | 2026-10-28 | T5 | Keep an Other settings editor for unknown tags | The table is open-ended; the friendly form must not make a future row unreachable | agent |
+| 2026-10-30 | T9 | 15 s stall watchdog with automatic reconnect, plus a manual Retry | Quick enough to catch a silent freeze, slow enough not to churn a healthy feed; Chromium only exposes the first MJPEG load event, so the same timer is the fallback there | agent |
+| 2026-10-30 | T9 | A stopped camera's picker button is disabled, with a notice and link | The button cannot show a stream it does not have; the notice puts the start action one click away without pretending the feed is live | agent |
+| 2026-10-30 | T9 | One Sound switch instead of Listen/Stop | One state the parent can read at a glance, with volume still adjustable before sound is on | agent |
 | | T1 | | | |
 | | T3 | | | |
 | | T4 | | | |
