@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Anchor, Avatar, Button, Card, Divider, Group, Stack, Text, Title } from '@mantine/core'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Avatar, Button, Card, Group, Stack, Text, Title } from '@mantine/core'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import AppearanceSettings from '../components/AppearanceSettings'
 import NotificationSound from '../components/NotificationSound'
@@ -32,7 +32,7 @@ function initialOf(name) {
 
 // The account-facing settings: alert behaviour, appearance and the account
 // itself. System-wide settings (name, stream address, raw tags and the setup
-// wizard) live on /system-settings, linked from the account card and sidebar.
+// wizard) live on /system-settings, reached from the navigation.
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -59,42 +59,28 @@ export default function SettingsPage() {
       </Stack>
 
       <Card withBorder padding="lg">
-        <Stack gap="md">
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Group wrap="nowrap">
-              <Avatar size={48} radius="xl" variant="light" fw={600}>
-                {initialOf(user)}
-              </Avatar>
-              <Stack gap={0}>
-                <Text fw={600}>{user || 'Signed in'}</Text>
-                <Text size="sm" c="dimmed">
-                  Your account
-                </Text>
-              </Stack>
-            </Group>
-            <Button
-              variant="default"
-              color="red"
-              leftSection={<LogoutIcon />}
-              onClick={signOut}
-              loading={signingOut}
-            >
-              Logout
-            </Button>
-          </Group>
-          <Divider />
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={500}>System Settings</Text>
+        <Group justify="space-between" align="center" wrap="nowrap">
+          <Group wrap="nowrap">
+            <Avatar size={48} radius="xl" variant="light" fw={600}>
+              {initialOf(user)}
+            </Avatar>
+            <Stack gap={0}>
+              <Text fw={600}>{user || 'Signed in'}</Text>
               <Text size="sm" c="dimmed">
-                Monitor name and stream address.
+                Your account
               </Text>
             </Stack>
-            <Anchor component={RouterLink} to="/system-settings">
-              Open
-            </Anchor>
           </Group>
-        </Stack>
+          <Button
+            variant="default"
+            color="red"
+            leftSection={<LogoutIcon />}
+            onClick={signOut}
+            loading={signingOut}
+          >
+            Logout
+          </Button>
+        </Group>
       </Card>
 
       <Card withBorder padding="lg">

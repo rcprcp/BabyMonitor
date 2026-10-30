@@ -679,7 +679,7 @@ bar opens the full destination list, including Environment, Audio Configuration
 and Environment Configuration. The current destination is marked
 `aria-current="page"` and coloured, and watching is always one tap away.
 **Settings** is also what the account's initial opens, and it carries the alert
-sound, appearance and the account card (with the System Settings link). The blue
+sound, appearance and the account card. The blue
 title bar keeps only the centred system name, the phone menu and the account's
 initial; it is not a menu on desktop.
 
@@ -710,10 +710,9 @@ settings** link instead of a black frame. Cameras are started at boot, and can b
 stopped and restarted from their own Camera pages.
 The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit. That field
-and `stream_url` live on **System Settings** (`/system-settings`, also linked
-from the Settings account card), named in plain language — **Monitor name** and
-**Stream address** — with the raw tag beside the label so support still sees
-what the API calls it. One **Save changes** writes either or both, and the
+and `stream_url` live on **System Settings** (`/system-settings`), named in plain
+language — **Monitor name** and **Stream address** — with the raw tag beside the
+label so support still sees what the API calls it. One **Save changes** writes either or both, and the
 stream address is validated first: it must be an absolute `http(s)` host with no
 port, path or credentials, because each camera's `stream_port` is appended to
 it. Anything else in the table still gets an editor under **Other settings**.

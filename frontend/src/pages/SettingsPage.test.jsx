@@ -36,16 +36,15 @@ beforeEach(() => {
 })
 
 describe('SettingsPage', () => {
-  it('shows the account settings and links to System Settings', async () => {
+  it('shows the account settings without the system destinations', async () => {
     renderWithProviders(<SettingsPage />)
 
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    const openLinks = screen.getAllByRole('link', { name: 'Open' })
-    expect(openLinks).toHaveLength(1)
-    expect(openLinks[0]).toHaveAttribute('href', '/system-settings')
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument()
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
-    // The setup wizard moved to System Settings.
+    // The setup wizard and System Settings live on the System Settings page.
+    expect(screen.queryByText('System Settings')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Run setup again' })).not.toBeInTheDocument()
     // The sidebar (and the phone's menu drawer) own these destinations.
     expect(screen.queryByText('Audio Configuration')).not.toBeInTheDocument()
