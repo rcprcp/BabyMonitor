@@ -95,6 +95,34 @@ export default function SettingsPage() {
 
       <Card withBorder padding="lg">
         <Stack gap="md">
+          <Group wrap="nowrap">
+            <Avatar size={48} radius="xl" variant="light" fw={600}>
+              {initialOf(user)}
+            </Avatar>
+            <Stack gap={0}>
+              <Text fw={600}>{user || 'Signed in'}</Text>
+              <Text size="sm" c="dimmed">
+                Your account
+              </Text>
+            </Stack>
+          </Group>
+          <Divider />
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Stack gap={2}>
+              <Text fw={500}>System Settings</Text>
+              <Text size="sm" c="dimmed">
+                Monitor name and stream address.
+              </Text>
+            </Stack>
+            <Anchor component={RouterLink} to="/system-settings">
+              Open
+            </Anchor>
+          </Group>
+        </Stack>
+      </Card>
+
+      <Card withBorder padding="lg">
+        <Stack gap="md">
           <Stack gap={2}>
             <Text fw={600}>Alerts</Text>
             <Text size="sm" c="dimmed">
@@ -148,34 +176,6 @@ export default function SettingsPage() {
             </Text>
           </Stack>
           <AppearanceSettings />
-        </Stack>
-      </Card>
-
-      <Card withBorder padding="lg">
-        <Stack gap="md">
-          <Group wrap="nowrap">
-            <Avatar size={48} radius="xl" variant="light" fw={600}>
-              {initialOf(user)}
-            </Avatar>
-            <Stack gap={0}>
-              <Text fw={600}>{user || 'Signed in'}</Text>
-              <Text size="sm" c="dimmed">
-                Your account
-              </Text>
-            </Stack>
-          </Group>
-          <Divider />
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={500}>System Settings</Text>
-              <Text size="sm" c="dimmed">
-                Monitor name and stream address.
-              </Text>
-            </Stack>
-            <Anchor component={RouterLink} to="/system-settings">
-              Open
-            </Anchor>
-          </Group>
         </Stack>
       </Card>
 

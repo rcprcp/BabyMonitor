@@ -59,6 +59,14 @@ describe('SettingsPage', () => {
     expect(screen.queryByLabelText(/Monitor name/)).not.toBeInTheDocument()
   })
 
+  it('puts the account block at the top, above alerts', async () => {
+    renderWithProviders(<SettingsPage />)
+
+    const account = await screen.findByText('Your account')
+    const alerts = screen.getByText('Alerts')
+    expect(account.compareDocumentPosition(alerts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('changes the appearance on the account', async () => {
     const user = userEvent.setup()
     renderWithProviders(<SettingsPage />)
