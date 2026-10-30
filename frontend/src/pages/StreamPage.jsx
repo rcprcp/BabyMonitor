@@ -9,31 +9,55 @@ import { api } from '../api'
 // the host comes from the `stream_url` setting and the port from that camera's
 // `stream_port` row (8081 for Camera 1, 8082 for Camera 2), so the feed shown is
 // the one Motion is producing and recording. The default is the first enabled
-// camera (Camera 1, else Camera 2). A stopped camera's button is disabled and
-// labelled as stopped; its page is where it can be started again.
+// camera that can actually capture. A stopped or unavailable camera's button is
+// disabled and labelled; its page is where it can be started or checked.
 const DEFAULT_CAMERA = 1
+const MOTION_POLL_MS = 5_000
 
 export default function StreamPage() {
   const [parameters, setParameters] = useState([])
   const [settings, setSettings] = useState([])
+  const [motionStatuses, setMotionStatuses] = useState({})
   const [selected, setSelected] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+
+  const fetchMotionStatuses = useCallback(async (numbers) => {
+    if (numbers.length === 0) {
+      return {}
+    }
+    const entries = await Promise.all(
+      numbers.map(async (cameraNumber) => {
+        try {
+          return [cameraNumber, await api.getCameraMotion(cameraNumber)]
+        } catch {
+          // A failed status read must not hide a camera that may be fine.
+          return [cameraNumber, null]
+        }
+      }),
+    )
+    return Object.fromEntries(entries.filter(([, status]) => status))
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [list, config] = await Promise.all([api.listCameras(), api.listSettings()])
+      // Resolve availability before showing the player, so a camera whose
+      // device is missing never gets a "Live" chip over Motion's placeholder.
+      const numbers = [...new Set(list.map((row) => row.cameraNumber))]
+      const statuses = await fetchMotionStatuses(numbers)
       setParameters(list)
       setSettings(config)
+      setMotionStatuses(statuses)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [fetchMotionStatuses])
 
   // Restore the user's last-viewed camera from the database profile on mount,
   // so reloads and cross-device navigation pick up where they left off.
@@ -57,6 +81,32 @@ export default function StreamPage() {
     load()
   }, [load])
 
+  const cameraNumbersKey = useMemo(
+    () => [...new Set(parameters.map((row) => row.cameraNumber))].sort((a, b) => a - b).join(','),
+    [parameters],
+  )
+
+  // Motion keeps running when its device disappears, so re-check availability:
+  // the placeholder it serves is a valid MJPEG frame and would otherwise look
+  // live. A plug-in is picked up without a page reload.
+  useEffect(() => {
+    if (!cameraNumbersKey) {
+      return undefined
+    }
+    const numbers = cameraNumbersKey.split(',').map(Number)
+    let cancelled = false
+    const id = setInterval(async () => {
+      const statuses = await fetchMotionStatuses(numbers)
+      if (!cancelled) {
+        setMotionStatuses((previous) => ({ ...previous, ...statuses }))
+      }
+    }, MOTION_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [cameraNumbersKey, fetchMotionStatuses])
+
   // The host serving Motion's streams, without a trailing slash: the port is
   // appended per camera. Null until the setting exists, which disables playback.
   const streamBase = useMemo(() => {
@@ -74,6 +124,8 @@ export default function StreamPage() {
         enabled: parameter.enabled,
         name: null,
         streamPort: null,
+        deviceAvailable: true,
+        statusError: null,
       }
       entry.enabled = parameter.enabled
       if (parameter.key === 'camera_name') {
@@ -82,15 +134,20 @@ export default function StreamPage() {
       if (parameter.key === 'stream_port') {
         entry.streamPort = parameter.value
       }
+      const status = motionStatuses[parameter.cameraNumber]
+      if (status) {
+        entry.deviceAvailable = status.deviceAvailable !== false
+        entry.statusError = status.error ?? null
+      }
       map.set(parameter.cameraNumber, entry)
     }
     return [...map.values()].sort((a, b) => a.cameraNumber - b.cameraNumber)
-  }, [parameters])
+  }, [parameters, motionStatuses])
 
-  // The default is Camera 1 if it is marked running/should-be-running, otherwise
-  // the first available camera (even if stopped, so the page can explain how to
-  // start it), and otherwise Camera 1.
+  // The default is the first running, available camera; if none is available,
+  // the first enabled one so the page can explain why.
   const defaultCameraNumber =
+    cameras.find((camera) => camera.enabled && camera.deviceAvailable)?.cameraNumber ??
     cameras.find((camera) => camera.enabled)?.cameraNumber ??
     cameras[0]?.cameraNumber ??
     DEFAULT_CAMERA
@@ -101,9 +158,9 @@ export default function StreamPage() {
     }
   }, [selected, cameras.length, defaultCameraNumber])
 
-  // Stopped cameras stay visible in the picker but cannot be selected; their
-  // grayed button says so, and the selected-camera notice links to the page
-  // where it can be started.
+  // Stopped and unavailable cameras stay visible in the picker but cannot be
+  // selected; their grayed button says which, and the selected-camera notice
+  // links to the page where it can be started or checked.
   const chooseCamera = (value) => {
     setSelected(value)
     api.updateActiveCamera(value).catch(() => {}) // save; non-fatal
@@ -115,10 +172,18 @@ export default function StreamPage() {
     : selectedCamera
       ? `Camera ${selectedCamera.cameraNumber}`
       : null
-  // A stopped camera, or one with no host/port, has nothing to play. A stopped
-  // camera gets an explanation and a link to its page instead of a black frame.
+  const selectedStopped = Boolean(selectedCamera && !selectedCamera.enabled)
+  const selectedUnavailable = Boolean(
+    selectedCamera?.enabled && selectedCamera.deviceAvailable === false,
+  )
+  // A stopped or unavailable camera, or one with no host/port, has nothing to
+  // play. The notice explains why and links to its page instead of showing a
+  // black frame.
   const url =
-    selectedCamera?.enabled && streamBase && selectedCamera.streamPort
+    selectedCamera?.enabled &&
+    selectedCamera.deviceAvailable &&
+    streamBase &&
+    selectedCamera.streamPort
       ? `${streamBase}:${selectedCamera.streamPort}`
       : null
 
@@ -127,7 +192,7 @@ export default function StreamPage() {
   // player tries (and retries) to load it. A camera is brought up from its
   // Camera page's Restart camera, so this is the stream catching up.
   useEffect(() => {
-    if (!selectedCamera?.enabled) {
+    if (!selectedCamera?.enabled || !selectedCamera.deviceAvailable) {
       setReloadKey(0)
       return
     }
@@ -140,7 +205,7 @@ export default function StreamPage() {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [selectedCamera?.cameraNumber, selectedCamera?.enabled])
+  }, [selectedCamera?.cameraNumber, selectedCamera?.enabled, selectedCamera?.deviceAvailable])
 
   return (
     <Stack>
@@ -151,6 +216,9 @@ export default function StreamPage() {
             const label = camera.name
               ? `${camera.name} (Camera${camera.cameraNumber})`
               : `(Camera${camera.cameraNumber})`
+            const stopped = !camera.enabled
+            const unavailable = camera.enabled && !camera.deviceAvailable
+            const suffix = stopped ? ' · stopped' : unavailable ? ' · unavailable' : ''
             return (
               <Fragment key={camera.cameraNumber}>
                 {position > 0 && (
@@ -163,10 +231,17 @@ export default function StreamPage() {
                   variant={String(camera.cameraNumber) === selected ? 'filled' : 'default'}
                   aria-pressed={String(camera.cameraNumber) === selected}
                   onClick={() => chooseCamera(String(camera.cameraNumber))}
-                  disabled={loading || !camera.enabled}
-                  title={camera.enabled ? undefined : 'This camera is stopped'}
+                  disabled={loading || stopped || unavailable}
+                  title={
+                    stopped
+                      ? 'This camera is stopped'
+                      : unavailable
+                        ? camera.statusError || 'This camera is unavailable'
+                        : undefined
+                  }
                 >
-                  {camera.enabled ? label : `${label} · stopped`}
+                  {label}
+                  {suffix}
                 </Button>
               </Fragment>
             )
@@ -184,12 +259,33 @@ export default function StreamPage() {
         <Center>
           <Loader size="sm" />
         </Center>
-      ) : selectedCamera && !selectedCamera.enabled ? (
+      ) : selectedStopped ? (
         <Alert color="yellow" variant="light" title={`${selectedName} is stopped`}>
           <Stack gap="xs" align="flex-start">
             <Text size="sm">
               There is no live picture while the camera is stopped. Start it from its camera page,
               and check the stream port there if it does not come back.
+            </Text>
+            <Button
+              component={RouterLink}
+              to={`/cameras/${selectedCamera.cameraNumber}`}
+              size="xs"
+              variant="light"
+            >
+              Open camera settings
+            </Button>
+          </Stack>
+        </Alert>
+      ) : selectedUnavailable ? (
+        <Alert color="red" variant="light" title={`${selectedName} is unavailable`}>
+          <Stack gap="xs" align="flex-start">
+            <Text size="sm">
+              {selectedCamera.statusError ||
+                'Its video device was not found, so the camera cannot send a picture.'}
+            </Text>
+            <Text size="sm">
+              Plug the camera in, then restart it from its camera page. The stream will not show a
+              last frame until a real one arrives.
             </Text>
             <Button
               component={RouterLink}

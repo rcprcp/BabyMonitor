@@ -633,10 +633,14 @@ the picture has silently frozen — the worst failure mode for a monitor.
 leaving the parent to guess.
 
 - **Camera picker.** The buttons are still the selector, but a stopped camera's
-  button is disabled, grayed and labelled `· stopped`; a small notice replaces
-  the black frame with an explanation and **Open camera settings** link. The
-  default is the first running camera, falling back to the first camera so the
-  stopped notice is reachable.
+  button is disabled, grayed and labelled `· stopped`, and a camera whose video
+  device is missing is labelled `· unavailable`. Either gets a notice with the
+  reason and an **Open camera settings** link instead of a black frame. Motion
+  keeps running when its device disappears, so the page polls
+  `getCameraMotion`'s `deviceAvailable` every 5 s; that prevents the placeholder
+  MJPEG frame from being shown as **Live**. The default is the first running,
+  available camera, falling back to the first enabled camera so the notice is
+  reachable.
 - **Heading.** Reads **Live stream — Nursery** (or the camera-number fallback),
   so the selected camera is named in the page heading.
 - **One sound control.** The Listen/Stop pair is a **Sound** switch plus the
@@ -657,9 +661,9 @@ leaving the parent to guess.
   the watchdog therefore reloads on the 15 s cadence instead of per-frame
   freshness, which is the best signal the `<img>` API exposes.
 - **Tests.** Three `StreamPlayer` tests (live status, manual retry, 15 s stall and
-  recovery) and the updated `StreamPage` tests (named heading, grayed stopped
-  button, stopped notice/link, sound switch, volume before listening and
-  persistence).
+  recovery) and the updated `StreamPage` tests (named heading, grayed stopped and
+  unavailable buttons, stopped/unavailable notices, sound switch, volume before
+  listening and persistence).
 
 ---
 

@@ -481,7 +481,10 @@ live, still connecting, stalled or failed, with the time and age of the last
 frame. Fifteen seconds without a frame overlays the picture as **Stream stalled**
 and reconnects; the same retry keeps running while the feed stays down, and
 **Retry** forces it immediately. A failed MJPEG stream gets a few quick retries
-before that slower loop. `stream_localhost`/`webcontrol_localhost` default to
+before that slower loop. Motion keeps its process alive when a video device is
+missing and serves a placeholder that would otherwise look live, so the page
+also checks `getCameraMotion`'s `deviceAvailable` every 5 s: an unplugged camera
+is labelled **unavailable** and shows its device error instead of the player. `stream_localhost`/`webcontrol_localhost` default to
 `off` so both the stream and the web control are reachable from other machines
 on the network; set them to `on` to keep the ports on the box itself.
 
@@ -695,11 +698,12 @@ reads **Live stream — <name>** for the selected one. It plays Motion's stream 
 the chosen camera, built from the `stream_url` setting and that camera's
 `stream_port` row. It restores the account's last-viewed camera from the profile
 (`users.active_camera`, saved whenever the buttons change) and otherwise defaults
-to the first enabled camera — Camera 1 when it is running, else Camera 2. A
-stopped camera's button is disabled, grayed and labelled `· stopped`; selecting a
-stopped camera (for example one restored from the profile) shows a notice and an
-**Open camera settings** link instead of a black frame. Cameras are started at
-boot, and can be stopped and restarted from their own Camera pages.
+to the first enabled, available camera — Camera 1 when it is running, else
+Camera 2. A stopped camera's button is disabled, grayed and labelled `· stopped`;
+one whose video device is missing is labelled `· unavailable`. Selecting either
+(for example one restored from the profile) shows a notice and an **Open camera
+settings** link instead of a black frame. Cameras are started at boot, and can be
+stopped and restarted from their own Camera pages.
 The title bar text — and the browser tab title — come from the
 `systemName` setting, so renaming the system is just a setting edit. That field
 and `stream_url` live on **System Settings** (`/system-settings`, also linked

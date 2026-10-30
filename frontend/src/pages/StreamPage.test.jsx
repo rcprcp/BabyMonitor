@@ -10,6 +10,7 @@ const { api } = vi.hoisted(() => ({
     listSettings: vi.fn(),
     getProfile: vi.fn(),
     updateActiveCamera: vi.fn(),
+    getCameraMotion: vi.fn(),
     getCameraAudio: vi.fn(),
     openCameraAudioStream: vi.fn(),
   },
@@ -31,6 +32,14 @@ beforeEach(() => {
   api.listSettings.mockResolvedValue([{ tag: 'stream_url', value: 'http://localhost' }])
   api.getProfile.mockResolvedValue({ activeCamera: 1 })
   api.updateActiveCamera.mockResolvedValue({})
+  api.getCameraMotion.mockImplementation((cameraNumber) =>
+    Promise.resolve({
+      cameraNumber,
+      running: true,
+      deviceAvailable: true,
+      error: null,
+    }),
+  )
   api.getCameraAudio.mockResolvedValue({ running: false, enabled: false })
 })
 
@@ -79,6 +88,29 @@ describe('StreamPage', () => {
     expect(await screen.findByText('Hallway is stopped')).toBeInTheDocument()
     const link = screen.getByRole('link', { name: 'Open camera settings' })
     expect(link).toHaveAttribute('href', '/cameras/2')
+    expect(screen.queryByAltText('Live baby monitor stream')).not.toBeInTheDocument()
+  })
+
+  it('disables a camera whose video device is missing', async () => {
+    api.listCameras.mockResolvedValue(cameraRows.map((row) => ({ ...row, enabled: true })))
+    api.getCameraMotion.mockImplementation((cameraNumber) =>
+      Promise.resolve(
+        cameraNumber === 2
+          ? {
+              cameraNumber,
+              running: true,
+              deviceAvailable: false,
+              error: 'Video device /dev/video4 was not found.',
+            }
+          : { cameraNumber, running: true, deviceAvailable: true, error: null },
+      ),
+    )
+    api.getProfile.mockResolvedValue({ activeCamera: 2 })
+    renderWithProviders(<StreamPage />)
+
+    expect(await screen.findByText('Hallway is unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Video device /dev/video4 was not found.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hallway (Camera2) · unavailable' })).toBeDisabled()
     expect(screen.queryByAltText('Live baby monitor stream')).not.toBeInTheDocument()
   })
 
