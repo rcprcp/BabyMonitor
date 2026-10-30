@@ -674,13 +674,14 @@ Configuration** (`/cameras`), **Audio Configuration**
 (`/audio-alerts`), **Environment Configuration** (`/environment-config`),
 **Settings** (`/settings`) and **System Settings** (`/system-settings`) at the
 bottom. On a phone the fixed bottom tab bar keeps four daily
-tabs — Live Stream, Alerts, Cameras and Settings — and the Settings page links to
-Environment, Environment Configuration and Audio Configuration. The current
-destination is marked `aria-current="page"` and coloured, and watching is always
-one tap away. **Settings** is also what the account's initial opens, and it
-carries the system settings, alert sound and links, appearance and the account
-card. The blue title bar keeps only the centred system name and the account's
-initial; it is not a menu.
+tabs — Live Stream, Alerts, Cameras and Settings — and the hamburger in the title
+bar opens the full destination list, including Environment, Audio Configuration
+and Environment Configuration. The current destination is marked
+`aria-current="page"` and coloured, and watching is always one tap away.
+**Settings** is also what the account's initial opens, and it carries the alert
+sound, appearance and the account card (with the System Settings link). The blue
+title bar keeps only the centred system name, the phone menu and the account's
+initial; it is not a menu on desktop.
 
 The sign-in screen (`/login`) paints a neutral gray header with the monitor's
 name, read from `/api/public/system-name`. Until an account is signed in it

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BottomNavigation, SideNavigation } from './Navigation'
 import { renderWithProviders } from '../test/render'
 
@@ -50,6 +51,16 @@ describe('SideNavigation', () => {
     expect(screen.getByRole('link', { name: /Alerts/ })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('link', { name: /Live Stream/ })).not.toHaveAttribute('aria-current')
   })
+
+  it('closes the phone menu after a destination is tapped', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    renderWithProviders(<SideNavigation onNavigate={onNavigate} />)
+
+    await user.click(screen.getByRole('link', { name: 'Audio Configuration' }))
+
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('BottomNavigation', () => {
@@ -58,7 +69,7 @@ describe('BottomNavigation', () => {
 
     expect(screen.getByRole('link', { name: /Settings/ })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: /Live Stream/ })).not.toHaveAttribute('aria-current')
-    // The phone bar has no More tab; the rest is reachable through Settings.
+    // The phone bar has no More tab; the title bar's menu drawer holds the rest.
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link')).toHaveLength(4)
   })

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import App from './App'
 
 const { api } = vi.hoisted(() => ({
@@ -77,6 +78,28 @@ describe('App shell', () => {
     expect(screen.getAllByRole('link', { name: /Settings/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /System Settings/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
+  })
+
+  it('opens the phone menu with the destinations the tab bar leaves out', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Live stream' })
+    await user.click(screen.getByRole('button', { name: 'Open menu' }))
+
+    const menu = await screen.findByRole('dialog')
+    expect(within(menu).getByRole('link', { name: 'Audio Configuration' })).toHaveAttribute(
+      'href',
+      '/audio-alerts',
+    )
+    expect(within(menu).getByRole('link', { name: 'Environment' })).toHaveAttribute(
+      'href',
+      '/environment',
+    )
+    expect(within(menu).getByRole('link', { name: 'Environment Configuration' })).toHaveAttribute(
+      'href',
+      '/environment-config',
+    )
   })
 
   it('sends a first run to the setup wizard', async () => {

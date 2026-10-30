@@ -51,6 +51,12 @@
   justify-self: end;
 }
 
+/* Phones get the full destination list here; the tab bar keeps only four. */
+.bm-titlebar-inner .bm-menu-button {
+  grid-column: 1;
+  justify-self: start;
+}
+
 /* Black letterbox for the stream, whatever shape the camera sends. */
 .stream-frame {
   position: relative;

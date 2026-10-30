@@ -130,40 +130,6 @@ export default function SettingsPage() {
             </Text>
           </Stack>
           <NotificationSound />
-          <Divider />
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={500}>Audio Configuration</Text>
-              <Text size="sm" c="dimmed">
-                Which sounds may raise an alert.
-              </Text>
-            </Stack>
-            <Anchor component={RouterLink} to="/audio-alerts">
-              Open
-            </Anchor>
-          </Group>
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={500}>Environment</Text>
-              <Text size="sm" c="dimmed">
-                Temperature, humidity and brightness readings.
-              </Text>
-            </Stack>
-            <Anchor component={RouterLink} to="/environment">
-              Open
-            </Anchor>
-          </Group>
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <Stack gap={2}>
-              <Text fw={500}>Environment Configuration</Text>
-              <Text size="sm" c="dimmed">
-                Alert bounds and the camera-light calibration.
-              </Text>
-            </Stack>
-            <Anchor component={RouterLink} to="/environment-config">
-              Open
-            </Anchor>
-          </Group>
         </Stack>
       </Card>
 

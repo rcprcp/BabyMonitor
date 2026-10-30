@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Avatar, Title } from '@mantine/core'
+import { Avatar, Burger, Drawer, Title } from '@mantine/core'
 import { NavLink } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { SETTINGS_CHANGED_EVENT } from '../settingsEvents'
+import { SideNavigation } from './Navigation'
 
 // Shown until the systemName setting has been read (and if it is missing).
 const DEFAULT_TITLE = 'BabyMonitor'
@@ -14,11 +15,12 @@ function initialOf(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
 }
 
-// The blue title bar: the system name on the left and the account's initial on
-// the right. Navigation lives in the sidebar (desktop) or tab bar (phone), so
-// the bar keeps only what is identity, not wayfinding.
+// The blue title bar: the system name in the middle and the account's initial
+// on the right. On phones a hamburger opens the full destination list, which
+// the four-tab bottom bar deliberately leaves out.
 export default function TitleBar() {
   const [systemName, setSystemName] = useState(DEFAULT_TITLE)
+  const [menuOpen, setMenuOpen] = useState(false)
   const { user } = useAuth()
 
   // The title comes from the systemName setting, so the system can be renamed
@@ -44,6 +46,16 @@ export default function TitleBar() {
 
   return (
     <div className="bm-titlebar-inner">
+      <Burger
+        className="bm-menu-button"
+        hiddenFrom="sm"
+        opened={menuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        color="var(--mantine-primary-color-contrast)"
+        size="sm"
+      />
+
       <Title order={1} fz="1.35rem" fw={600} className="bm-title">
         {systemName}
       </Title>
@@ -59,6 +71,17 @@ export default function TitleBar() {
       >
         {initialOf(user)}
       </Avatar>
+
+      <Drawer
+        opened={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        position="left"
+        size="xs"
+        title="Menu"
+        transitionProps={{ duration: 0 }}
+      >
+        <SideNavigation onNavigate={() => setMenuOpen(false)} />
+      </Drawer>
     </div>
   )
 }

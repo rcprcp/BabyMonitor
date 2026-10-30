@@ -2,7 +2,7 @@ import { Group, NavLink as MantineNavLink, Stack } from '@mantine/core'
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom'
 
 // The desktop sidebar holds every destination; the phone tab bar keeps the four
-// daily ones and reaches the rest through Settings.
+// daily ones and the title bar's menu drawer holds the rest.
 export const SIDE_DESTINATIONS = [
   { to: '/', label: 'Live Stream', end: true, Icon: MonitorIcon },
   { to: '/notifications', label: 'Alerts', Icon: BellIcon },
@@ -34,8 +34,9 @@ export function isActive(pathname, destination) {
 }
 
 // Desktop: a persistent sidebar. The individual camera pages are reached from
-// the Camera Configuration list, not listed here.
-export function SideNavigation() {
+// the Camera Configuration list, not listed here. The same list fills the
+// phone's menu drawer, which passes `onNavigate` to close it after a tap.
+export function SideNavigation({ onNavigate }) {
   const { pathname } = useLocation()
 
   return (
@@ -50,6 +51,7 @@ export function SideNavigation() {
           leftSection={<destination.Icon />}
           active={isActive(pathname, destination)}
           variant="light"
+          onClick={onNavigate}
         />
       ))}
     </Stack>

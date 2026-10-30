@@ -47,14 +47,15 @@ describe('SettingsPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     const openLinks = screen.getAllByRole('link', { name: 'Open' })
-    expect(openLinks).toHaveLength(4)
-    expect(openLinks.some((link) => link.getAttribute('href') === '/system-settings')).toBe(true)
-    expect(screen.getByText('Audio Configuration')).toBeInTheDocument()
-    expect(screen.getByText('Environment')).toBeInTheDocument()
-    expect(screen.getByText('Environment Configuration')).toBeInTheDocument()
+    expect(openLinks).toHaveLength(1)
+    expect(openLinks[0]).toHaveAttribute('href', '/system-settings')
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Run setup again' })).toBeInTheDocument()
+    // The sidebar (and the phone's menu drawer) own these destinations.
+    expect(screen.queryByText('Audio Configuration')).not.toBeInTheDocument()
+    expect(screen.queryByText('Environment')).not.toBeInTheDocument()
+    expect(screen.queryByText('Environment Configuration')).not.toBeInTheDocument()
     // System-wide fields moved to their own page.
     expect(screen.queryByLabelText(/Monitor name/)).not.toBeInTheDocument()
   })
