@@ -691,9 +691,9 @@ the account's own scheme and color take over after login.
 On a fresh install the app opens **Set up your monitor** (`/welcome`): name the
 monitor, point each camera at one of the host's `/dev/video*` nodes, then check a
 live preview and hear the alert tone. **Skip for now** finishes it; **Run setup
-again** on the Settings page reopens it at any time. The wizard writes the same
-`settings` and `cameras` rows as the normal pages, so nothing is special-cased
-afterwards.
+again** on the System Settings page reopens it at any time. The wizard writes the
+same `settings` and `cameras` rows as the normal pages, so nothing is
+special-cased afterwards.
 
 The app boots into the Live stream
 page, which has one button per camera on the right of the heading, labelled

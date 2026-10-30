@@ -713,16 +713,17 @@ the natural home for the controls T2 hides.
   and the `/dev` entries rather than spawning `v4l2-ctl`, so the wizard can offer
   the host's nodes without a process per request. Both paths are configurable
   for tests. An empty list falls back to typing the path.
-- **Re-runnable.** Settings has **Run setup again**, which flips the row back to
-  `false` and reopens the wizard; **Skip for now** finishes it from anywhere.
+- **Re-runnable.** System Settings has **Run setup again**, which flips the row
+  back to `false` and reopens the wizard; **Skip for now** finishes it from
+  anywhere.
 - **No special case afterwards.** The wizard changes the same settings and camera
   rows as the normal pages, so nothing downstream knows it ran. Re-running it
   updates rows rather than inserting duplicates.
 - **Demo-account warning.** Step 1 warns when the signed-in account is one of the
   four seeded ones, pointing at the DEVOPS cleanup commands.
 - **Tests.** Five wizard tests (name save, device save + restart, finish, skip,
-  error), an App shell test for the first-run redirect, a Settings test for the
-  re-run control, a backend test for the marker and the device endpoint, and a
+  error), an App shell test for the first-run redirect, a System Settings test for
+  the re-run control, a backend test for the marker and the device endpoint, and a
   unit test for the sysfs scanner.
 
 ---

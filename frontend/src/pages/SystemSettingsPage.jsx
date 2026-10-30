@@ -12,8 +12,10 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { notifySettingsChanged } from '../settingsEvents'
+import { useOnboarding } from '../onboarding'
 
 // Settings the app owns are not hand-editable rows; they get a control
 // elsewhere (the setup wizard owns onboardingComplete).
@@ -63,8 +65,11 @@ export function streamHostError(value) {
 // for the video streams. Kept apart from the account's alert/appearance
 // preferences so the installer surface has its own page.
 export default function SystemSettingsPage() {
+  const navigate = useNavigate()
+  const { restart } = useOnboarding()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [setupError, setSetupError] = useState(null)
   const [system, setSystem] = useState({ name: '', host: '' })
   const [original, setOriginal] = useState({ name: '', host: '' })
   const [touched, setTouched] = useState({ name: false, host: false })
@@ -151,6 +156,16 @@ export default function SystemSettingsPage() {
       setError(err.message)
     } finally {
       setSavingTag(null)
+    }
+  }
+
+  const runSetup = async () => {
+    setSetupError(null)
+    try {
+      await restart()
+      navigate('/welcome')
+    } catch (err) {
+      setSetupError(err.message)
     }
   }
 
@@ -265,6 +280,25 @@ export default function SystemSettingsPage() {
               </Stack>
             </Card>
           )}
+
+          <Card withBorder padding="lg">
+            <Group justify="space-between" align="center" wrap="nowrap">
+              <Stack gap={2}>
+                <Text fw={600}>Setup wizard</Text>
+                <Text size="sm" c="dimmed">
+                  Walk through the monitor name, camera devices and a stream test again.
+                </Text>
+              </Stack>
+              <Button variant="default" onClick={runSetup}>
+                Run setup again
+              </Button>
+            </Group>
+            {setupError && (
+              <Alert color="red" variant="light" mt="sm">
+                {setupError}
+              </Alert>
+            )}
+          </Card>
         </>
       )}
     </Stack>

@@ -11,7 +11,12 @@ const { api } = vi.hoisted(() => ({
   },
 }))
 
+const { restart } = vi.hoisted(() => ({ restart: vi.fn() }))
+
 vi.mock('../api', () => ({ api }))
+vi.mock('../onboarding', () => ({
+  useOnboarding: () => ({ complete: true, markComplete: vi.fn(), restart }),
+}))
 
 const settings = [
   { tag: 'onboardingComplete', value: 'true' },
@@ -22,6 +27,7 @@ const settings = [
 beforeEach(() => {
   api.listSettings.mockResolvedValue(settings)
   api.updateSetting.mockImplementation((tag, value) => Promise.resolve({ tag, value }))
+  restart.mockResolvedValue(undefined)
 })
 
 describe('SystemSettingsPage', () => {
@@ -80,5 +86,19 @@ describe('SystemSettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(api.updateSetting).toHaveBeenCalledWith('customTag', 'two')
+  })
+
+  it('re-runs the setup wizard from the last card', async () => {
+    const user = userEvent.setup()
+    api.listSettings.mockResolvedValue([...settings, { tag: 'customTag', value: 'one' }])
+    renderWithProviders(<SystemSettingsPage />)
+
+    const other = await screen.findByText('Other settings')
+    const setup = screen.getByText('Setup wizard')
+    expect(other.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Run setup again' }))
+
+    expect(restart).toHaveBeenCalledTimes(1)
   })
 })

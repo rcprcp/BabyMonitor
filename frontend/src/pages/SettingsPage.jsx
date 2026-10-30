@@ -1,19 +1,7 @@
 import { useState } from 'react'
-import {
-  Alert,
-  Anchor,
-  Avatar,
-  Button,
-  Card,
-  Divider,
-  Group,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core'
+import { Anchor, Avatar, Button, Card, Divider, Group, Stack, Text, Title } from '@mantine/core'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { useOnboarding } from '../onboarding'
 import AppearanceSettings from '../components/AppearanceSettings'
 import NotificationSound from '../components/NotificationSound'
 
@@ -43,25 +31,13 @@ function initialOf(name) {
 }
 
 // The account-facing settings: alert behaviour, appearance and the account
-// itself. System-wide settings (name, stream address, raw tags) live on
-// /system-settings, linked from the header and the sidebar.
+// itself. System-wide settings (name, stream address, raw tags and the setup
+// wizard) live on /system-settings, linked from the account card and sidebar.
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { restart } = useOnboarding()
   const { user, logout } = useAuth()
 
-  const [setupError, setSetupError] = useState(null)
   const [signingOut, setSigningOut] = useState(false)
-
-  const runSetup = async () => {
-    setSetupError(null)
-    try {
-      await restart()
-      navigate('/welcome')
-    } catch (err) {
-      setSetupError(err.message)
-    }
-  }
 
   const signOut = async () => {
     setSigningOut(true)
@@ -75,36 +51,36 @@ export default function SettingsPage() {
 
   return (
     <Stack>
-      <Group justify="space-between" align="center" wrap="wrap">
-        <Stack gap={2}>
-          <Title order={2}>Settings</Title>
-          <Text c="dimmed" size="sm">
-            Alerts, appearance and your account.
-          </Text>
-        </Stack>
-        <Button
-          variant="default"
-          color="red"
-          leftSection={<LogoutIcon />}
-          onClick={signOut}
-          loading={signingOut}
-        >
-          Logout
-        </Button>
-      </Group>
+      <Stack gap={2}>
+        <Title order={2}>Settings</Title>
+        <Text c="dimmed" size="sm">
+          Alerts, appearance and your account.
+        </Text>
+      </Stack>
 
       <Card withBorder padding="lg">
         <Stack gap="md">
-          <Group wrap="nowrap">
-            <Avatar size={48} radius="xl" variant="light" fw={600}>
-              {initialOf(user)}
-            </Avatar>
-            <Stack gap={0}>
-              <Text fw={600}>{user || 'Signed in'}</Text>
-              <Text size="sm" c="dimmed">
-                Your account
-              </Text>
-            </Stack>
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Group wrap="nowrap">
+              <Avatar size={48} radius="xl" variant="light" fw={600}>
+                {initialOf(user)}
+              </Avatar>
+              <Stack gap={0}>
+                <Text fw={600}>{user || 'Signed in'}</Text>
+                <Text size="sm" c="dimmed">
+                  Your account
+                </Text>
+              </Stack>
+            </Group>
+            <Button
+              variant="default"
+              color="red"
+              leftSection={<LogoutIcon />}
+              onClick={signOut}
+              loading={signingOut}
+            >
+              Logout
+            </Button>
           </Group>
           <Divider />
           <Group justify="space-between" align="center" wrap="nowrap">
@@ -143,25 +119,6 @@ export default function SettingsPage() {
           </Stack>
           <AppearanceSettings />
         </Stack>
-      </Card>
-
-      <Card withBorder padding="lg">
-        <Group justify="space-between" align="center" wrap="nowrap">
-          <Stack gap={2}>
-            <Text fw={600}>Setup wizard</Text>
-            <Text size="sm" c="dimmed">
-              Walk through the monitor name, camera devices and a stream test again.
-            </Text>
-          </Stack>
-          <Button variant="default" onClick={runSetup}>
-            Run setup again
-          </Button>
-        </Group>
-        {setupError && (
-          <Alert color="red" variant="light" mt="sm">
-            {setupError}
-          </Alert>
-        )}
       </Card>
     </Stack>
   )

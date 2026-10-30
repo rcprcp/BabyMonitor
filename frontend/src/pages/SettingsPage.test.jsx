@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SettingsPage from './SettingsPage'
 import { renderWithProviders } from '../test/render'
-
-const { restart } = vi.hoisted(() => ({ restart: vi.fn() }))
 
 const auth = vi.hoisted(() => ({
   logout: vi.fn(),
@@ -13,9 +11,6 @@ const auth = vi.hoisted(() => ({
   savePromptSound: vi.fn(),
 }))
 
-vi.mock('../onboarding', () => ({
-  useOnboarding: () => ({ complete: true, markComplete: vi.fn(), restart }),
-}))
 vi.mock('../auth', () => ({
   useAuth: () => ({
     user: 'Bob',
@@ -34,7 +29,6 @@ vi.mock('../auth', () => ({
 }))
 
 beforeEach(() => {
-  restart.mockResolvedValue(undefined)
   auth.logout.mockResolvedValue(null)
   auth.saveColorScheme.mockResolvedValue({})
   auth.saveThemeColor.mockResolvedValue({})
@@ -51,7 +45,8 @@ describe('SettingsPage', () => {
     expect(openLinks[0]).toHaveAttribute('href', '/system-settings')
     expect(screen.getByText('Appearance')).toBeInTheDocument()
     expect(screen.getByText('Bob')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Run setup again' })).toBeInTheDocument()
+    // The setup wizard moved to System Settings.
+    expect(screen.queryByRole('button', { name: 'Run setup again' })).not.toBeInTheDocument()
     // The sidebar (and the phone's menu drawer) own these destinations.
     expect(screen.queryByText('Audio Configuration')).not.toBeInTheDocument()
     expect(screen.queryByText('Environment')).not.toBeInTheDocument()
@@ -83,7 +78,15 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('button', { name: 'Chime (default)' })).toBeInTheDocument()
   })
 
-  it('logs out from the header', async () => {
+  it('puts Logout on the account row', async () => {
+    renderWithProviders(<SettingsPage />)
+
+    const account = (await screen.findByText('Your account')).closest('.mantine-Card-root')
+    expect(within(account).getByText('Bob')).toBeInTheDocument()
+    expect(within(account).getByRole('button', { name: 'Logout' })).toBeInTheDocument()
+  })
+
+  it('logs out from the account row', async () => {
     const user = userEvent.setup()
     renderWithProviders(<SettingsPage />)
 
@@ -93,14 +96,5 @@ describe('SettingsPage', () => {
 
     expect(auth.logout).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
-  })
-
-  it('re-runs the setup wizard', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<SettingsPage />)
-
-    await user.click(await screen.findByRole('button', { name: 'Run setup again' }))
-
-    expect(restart).toHaveBeenCalledTimes(1)
   })
 })
